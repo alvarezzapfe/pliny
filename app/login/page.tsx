@@ -24,9 +24,6 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    // TEMPORAL:
-    // - usuarios normales: cualquier contraseña funciona
-    // - solo exigimos email con formato válido (input type="email" ya ayuda)
     const ok = email.trim().length > 3;
 
     await new Promise((r) => setTimeout(r, 250));
@@ -37,7 +34,6 @@ export default function LoginPage() {
       return;
     }
 
-    // Crea sesión client (sin customerId; si viene de handshake sí trae)
     setSession({
       role: "client",
       email: email.trim().toLowerCase(),
@@ -59,30 +55,35 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 w-full max-w-md">
+          {/* Brand */}
           <div className="flex items-center gap-3">
-            <img src="/crowdlink-logo.png" alt="Crowdlink" className="h-12 w-auto" />
+            <img src="/plinius.png" alt="Plinius" className="h-14 w-auto" />
             <div className="text-white">
-              <div className="text-lg font-semibold leading-tight">burocrowdlink</div>
-              <div className="text-sm text-white/75">onboarding • persona moral</div>
+              <div className="text-xl font-semibold leading-tight">Plinius</div>
+              <div className="text-sm text-white/70">Private Credit API</div>
             </div>
           </div>
 
-          <h1 className="mt-10 text-4xl font-semibold tracking-tight text-white">Acceso seguro</h1>
-          <p className="mt-3 text-white/75 text-base leading-relaxed">
-            Ingresa para comenzar el flujo de validación y carga de documentación de tu empresa.
-          </p>
+          {/* Title (minimal) */}
+          <h1 className="mt-12 text-4xl md:text-5xl font-semibold tracking-tight text-white">
+            Acceder
+          </h1>
 
-          <div className="mt-8 rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl p-5">
-            <div className="text-white/80 text-sm">
-              • Validación de datos
-              <br />• Expediente digital
-              <br />• Trazabilidad y control
-            </div>
+          {/* Differentiators (short + concrete) */}
+          <div className="mt-8 grid gap-3">
+            <FeatureRow title="SAT/CFDI" desc="24m facturación" />
+            <FeatureRow title="Risk signals" desc="Alertas" />
+            <FeatureRow title="PDF" desc="Reporte ejecutivo" />
+            <FeatureRow title="API" desc="Integración rápida" />
+          </div>
+
+          <div className="mt-10 text-xs text-white/55">
+            © {new Date().getFullYear()} Plinius · Marca registrada.
           </div>
         </div>
       </section>
 
-      {/* RIGHT: Verde + credenciales */}
+      {/* RIGHT: credenciales */}
       <section className="burocrowd-loginRight flex items-center justify-center px-8 py-14">
         <div className="w-full max-w-md">
           {/* Top row: back to home */}
@@ -129,12 +130,11 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type="password"
-                  // si quieres que NO sea obligatoria, quita required (yo lo dejo sin required)
                   className="w-full rounded-2xl bg-white border border-black/10 text-black px-4 py-3 outline-none focus:border-black/30"
                   placeholder="cualquiera"
                 />
                 <div className="mt-2 text-[11px] text-black/55">
-                  Por ahora: cualquier contraseña funciona. En prod esto lo reemplaza Crowdlink / handshake token.
+                  Por ahora: cualquier contraseña funciona. En prod esto lo reemplaza handshake token.
                 </div>
               </div>
 
@@ -155,10 +155,79 @@ export default function LoginPage() {
               <div className="pt-2 text-xs text-black/55">{hint}</div>
             </form>
 
-            <div className="mt-6 text-xs text-black/50">© {new Date().getFullYear()} Crowdlink</div>
+            {/* ✅ Quité Crowdlink aquí también por si quieres full limpio.
+                Si lo quieres dejar, cámbialo a Plinius. */}
+            <div className="mt-6 text-xs text-black/50">
+              © {new Date().getFullYear()} Plinius
+            </div>
           </div>
         </div>
       </section>
+
+      {/* CSS EXTRA para diferenciadores */}
+      <style jsx global>{`
+        .plxFeat {
+          display: grid;
+          grid-template-columns: 20px 1fr;
+          gap: 10px;
+          padding: 12px 12px;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background: rgba(255, 255, 255, 0.06);
+          backdrop-filter: blur(14px);
+          box-shadow: 0 16px 60px rgba(0, 0, 0, 0.16);
+        }
+        .plxIcon {
+          width: 20px;
+          height: 20px;
+          border-radius: 999px;
+          background: rgba(34, 197, 94, 0.18);
+          border: 1px solid rgba(34, 197, 94, 0.35);
+          display: grid;
+          place-items: center;
+          margin-top: 1px;
+          box-shadow: 0 0 18px rgba(34, 197, 94, 0.12);
+        }
+        .plxIcon svg {
+          width: 13px;
+          height: 13px;
+          fill: none;
+          stroke: rgba(187, 247, 208, 0.96);
+          stroke-width: 2.6;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        .plxFeatT {
+          color: rgba(255, 255, 255, 0.92);
+          font-weight: 900;
+          font-size: 14px;
+          line-height: 1.15;
+          letter-spacing: 0.1px;
+        }
+        .plxFeatD {
+          margin-top: 2px;
+          color: rgba(255, 255, 255, 0.68);
+          font-size: 12px;
+          line-height: 1.35;
+        }
+      `}</style>
     </main>
+  );
+}
+
+function FeatureRow({ title, desc }: { title: string; desc: string }) {
+  return (
+    <div className="plxFeat">
+      <div className="plxIcon" aria-hidden>
+        <svg viewBox="0 0 24 24">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      </div>
+
+      <div>
+        <div className="plxFeatT">{title}</div>
+        <div className="plxFeatD">{desc}</div>
+      </div>
+    </div>
   );
 }

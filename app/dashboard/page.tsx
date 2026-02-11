@@ -174,7 +174,7 @@ export default function DashboardPage() {
         <div className="mx-auto max-w-6xl px-5 md:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <img
-              src="/crowdlink-logo.png"
+              src="/plinius.png"
               alt="Crowdlink"
               className="h-9 w-auto"
               style={{ filter: "brightness(0) invert(1)" }}

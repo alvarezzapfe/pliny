@@ -1,30 +1,48 @@
+/* app/admin/login/page.tsx
+   Admin login (DEMO): deja entrar a cualquier correo válido.
+   - Mantiene tu UI actual (left/right), solo quita isAdminEmail.
+*/
 "use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { isAdminEmail, setSession } from "@/lib/auth";
+import { useMemo, useState } from "react";
+import { setSession } from "@/lib/auth";
 
 export default function AdminLogin() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(""); // temporal
-  const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState(""); // demo: cualquier cosa
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const hint = useMemo(
+    () => "Demo: cualquier correo válido entra como Admin.",
+    []
+  );
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setLoading(true);
 
-    if (!isAdminEmail(email)) {
-      setError("No autorizado. Usa tu correo admin de Crowdlink.");
+    const ok = email.trim().length > 3 && email.includes("@");
+
+    await new Promise((r) => setTimeout(r, 250));
+    setLoading(false);
+
+    if (!ok) {
+      setError("Escribe un correo válido.");
       return;
     }
 
-    // TEMPORAL: cualquier contraseña o vacío
+    // DEMO: cualquier contraseña o vacío
     setSession({
       role: "admin",
       email: email.trim().toLowerCase(),
       createdAt: new Date().toISOString(),
+      demo: true,
     });
 
     router.push("/admin/dashboard");
@@ -32,6 +50,7 @@ export default function AdminLogin() {
 
   return (
     <main className="min-h-screen grid lg:grid-cols-2">
+      {/* LEFT */}
       <section className="relative overflow-hidden burocrowd-loginLeft flex items-center justify-center px-8 py-14">
         <div className="pointer-events-none absolute inset-0">
           <span className="blob b1" />
@@ -41,10 +60,16 @@ export default function AdminLogin() {
         </div>
 
         <div className="relative z-10 w-full max-w-md">
-          <img src="/crowdlink-logo.png" alt="Crowdlink" className="h-12 w-auto" />
-          <h1 className="mt-8 text-4xl font-semibold text-white">Admin Console</h1>
+          <img src="/plinius.png" alt="Plinius" className="h-12 w-auto" />
+
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] text-white/80">
+            <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.7)]" />
+            DEMO MODE
+          </div>
+
+          <h1 className="mt-6 text-4xl font-semibold text-white">Admin Console</h1>
           <p className="mt-3 text-white/75">
-            Acceso maestro para revisar usuarios, facturación y score.
+            Acceso para revisar usuarios, facturación y score.
           </p>
 
           <div className="mt-8 rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl p-5">
@@ -54,12 +79,17 @@ export default function AdminLogin() {
               <br />• Trazabilidad SAT / Buró
             </div>
           </div>
+
+          <div className="mt-8 text-xs text-white/60">
+            © {new Date().getFullYear()} Plinius · Marca registrada.
+          </div>
         </div>
       </section>
 
+      {/* RIGHT */}
       <section className="burocrowd-loginRight flex items-center justify-center px-8 py-14">
         <div className="w-full max-w-md">
-          {/* Top row: back to home */}
+          {/* Top row */}
           <div className="mb-3 flex items-center justify-between">
             <Link
               href="/"
@@ -80,7 +110,9 @@ export default function AdminLogin() {
 
           <div className="rounded-3xl border border-black/10 bg-white/85 backdrop-blur-xl shadow-2xl p-8">
             <h2 className="text-2xl font-semibold text-black">Login Admin</h2>
-            <p className="mt-1 text-sm text-black/70">Solo correos autorizados</p>
+            <p className="mt-1 text-sm text-black/70">
+              Demo: cualquier correo válido entra.
+            </p>
 
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
               <div>
@@ -91,12 +123,14 @@ export default function AdminLogin() {
                   type="email"
                   required
                   className="w-full rounded-2xl bg-white border border-black/10 text-black px-4 py-3 outline-none focus:border-black/30"
-                  placeholder="jero@crowdlink.mx"
+                  placeholder="admin@demo.com"
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-black/70 mb-2">Contraseña (temporal)</label>
+                <label className="block text-sm text-black/70 mb-2">
+                  Contraseña (demo)
+                </label>
                 <input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -105,7 +139,7 @@ export default function AdminLogin() {
                   placeholder="cualquiera"
                 />
                 <div className="mt-2 text-[11px] text-black/55">
-                  Temporal: cualquier contraseña funciona. En prod esto se amarra a SSO/IdP.
+                  Temporal: cualquier contraseña funciona. En prod se amarra a SSO/IdP.
                 </div>
               </div>
 
@@ -115,12 +149,20 @@ export default function AdminLogin() {
                 </div>
               )}
 
-              <button className="w-full rounded-2xl bg-black text-white font-semibold py-3 px-4 hover:opacity-95 transition">
-                Entrar
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-2xl bg-black text-white font-semibold py-3 px-4 hover:opacity-95 transition disabled:opacity-60"
+              >
+                {loading ? "Entrando..." : "Entrar"}
               </button>
+
+              <div className="pt-2 text-xs text-black/55">{hint}</div>
             </form>
 
-            <div className="mt-6 text-xs text-black/50">© {new Date().getFullYear()} Crowdlink</div>
+            <div className="mt-6 text-xs text-black/50">
+              © {new Date().getFullYear()} Plinius
+            </div>
           </div>
         </div>
       </section>

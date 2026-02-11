@@ -87,7 +87,7 @@ export default function LeadClient() {
                 <div className="flex items-start gap-3 min-w-0">
                   {/* LOGO EXACTO COMO DASHBOARD (sin caja, sin deformar) */}
                   <img
-                    src="/crowdlink-logo.png"
+                    src="/plinius.png"
                     alt="Crowdlink"
                     className="h-9 w-auto shrink-0"
                     style={{ filter: "brightness(0) invert(1)" }}

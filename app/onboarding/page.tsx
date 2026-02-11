@@ -173,7 +173,7 @@ export default function OnboardingPage() {
           <header className="no-print px-4 md:px-8 py-4 md:py-5 border-b border-white/10">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <img src="/crowdlink-logo.png" alt="Crowdlink" className="h-9 w-auto" />
+                <img src="/plinius.png" alt="Crowdlink" className="h-9 w-auto" />
                 <div className="min-w-0">
                   <div className="text-white font-semibold leading-tight truncate">burocrowdlink</div>
                   <div className="text-white/65 text-sm truncate">Onboarding persona moral</div>

@@ -87,7 +87,7 @@ export default function AdminUserDetailPage() {
         <header className="border-b border-white/10 bg-black/25 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-5 md:px-8 py-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src="/crowdlink-logo.png" alt="Crowdlink" className="h-8 w-auto" />
+              <img src="/plinius.png" alt="Crowdlink" className="h-8 w-auto" />
               <div className="font-semibold">Detalle de usuario</div>
             </div>
             <button
@@ -121,7 +121,7 @@ export default function AdminUserDetailPage() {
       <header className="sticky top-0 z-30 border-b border-white/10 bg-black/25 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-5 md:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <img src="/crowdlink-logo.png" alt="Crowdlink" className="h-8 w-auto" />
+            <img src="/plinius.png" alt="Crowdlink" className="h-8 w-auto" />
             <div className="min-w-0">
               <div className="font-semibold truncate">{user.company || "Empresa"}</div>
               <div className="text-white/60 text-xs truncate">
