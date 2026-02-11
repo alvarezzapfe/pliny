@@ -5,7 +5,9 @@ export type Session = {
   email: string;
   customerId?: string;
   createdAt: string;
+  demo?: boolean; // ✅ agrega esto
 };
+
 
 const KEY = "bcl_session";
 
