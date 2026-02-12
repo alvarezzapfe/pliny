@@ -1,8 +1,12 @@
 /* app/admin/dashboard/page.tsx
-   Plinius Admin Dashboard (ultimate, robust)
-   - 4 módulos: Originación/Portafolio, Estatus de cartera, KYC, Garantías (RUG / fuente de pago)
-   - Tema morado/azul neon (sin dependencias externas)
-   - UI: sidebar + topbar + KPIs + tabs + tablas + filtros + drawers/modals simples
+   Plinius Admin Dashboard (minimal + geométrico, sin mini-dash)
+   Cambios:
+   - Quitado mini dash (panel derecho) -> tabla ocupa TODO el ancho disponible
+   - Sidebar fijo izq + main con padding-left (sin overlap)
+   - Tabla: font-size más pequeña
+   - No sideways scroll global: se “fija” el ancho del layout (overflow-x hidden)
+   - Tabla sin horizontal scroll (se fuerza a truncar/compactar columnas)
+   - Sin emojis: iconos SVG inline (profesionales)
 */
 "use client";
 
@@ -23,14 +27,14 @@ type Loan = {
   borrower: string;
   rfc: string;
   product: "Revolvente" | "Simple" | "Factoraje" | "Arrendamiento";
-  originationDate: string; // ISO
+  originationDate: string;
   principalMXN: number;
   outstandingMXN: number;
   rateAPR: number;
   termMonths: number;
   status: LoanStatus;
   dpd: number;
-  riskScore: number; // 0-100
+  riskScore: number;
 };
 
 type KycCompany = {
@@ -42,7 +46,7 @@ type KycCompany = {
   status: KycStatus;
   satCfdiMonths: number;
   buroScore?: number;
-  flags: string[]; // red flags / notes
+  flags: string[];
 };
 
 type Collateral = {
@@ -52,7 +56,7 @@ type Collateral = {
   type: CollateralType;
   description: string;
   valueMXN: number;
-  coveragePct: number; // coverage on exposure
+  coveragePct: number;
   rugFolio?: string;
   paymentSource?: string;
   verified: boolean;
@@ -64,9 +68,9 @@ type PortfolioSummary = {
   outstandingMXN: number;
   activeLoans: number;
   avgAPR: number;
-  nplPct: number; // 0..1
-  latePct: number; // 0..1
-  watchPct: number; // 0..1
+  nplPct: number;
+  latePct: number;
+  watchPct: number;
 };
 
 /* =========================
@@ -75,13 +79,11 @@ type PortfolioSummary = {
 export default function AdminDashboardPage() {
   const [tab, setTab] = useState<TabKey>("portfolio");
 
-  // Filters
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<LoanStatus | "all">("all");
   const [kycFilter, setKycFilter] = useState<KycStatus | "all">("all");
   const [collateralFilter, setCollateralFilter] = useState<CollateralType | "all">("all");
 
-  // UI states
   const [drawerLoan, setDrawerLoan] = useState<Loan | null>(null);
   const [drawerKyc, setDrawerKyc] = useState<KycCompany | null>(null);
   const [drawerCol, setDrawerCol] = useState<Collateral | null>(null);
@@ -134,627 +136,405 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen plx-bg">
       <Ambient />
+      <GlobalStyles />
 
-      {/* Layout */}
-      <div className="mx-auto max-w-[1400px] px-4 py-6 lg:py-8">
-        <div className="grid lg:grid-cols-[280px_1fr] gap-4 lg:gap-6">
-          {/* Sidebar */}
-          <aside className="plx-card plx-card-soft p-4 lg:p-5 h-fit lg:sticky lg:top-6">
-            <div className="flex items-center gap-3">
-              <img src="/plinius.png" alt="Plinius" className="h-10 w-auto" />
-              <div className="min-w-0">
-                <div className="text-white font-extrabold leading-tight">Plinius</div>
-                <div className="text-white/60 text-xs truncate">Admin Console · Private Credit</div>
-              </div>
+      {/* Sidebar fijo (sin emojis) */}
+      <aside className="plx-side" aria-label="Sidebar">
+        <div className="plx-sideInner">
+          <div className="plx-brand">
+            <img src="/plinius.png" alt="Plinius" className="plx-logo" />
+            <div className="min-w-0">
+              <div className="plx-brandTitle">Plinius</div>
+              <div className="plx-brandSub">Admin Console</div>
             </div>
+          </div>
 
-            <div className="mt-4 plx-pill">
-              <span className="plx-dot" />
-              <div className="text-white/80 text-xs font-semibold">DEMO MODE</div>
+          <div className="plx-demo">
+            <span className="plx-dot" />
+            <span>DEMO MODE</span>
+          </div>
+
+          <nav className="plx-nav" aria-label="Navegación">
+            <SideNav
+              active={tab === "portfolio"}
+              title="Originación"
+              desc="Portafolio y créditos"
+              onClick={() => setTab("portfolio")}
+              icon={<IconGrid />}
+            />
+            <SideNav
+              active={tab === "status"}
+              title="Estatus"
+              desc="DPD y alertas"
+              onClick={() => setTab("status")}
+              icon={<IconPulse />}
+            />
+            <SideNav
+              active={tab === "kyc"}
+              title="KYC"
+              desc="Empresas"
+              onClick={() => setTab("kyc")}
+              icon={<IconShield />}
+            />
+            <SideNav
+              active={tab === "collateral"}
+              title="Garantías"
+              desc="RUG / fuente de pago"
+              onClick={() => setTab("collateral")}
+              icon={<IconLink />}
+            />
+          </nav>
+
+          <div className="plx-sideFoot">
+            <div className="plx-quick">
+              <QuickLink href="/admin/login" label="Cambiar usuario" />
+              <QuickLink href="/login" label="Login empresa" />
+              <QuickLink href="/" label="Inicio" />
             </div>
-
-            <nav className="mt-5 grid gap-2">
-              <SideNav
-                active={tab === "portfolio"}
-                title="Originación & Portafolio"
-                desc="Visualiza cartera, créditos, pipeline"
-                onClick={() => setTab("portfolio")}
-                icon="📌"
-              />
-              <SideNav
-                active={tab === "status"}
-                title="Estatus de Cartera"
-                desc="DPD, atrasos, NPL, alertas"
-                onClick={() => setTab("status")}
-                icon="🧭"
-              />
-              <SideNav
-                active={tab === "kyc"}
-                title="KYC Empresas"
-                desc="Promovidas / acreditadas"
-                onClick={() => setTab("kyc")}
-                icon="🧾"
-              />
-              <SideNav
-                active={tab === "collateral"}
-                title="Garantías"
-                desc="Fuente de pago · Activo fijo (RUG)"
-                onClick={() => setTab("collateral")}
-                icon="🛡️"
-              />
-            </nav>
-
-            <div className="mt-5 pt-5 border-t border-white/10">
-              <div className="grid gap-2">
-                <QuickLink href="/admin/login" label="Cambiar usuario" />
-                <QuickLink href="/login" label="Login empresa" />
-                <QuickLink href="/" label="Inicio" />
-              </div>
-
-              <div className="mt-4 text-[11px] text-white/45">
-                © {new Date().getFullYear()} Plinius · Marca registrada.
-              </div>
+            <div className="plx-copyright">
+              © {new Date().getFullYear()} Plinius
             </div>
-          </aside>
-
-          {/* Main */}
-          <main className="min-w-0">
-            {/* Topbar */}
-            <div className="plx-card p-4 lg:p-5">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-white/80 text-xs font-semibold">Admin</div>
-                  <h1 className="text-white text-2xl md:text-3xl font-extrabold tracking-tight">
-                    {tabTitle(tab)}
-                  </h1>
-                  <div className="text-white/60 text-sm mt-1">
-                    Datos demo · filtros rápidos · acciones operativas.
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                  <div className="plx-search">
-                    <span className="text-white/55 text-sm">⌕</span>
-                    <input
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      placeholder="Buscar: empresa, RFC, ID, folio..."
-                      className="plx-search-input"
-                    />
-                    {q && (
-                      <button
-                        onClick={() => setQ("")}
-                        className="text-white/55 hover:text-white text-sm px-2"
-                        aria-label="Limpiar búsqueda"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: export")}>
-                      Exportar
-                    </button>
-                    <button className="plx-btn plx-btn-primary" onClick={() => alert("Demo: crear")}>
-                      Nueva acción
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* KPIs */}
-              <div className="mt-4 grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
-                <KpiCard
-                  label="AUM (MXN)"
-                  value={mxn(summary.aumMXN)}
-                  sub={`Outstanding: ${mxn(summary.outstandingMXN)}`}
-                  tone="violet"
-                />
-                <KpiCard
-                  label="Créditos activos"
-                  value={String(summary.activeLoans)}
-                  sub={`APR prom: ${pct(summary.avgAPR)}`}
-                  tone="blue"
-                />
-                <KpiCard
-                  label="NPL"
-                  value={pct(summary.nplPct)}
-                  sub={`Watch: ${pct(summary.watchPct)}`}
-                  tone="pink"
-                />
-                <KpiCard
-                  label="Atraso"
-                  value={pct(summary.latePct)}
-                  sub="DPD y alertas operativas"
-                  tone="cyan"
-                />
-              </div>
-
-              {/* Tabs row */}
-              <div className="mt-4 flex flex-wrap gap-2">
-                <TabChip active={tab === "portfolio"} onClick={() => setTab("portfolio")}>
-                  Portafolio
-                </TabChip>
-                <TabChip active={tab === "status"} onClick={() => setTab("status")}>
-                  Estatus
-                </TabChip>
-                <TabChip active={tab === "kyc"} onClick={() => setTab("kyc")}>
-                  KYC
-                </TabChip>
-                <TabChip active={tab === "collateral"} onClick={() => setTab("collateral")}>
-                  Garantías
-                </TabChip>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="mt-4 lg:mt-6 grid gap-4 lg:gap-6">
-              {tab === "portfolio" && (
-                <section className="grid xl:grid-cols-[1.3fr_0.7fr] gap-4 lg:gap-6">
-                  <div className="plx-card p-4 lg:p-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <div className="text-white font-bold">Originación & cartera</div>
-                        <div className="text-white/60 text-sm">
-                          Pipeline, créditos y performance base.
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={statusFilter}
-                          onChange={(v) => setStatusFilter(v as any)}
-                          options={[
-                            { value: "all", label: "Todos" },
-                            { value: "current", label: "Vigente" },
-                            { value: "watch", label: "Watch" },
-                            { value: "late", label: "Atraso" },
-                            { value: "default", label: "Default" },
-                          ]}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-4 plx-tableWrap">
-                      <table className="plx-table">
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Empresa</th>
-                            <th>Producto</th>
-                            <th>Saldo</th>
-                            <th>DPD</th>
-                            <th>Riesgo</th>
-                            <th>Estatus</th>
-                            <th />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredLoans.map((l) => (
-                            <tr key={l.id}>
-                              <td className="mono">{l.id}</td>
-                              <td>
-                                <div className="font-semibold text-white/90">{l.borrower}</div>
-                                <div className="text-white/50 text-xs mono">{l.rfc}</div>
-                              </td>
-                              <td className="text-white/80">{l.product}</td>
-                              <td className="text-white/85">{mxn(l.outstandingMXN)}</td>
-                              <td className="text-white/80">{l.dpd}</td>
-                              <td>
-                                <RiskBar score={l.riskScore} />
-                              </td>
-                              <td>
-                                <StatusPill status={l.status} />
-                              </td>
-                              <td className="text-right">
-                                <button
-                                  className="plx-btn plx-btn-mini"
-                                  onClick={() => setDrawerLoan(l)}
-                                >
-                                  Ver
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                          {filteredLoans.length === 0 && (
-                            <tr>
-                              <td colSpan={8} className="text-center text-white/55 py-8">
-                                No hay resultados con estos filtros.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 lg:gap-6">
-                    <div className="plx-card p-4 lg:p-5">
-                      <div className="text-white font-bold">Mini Dash · Health</div>
-                      <div className="text-white/60 text-sm mt-1">
-                        Indicadores rápidos para comité.
-                      </div>
-
-                      <div className="mt-4 grid gap-3">
-                        <MiniStat label="Saldo total" value={mxn(summary.outstandingMXN)} />
-                        <MiniStat label="APR prom" value={pct(summary.avgAPR)} />
-                        <MiniStat label="NPL" value={pct(summary.nplPct)} />
-                        <MiniStat label="Atraso" value={pct(summary.latePct)} />
-                      </div>
-
-                      <div className="mt-4">
-                        <div className="text-white/70 text-xs font-semibold mb-2">
-                          Distribución (demo)
-                        </div>
-                        <StackedBreakdown
-                          items={[
-                            { label: "Vigente", value: 1 - summary.latePct - summary.nplPct, tone: "blue" },
-                            { label: "Atraso", value: summary.latePct, tone: "cyan" },
-                            { label: "NPL", value: summary.nplPct, tone: "pink" },
-                          ]}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="plx-card p-4 lg:p-5">
-                      <div className="text-white font-bold">Acciones rápidas</div>
-                      <div className="text-white/60 text-sm mt-1">
-                        Flujos operativos frecuentes.
-                      </div>
-
-                      <div className="mt-4 grid gap-2">
-                        <ActionRow title="Crear alerta de riesgo" desc="Asigna owner, SLA y evidencia" />
-                        <ActionRow title="Generar reporte PDF" desc="Selecciona empresa → periodo → export" />
-                        <ActionRow title="Registrar garantía (RUG)" desc="Alta de folio + valuación + cobertura" />
-                        <ActionRow title="Revisión KYC" desc="Semáforo + flags + checklist" />
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {tab === "status" && (
-                <section className="grid xl:grid-cols-[0.9fr_1.1fr] gap-4 lg:gap-6">
-                  <div className="plx-card p-4 lg:p-5">
-                    <div className="text-white font-bold">Semáforo de cartera</div>
-                    <div className="text-white/60 text-sm mt-1">
-                      Por estatus · DPD · alertas.
-                    </div>
-
-                    <div className="mt-4 grid gap-3">
-                      <StatusTile
-                        label="Vigente"
-                        value={`${countBy(data.loans, "current")} créditos`}
-                        tone="blue"
-                        hint="DPD = 0"
-                      />
-                      <StatusTile
-                        label="Watch"
-                        value={`${countBy(data.loans, "watch")} créditos`}
-                        tone="violet"
-                        hint="Señales tempranas"
-                      />
-                      <StatusTile
-                        label="Atraso"
-                        value={`${countBy(data.loans, "late")} créditos`}
-                        tone="cyan"
-                        hint="DPD > 0"
-                      />
-                      <StatusTile
-                        label="Default"
-                        value={`${countBy(data.loans, "default")} créditos`}
-                        tone="pink"
-                        hint="NPL (demo)"
-                      />
-                    </div>
-
-                    <div className="mt-5">
-                      <div className="text-white/70 text-xs font-semibold mb-2">DPD (demo)</div>
-                      <SparkBars
-                        values={[
-                          { label: "0", v: 0.64 },
-                          { label: "1-7", v: 0.16 },
-                          { label: "8-30", v: 0.11 },
-                          { label: "31+", v: 0.09 },
-                        ]}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="plx-card p-4 lg:p-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <div className="text-white font-bold">Queue operativa</div>
-                        <div className="text-white/60 text-sm">
-                          Créditos con tareas pendientes.
-                        </div>
-                      </div>
-                      <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: crear tarea")}>
-                        Crear tarea
-                      </button>
-                    </div>
-
-                    <div className="mt-4 grid gap-3">
-                      {data.tasks.map((t) => (
-                        <div key={t.id} className="plx-row">
-                          <div className="min-w-0">
-                            <div className="text-white font-semibold truncate">{t.title}</div>
-                            <div className="text-white/55 text-xs truncate">
-                              {t.company} · {t.owner} · SLA {t.sla}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Pill tone={t.tone}>{t.priority}</Pill>
-                            <button className="plx-btn plx-btn-mini" onClick={() => alert("Demo: abrir")}>
-                              Abrir
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {tab === "kyc" && (
-                <section className="grid xl:grid-cols-[1.3fr_0.7fr] gap-4 lg:gap-6">
-                  <div className="plx-card p-4 lg:p-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <div className="text-white font-bold">KYC · Empresas promovidas</div>
-                        <div className="text-white/60 text-sm">
-                          Checklist, flags, aprobación y evidencia.
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={kycFilter}
-                          onChange={(v) => setKycFilter(v as any)}
-                          options={[
-                            { value: "all", label: "Todos" },
-                            { value: "pending", label: "Pendiente" },
-                            { value: "in_review", label: "En revisión" },
-                            { value: "approved", label: "Aprobado" },
-                            { value: "rejected", label: "Rechazado" },
-                          ]}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-4 plx-tableWrap">
-                      <table className="plx-table">
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Empresa</th>
-                            <th>Promotor</th>
-                            <th>CFDI</th>
-                            <th>Score</th>
-                            <th>Estatus</th>
-                            <th />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredKyc.map((c) => (
-                            <tr key={c.id}>
-                              <td className="mono">{c.id}</td>
-                              <td>
-                                <div className="font-semibold text-white/90">{c.company}</div>
-                                <div className="text-white/50 text-xs mono">{c.rfc}</div>
-                              </td>
-                              <td className="text-white/80">{c.promotor}</td>
-                              <td className="text-white/80">{c.satCfdiMonths}m</td>
-                              <td className="text-white/85">{c.buroScore ?? "—"}</td>
-                              <td>
-                                <KycPill status={c.status} />
-                              </td>
-                              <td className="text-right">
-                                <button
-                                  className="plx-btn plx-btn-mini"
-                                  onClick={() => setDrawerKyc(c)}
-                                >
-                                  Ver
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                          {filteredKyc.length === 0 && (
-                            <tr>
-                              <td colSpan={7} className="text-center text-white/55 py-8">
-                                No hay resultados con estos filtros.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 lg:gap-6">
-                    <div className="plx-card p-4 lg:p-5">
-                      <div className="text-white font-bold">Checklist (demo)</div>
-                      <div className="text-white/60 text-sm mt-1">Evidencia mínima recomendada.</div>
-
-                      <div className="mt-4 grid gap-2">
-                        <ChecklistItem label="Identidad representante legal" />
-                        <ChecklistItem label="Constancia fiscal + RFC" />
-                        <ChecklistItem label="CFDI 24 meses (SAT)" />
-                        <ChecklistItem label="Buró + score + consultas" />
-                        <ChecklistItem label="Validación de beneficiario final" />
-                        <ChecklistItem label="Fuente de pago / RUG (si aplica)" />
-                      </div>
-
-                      <div className="mt-4 text-xs text-white/55">
-                        Tip: convierte flags en tareas con SLA.
-                      </div>
-                    </div>
-
-                    <div className="plx-card p-4 lg:p-5">
-                      <div className="text-white font-bold">Acciones</div>
-                      <div className="text-white/60 text-sm mt-1">Operación KYC rápida.</div>
-
-                      <div className="mt-4 grid gap-2">
-                        <button className="plx-btn plx-btn-primary" onClick={() => alert("Demo: aprobar")}>
-                          Aprobar KYC
-                        </button>
-                        <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: pedir info")}>
-                          Solicitar info adicional
-                        </button>
-                        <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: rechazar")}>
-                          Rechazar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {tab === "collateral" && (
-                <section className="grid xl:grid-cols-[1.3fr_0.7fr] gap-4 lg:gap-6">
-                  <div className="plx-card p-4 lg:p-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <div className="text-white font-bold">Garantías · RUG & fuente de pago</div>
-                        <div className="text-white/60 text-sm">
-                          Cobertura, valuación, verificación y folios.
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={collateralFilter}
-                          onChange={(v) => setCollateralFilter(v as any)}
-                          options={[
-                            { value: "all", label: "Todos" },
-                            { value: "Fuente de pago", label: "Fuente de pago" },
-                            { value: "Activo fijo (RUG)", label: "Activo fijo (RUG)" },
-                          ]}
-                        />
-                        <button className="plx-btn plx-btn-primary" onClick={() => alert("Demo: nueva garantía")}>
-                          Nueva garantía
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 plx-tableWrap">
-                      <table className="plx-table">
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Empresa</th>
-                            <th>Tipo</th>
-                            <th>Valor</th>
-                            <th>Cobertura</th>
-                            <th>Verif.</th>
-                            <th />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredCollateral.map((c) => (
-                            <tr key={c.id}>
-                              <td className="mono">{c.id}</td>
-                              <td>
-                                <div className="font-semibold text-white/90">{c.company}</div>
-                                <div className="text-white/50 text-xs mono">{c.rfc}</div>
-                              </td>
-                              <td className="text-white/80">{c.type}</td>
-                              <td className="text-white/85">{mxn(c.valueMXN)}</td>
-                              <td className="text-white/80">{pct(c.coveragePct / 100)}</td>
-                              <td>
-                                <Pill tone={c.verified ? "good" : "warn"}>{c.verified ? "OK" : "Pendiente"}</Pill>
-                              </td>
-                              <td className="text-right">
-                                <button className="plx-btn plx-btn-mini" onClick={() => setDrawerCol(c)}>
-                                  Ver
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                          {filteredCollateral.length === 0 && (
-                            <tr>
-                              <td colSpan={7} className="text-center text-white/55 py-8">
-                                No hay resultados con estos filtros.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 lg:gap-6">
-                    <div className="plx-card p-4 lg:p-5">
-                      <div className="text-white font-bold">Mini Dash · Garantías</div>
-                      <div className="text-white/60 text-sm mt-1">Cobertura y concentración.</div>
-
-                      <div className="mt-4 grid gap-3">
-                        <MiniStat label="Garantías totales" value={String(data.collateral.length)} />
-                        <MiniStat
-                          label="Valor total (MXN)"
-                          value={mxn(data.collateral.reduce((s, x) => s + x.valueMXN, 0))}
-                        />
-                        <MiniStat
-                          label="Verificadas"
-                          value={`${data.collateral.filter((x) => x.verified).length} / ${data.collateral.length}`}
-                        />
-                      </div>
-
-                      <div className="mt-4">
-                        <div className="text-white/70 text-xs font-semibold mb-2">Mix por tipo</div>
-                        <StackedBreakdown
-                          items={[
-                            {
-                              label: "Fuente de pago",
-                              value:
-                                data.collateral.filter((x) => x.type === "Fuente de pago").length /
-                                Math.max(1, data.collateral.length),
-                              tone: "violet",
-                            },
-                            {
-                              label: "Activo fijo (RUG)",
-                              value:
-                                data.collateral.filter((x) => x.type === "Activo fijo (RUG)").length /
-                                Math.max(1, data.collateral.length),
-                              tone: "blue",
-                            },
-                          ]}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="plx-card p-4 lg:p-5">
-                      <div className="text-white font-bold">Acceso rápido</div>
-                      <div className="text-white/60 text-sm mt-1">
-                        Mini dashboard por empresa (demo).
-                      </div>
-
-                      <div className="mt-4 grid gap-2">
-                        {data.collateral.slice(0, 4).map((c) => (
-                          <button
-                            key={c.id}
-                            className="plx-row plx-row-click"
-                            onClick={() => setDrawerCol(c)}
-                          >
-                            <div className="min-w-0 text-left">
-                              <div className="text-white font-semibold truncate">{c.company}</div>
-                              <div className="text-white/55 text-xs truncate">
-                                {c.type} · {c.verified ? "Verificada" : "Pendiente"}
-                              </div>
-                            </div>
-                            <div className="text-white/70 text-sm">→</div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              )}
-            </div>
-          </main>
+          </div>
         </div>
-      </div>
+      </aside>
+
+      {/* Main sin sideways */}
+      <main className="plx-main">
+        {/* Topbar sticky */}
+        <div className="plx-topbar">
+          <div className="plx-topbarInner">
+            <div className="min-w-0">
+              <div className="plx-kicker">Admin</div>
+              <div className="plx-title">{tabTitle(tab)}</div>
+              <div className="plx-sub">Datos demo · filtros · acciones.</div>
+            </div>
+
+            <div className="plx-topActions">
+              <div className="plx-search">
+                <span className="plx-searchIcon">
+                  <IconSearch />
+                </span>
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Buscar empresa, RFC, ID..."
+                  className="plx-searchInput"
+                />
+                {q && (
+                  <button onClick={() => setQ("")} className="plx-searchClear" aria-label="Limpiar">
+                    <IconX />
+                  </button>
+                )}
+              </div>
+
+              <div className="plx-btnRow">
+                <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: export")}>
+                  Exportar
+                </button>
+                <button className="plx-btn plx-btn-primary" onClick={() => alert("Demo: crear")}>
+                  Nueva acción
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="plx-tabs">
+            <TabChip active={tab === "portfolio"} onClick={() => setTab("portfolio")}>
+              Portafolio
+            </TabChip>
+            <TabChip active={tab === "status"} onClick={() => setTab("status")}>
+              Estatus
+            </TabChip>
+            <TabChip active={tab === "kyc"} onClick={() => setTab("kyc")}>
+              KYC
+            </TabChip>
+            <TabChip active={tab === "collateral"} onClick={() => setTab("collateral")}>
+              Garantías
+            </TabChip>
+          </div>
+        </div>
+
+        <div className="plx-content">
+          {/* KPIs (se quedan) */}
+          <section className="plx-kpis">
+            <KpiCard label="AUM (MXN)" value={mxn(summary.aumMXN)} sub={`Outstanding: ${mxn(summary.outstandingMXN)}`} tone="violet" />
+            <KpiCard label="Créditos activos" value={String(summary.activeLoans)} sub={`APR prom: ${pct(summary.avgAPR)}`} tone="blue" />
+            <KpiCard label="NPL" value={pct(summary.nplPct)} sub={`Watch: ${pct(summary.watchPct)}`} tone="pink" />
+            <KpiCard label="Atraso" value={pct(summary.latePct)} sub="DPD & alertas" tone="cyan" />
+          </section>
+
+          {/* Portafolio: tabla ocupa TODO el ancho */}
+          {tab === "portfolio" && (
+            <section className="plx-card plx-pad">
+              <div className="plx-headRow">
+                <div className="min-w-0">
+                  <div className="plx-hTitle">Originación & cartera</div>
+                  <div className="plx-hSub">Créditos y performance base.</div>
+                </div>
+                <div className="plx-headRowRight">
+                  <Select
+                    value={statusFilter}
+                    onChange={(v) => setStatusFilter(v as any)}
+                    options={[
+                      { value: "all", label: "Todos" },
+                      { value: "current", label: "Vigente" },
+                      { value: "watch", label: "Watch" },
+                      { value: "late", label: "Atraso" },
+                      { value: "default", label: "Default" },
+                    ]}
+                  />
+                </div>
+              </div>
+
+              {/* Sin sideways: se fuerza layout fijo y truncado */}
+              <div className="plx-tableWrap plx-tableNoX">
+                <table className="plx-table plx-tableSmall">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 110 }}>ID</th>
+                      <th>Empresa</th>
+                      <th style={{ width: 120 }}>Producto</th>
+                      <th style={{ width: 130 }}>Saldo</th>
+                      <th style={{ width: 60 }}>DPD</th>
+                      <th style={{ width: 160 }}>Riesgo</th>
+                      <th style={{ width: 110 }}>Estatus</th>
+                      <th style={{ width: 70 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLoans.map((l) => (
+                      <tr key={l.id}>
+                        <td className="mono">{l.id}</td>
+                        <td className="plx-cellClamp">
+                          <div className="plx-strong">{l.borrower}</div>
+                          <div className="plx-muted mono">{l.rfc}</div>
+                        </td>
+                        <td className="plx-cellClamp">{l.product}</td>
+                        <td className="plx-strong">{mxn(l.outstandingMXN)}</td>
+                        <td>{l.dpd}</td>
+                        <td>
+                          <RiskBar score={l.riskScore} />
+                        </td>
+                        <td>
+                          <StatusPill status={l.status} />
+                        </td>
+                        <td className="plx-right">
+                          <button className="plx-btn plx-btn-mini" onClick={() => setDrawerLoan(l)}>
+                            Ver
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredLoans.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="plx-empty">
+                          No hay resultados con estos filtros.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {tab === "status" && (
+            <section className="plx-grid2b">
+              <div className="plx-card plx-pad">
+                <div className="plx-hTitle">Semáforo de cartera</div>
+                <div className="plx-hSub">Por estatus · DPD · alertas.</div>
+
+                <div className="plx-tiles">
+                  <StatusTile label="Vigente" value={`${countBy(data.loans, "current")} créditos`} tone="blue" hint="DPD = 0" />
+                  <StatusTile label="Watch" value={`${countBy(data.loans, "watch")} créditos`} tone="violet" hint="Señales tempranas" />
+                  <StatusTile label="Atraso" value={`${countBy(data.loans, "late")} créditos`} tone="cyan" hint="DPD > 0" />
+                  <StatusTile label="Default" value={`${countBy(data.loans, "default")} créditos`} tone="pink" hint="NPL (demo)" />
+                </div>
+
+                <div className="plx-break">
+                  <div className="plx-labelSm">DPD (demo)</div>
+                  <SparkBars
+                    values={[
+                      { label: "0", v: 0.64 },
+                      { label: "1-7", v: 0.16 },
+                      { label: "8-30", v: 0.11 },
+                      { label: "31+", v: 0.09 },
+                    ]}
+                  />
+                </div>
+              </div>
+
+              <div className="plx-card plx-pad">
+                <div className="plx-headRow">
+                  <div>
+                    <div className="plx-hTitle">Queue operativa</div>
+                    <div className="plx-hSub">Tareas pendientes.</div>
+                  </div>
+                  <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: crear tarea")}>
+                    Crear tarea
+                  </button>
+                </div>
+
+                <div className="plx-list">
+                  {data.tasks.map((t) => (
+                    <div key={t.id} className="plx-row">
+                      <div className="min-w-0">
+                        <div className="plx-strong truncate">{t.title}</div>
+                        <div className="plx-muted truncate">
+                          {t.company} · {t.owner} · SLA {t.sla}
+                        </div>
+                      </div>
+                      <div className="plx-rowRight">
+                        <Pill tone={t.tone}>{t.priority}</Pill>
+                        <button className="plx-btn plx-btn-mini" onClick={() => alert("Demo: abrir")}>
+                          Abrir
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {tab === "kyc" && (
+            <section className="plx-card plx-pad">
+              <div className="plx-headRow">
+                <div className="min-w-0">
+                  <div className="plx-hTitle">KYC · Empresas</div>
+                  <div className="plx-hSub">Checklist, flags, evidencia.</div>
+                </div>
+                <Select
+                  value={kycFilter}
+                  onChange={(v) => setKycFilter(v as any)}
+                  options={[
+                    { value: "all", label: "Todos" },
+                    { value: "pending", label: "Pendiente" },
+                    { value: "in_review", label: "En revisión" },
+                    { value: "approved", label: "Aprobado" },
+                    { value: "rejected", label: "Rechazado" },
+                  ]}
+                />
+              </div>
+
+              <div className="plx-tableWrap plx-tableNoX">
+                <table className="plx-table plx-tableSmall">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 120 }}>ID</th>
+                      <th>Empresa</th>
+                      <th style={{ width: 160 }}>Promotor</th>
+                      <th style={{ width: 70 }}>CFDI</th>
+                      <th style={{ width: 80 }}>Score</th>
+                      <th style={{ width: 140 }}>Estatus</th>
+                      <th style={{ width: 70 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredKyc.map((c) => (
+                      <tr key={c.id}>
+                        <td className="mono">{c.id}</td>
+                        <td className="plx-cellClamp">
+                          <div className="plx-strong">{c.company}</div>
+                          <div className="plx-muted mono">{c.rfc}</div>
+                        </td>
+                        <td className="plx-cellClamp">{c.promotor}</td>
+                        <td>{c.satCfdiMonths}m</td>
+                        <td className="plx-strong">{c.buroScore ?? "—"}</td>
+                        <td>
+                          <KycPill status={c.status} />
+                        </td>
+                        <td className="plx-right">
+                          <button className="plx-btn plx-btn-mini" onClick={() => setDrawerKyc(c)}>
+                            Ver
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredKyc.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="plx-empty">
+                          No hay resultados con estos filtros.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {tab === "collateral" && (
+            <section className="plx-card plx-pad">
+              <div className="plx-headRow">
+                <div className="min-w-0">
+                  <div className="plx-hTitle">Garantías</div>
+                  <div className="plx-hSub">RUG & fuente de pago.</div>
+                </div>
+                <div className="plx-headRowRight">
+                  <Select
+                    value={collateralFilter}
+                    onChange={(v) => setCollateralFilter(v as any)}
+                    options={[
+                      { value: "all", label: "Todos" },
+                      { value: "Fuente de pago", label: "Fuente de pago" },
+                      { value: "Activo fijo (RUG)", label: "Activo fijo (RUG)" },
+                    ]}
+                  />
+                  <button className="plx-btn plx-btn-primary" onClick={() => alert("Demo: nueva garantía")}>
+                    Nueva garantía
+                  </button>
+                </div>
+              </div>
+
+              <div className="plx-tableWrap plx-tableNoX">
+                <table className="plx-table plx-tableSmall">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 120 }}>ID</th>
+                      <th>Empresa</th>
+                      <th style={{ width: 170 }}>Tipo</th>
+                      <th style={{ width: 120 }}>Valor</th>
+                      <th style={{ width: 90 }}>Cobertura</th>
+                      <th style={{ width: 90 }}>Verif.</th>
+                      <th style={{ width: 70 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCollateral.map((c) => (
+                      <tr key={c.id}>
+                        <td className="mono">{c.id}</td>
+                        <td className="plx-cellClamp">
+                          <div className="plx-strong">{c.company}</div>
+                          <div className="plx-muted mono">{c.rfc}</div>
+                        </td>
+                        <td className="plx-cellClamp">{c.type}</td>
+                        <td className="plx-strong">{mxn(c.valueMXN)}</td>
+                        <td>{pct(c.coveragePct / 100)}</td>
+                        <td>
+                          <Pill tone={c.verified ? "good" : "warn"}>{c.verified ? "OK" : "Pendiente"}</Pill>
+                        </td>
+                        <td className="plx-right">
+                          <button className="plx-btn plx-btn-mini" onClick={() => setDrawerCol(c)}>
+                            Ver
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredCollateral.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="plx-empty">
+                          No hay resultados con estos filtros.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+        </div>
+      </main>
 
       {/* Drawers */}
       <Drawer open={!!drawerLoan} onClose={() => setDrawerLoan(null)} title="Detalle de crédito">
@@ -768,8 +548,6 @@ export default function AdminDashboardPage() {
       <Drawer open={!!drawerCol} onClose={() => setDrawerCol(null)} title="Detalle de garantía">
         {drawerCol && <CollateralDetail item={drawerCol} />}
       </Drawer>
-
-      <GlobalStyles />
     </div>
   );
 }
@@ -780,43 +558,27 @@ export default function AdminDashboardPage() {
 function LoanDetail({ loan }: { loan: Loan }) {
   return (
     <div className="grid gap-4">
-      <div className="plx-card p-4">
-        <div className="flex items-start justify-between gap-3">
+      <div className="plx-card plx-pad">
+        <div className="plx-headRow">
           <div className="min-w-0">
-            <div className="text-white font-extrabold text-lg truncate">{loan.borrower}</div>
-            <div className="text-white/55 text-xs mono">{loan.rfc} · {loan.id}</div>
+            <div className="plx-hTitle truncate">{loan.borrower}</div>
+            <div className="plx-muted mono">
+              {loan.rfc} · {loan.id}
+            </div>
           </div>
           <StatusPill status={loan.status} />
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="plx-miniGrid">
           <MiniStat label="Principal" value={mxn(loan.principalMXN)} />
           <MiniStat label="Saldo" value={mxn(loan.outstandingMXN)} />
           <MiniStat label="APR" value={pct(loan.rateAPR)} />
           <MiniStat label="DPD" value={String(loan.dpd)} />
         </div>
 
-        <div className="mt-4">
-          <div className="text-white/70 text-xs font-semibold mb-2">Riesgo</div>
+        <div className="plx-break">
+          <div className="plx-labelSm">Riesgo</div>
           <RiskBar score={loan.riskScore} />
-        </div>
-      </div>
-
-      <div className="plx-card p-4">
-        <div className="text-white font-bold">Acciones (demo)</div>
-        <div className="mt-3 grid sm:grid-cols-2 gap-2">
-          <button className="plx-btn plx-btn-primary" onClick={() => alert("Demo: generar PDF")}>
-            Generar PDF
-          </button>
-          <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: crear alerta")}>
-            Crear alerta
-          </button>
-          <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: renegociar")}>
-            Renegociar
-          </button>
-          <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: registrar garantía")}>
-            Registrar garantía
-          </button>
         </div>
       </div>
     </div>
@@ -826,42 +588,29 @@ function LoanDetail({ loan }: { loan: Loan }) {
 function KycDetail({ item }: { item: KycCompany }) {
   return (
     <div className="grid gap-4">
-      <div className="plx-card p-4">
-        <div className="flex items-start justify-between gap-3">
+      <div className="plx-card plx-pad">
+        <div className="plx-headRow">
           <div className="min-w-0">
-            <div className="text-white font-extrabold text-lg truncate">{item.company}</div>
-            <div className="text-white/55 text-xs mono">{item.rfc} · {item.id}</div>
+            <div className="plx-hTitle truncate">{item.company}</div>
+            <div className="plx-muted mono">
+              {item.rfc} · {item.id}
+            </div>
           </div>
           <KycPill status={item.status} />
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="plx-miniGrid">
           <MiniStat label="Promotor" value={item.promotor} />
           <MiniStat label="CFDI" value={`${item.satCfdiMonths}m`} />
           <MiniStat label="Buró" value={item.buroScore ? String(item.buroScore) : "—"} />
           <MiniStat label="Solicitado" value={shortDate(item.requestedAt)} />
         </div>
 
-        <div className="mt-4">
-          <div className="text-white/70 text-xs font-semibold mb-2">Flags</div>
+        <div className="plx-break">
+          <div className="plx-labelSm">Flags</div>
           <div className="flex flex-wrap gap-2">
-            {item.flags.length ? item.flags.map((f) => <Tag key={f}>{f}</Tag>) : <div className="text-white/55 text-sm">Sin flags.</div>}
+            {item.flags.length ? item.flags.map((f) => <Tag key={f}>{f}</Tag>) : <div className="plx-muted">Sin flags.</div>}
           </div>
-        </div>
-      </div>
-
-      <div className="plx-card p-4">
-        <div className="text-white font-bold">Decisión (demo)</div>
-        <div className="mt-3 grid sm:grid-cols-3 gap-2">
-          <button className="plx-btn plx-btn-primary" onClick={() => alert("Demo: aprobar")}>
-            Aprobar
-          </button>
-          <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: solicitar info")}>
-            Pedir info
-          </button>
-          <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: rechazar")}>
-            Rechazar
-          </button>
         </div>
       </div>
     </div>
@@ -871,42 +620,34 @@ function KycDetail({ item }: { item: KycCompany }) {
 function CollateralDetail({ item }: { item: Collateral }) {
   return (
     <div className="grid gap-4">
-      <div className="plx-card p-4">
-        <div className="flex items-start justify-between gap-3">
+      <div className="plx-card plx-pad">
+        <div className="plx-headRow">
           <div className="min-w-0">
-            <div className="text-white font-extrabold text-lg truncate">{item.company}</div>
-            <div className="text-white/55 text-xs mono">{item.rfc} · {item.id}</div>
+            <div className="plx-hTitle truncate">{item.company}</div>
+            <div className="plx-muted mono">
+              {item.rfc} · {item.id}
+            </div>
           </div>
           <Pill tone={item.verified ? "good" : "warn"}>{item.verified ? "Verificada" : "Pendiente"}</Pill>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="plx-miniGrid">
           <MiniStat label="Tipo" value={item.type} />
           <MiniStat label="Valor" value={mxn(item.valueMXN)} />
           <MiniStat label="Cobertura" value={pct(item.coveragePct / 100)} />
           <MiniStat label="Actualizado" value={shortDate(item.updatedAt)} />
         </div>
 
-        <div className="mt-4">
-          <div className="text-white/70 text-xs font-semibold mb-2">Detalle</div>
+        <div className="plx-break">
+          <div className="plx-labelSm">Detalle</div>
           <div className="text-white/80 text-sm leading-relaxed">{item.description}</div>
         </div>
 
-        <div className="mt-4 grid sm:grid-cols-2 gap-3">
+        <div className="plx-miniGrid">
           <MiniStat label="RUG Folio" value={item.rugFolio || "—"} />
           <MiniStat label="Fuente de pago" value={item.paymentSource || "—"} />
-        </div>
-      </div>
-
-      <div className="plx-card p-4">
-        <div className="text-white font-bold">Acciones (demo)</div>
-        <div className="mt-3 grid sm:grid-cols-2 gap-2">
-          <button className="plx-btn plx-btn-primary" onClick={() => alert("Demo: verificar")}>
-            Marcar verificada
-          </button>
-          <button className="plx-btn plx-btn-ghost" onClick={() => alert("Demo: actualizar valuación")}>
-            Actualizar valuación
-          </button>
+          <MiniStat label="Verificación" value={item.verified ? "OK" : "Pendiente"} />
+          <MiniStat label="Cobertura %" value={String(item.coveragePct)} />
         </div>
       </div>
     </div>
@@ -938,35 +679,22 @@ function SideNav({
   title: string;
   desc: string;
   onClick: () => void;
-  icon: string;
+  icon: React.ReactNode;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={[
-        "text-left rounded-2xl border p-3 transition",
-        active
-          ? "border-white/22 bg-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_18px_60px_rgba(0,0,0,0.25)]"
-          : "border-white/12 bg-white/6 hover:bg-white/10 hover:border-white/18",
-      ].join(" ")}
-    >
-      <div className="flex items-start gap-3">
-        <div className="text-lg">{icon}</div>
-        <div className="min-w-0">
-          <div className="text-white font-bold leading-tight">{title}</div>
-          <div className="text-white/60 text-xs mt-1 leading-snug">{desc}</div>
-        </div>
-      </div>
+    <button onClick={onClick} className={["plx-navItem", active ? "plx-navItemActive" : ""].join(" ")}>
+      <span className="plx-navIcon">{icon}</span>
+      <span className="min-w-0">
+        <span className="plx-navTitle">{title}</span>
+        <span className="plx-navDesc">{desc}</span>
+      </span>
     </button>
   );
 }
 
 function QuickLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link
-      href={href}
-      className="rounded-2xl border border-white/12 bg-white/6 text-white/85 text-sm font-semibold py-2.5 px-3 hover:bg-white/10 transition"
-    >
+    <Link href={href} className="plx-quickLink">
       {label}
     </Link>
   );
@@ -985,20 +713,18 @@ function KpiCard({
 }) {
   const toneClass =
     tone === "violet"
-      ? "before:bg-violet-400/22"
+      ? "plx-kpi-violet"
       : tone === "blue"
-      ? "before:bg-sky-400/20"
+      ? "plx-kpi-blue"
       : tone === "pink"
-      ? "before:bg-fuchsia-400/18"
-      : "before:bg-cyan-400/18";
+      ? "plx-kpi-pink"
+      : "plx-kpi-cyan";
 
   return (
     <div className={["plx-kpi", toneClass].join(" ")}>
-      <div className="relative">
-        <div className="text-white/60 text-xs font-semibold">{label}</div>
-        <div className="text-white text-2xl font-extrabold mt-1">{value}</div>
-        <div className="text-white/55 text-xs mt-1">{sub}</div>
-      </div>
+      <div className="plx-kpiLabel">{label}</div>
+      <div className="plx-kpiValue">{value}</div>
+      <div className="plx-kpiSub">{sub}</div>
     </div>
   );
 }
@@ -1013,15 +739,7 @@ function TabChip({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={[
-        "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-        active
-          ? "border-white/25 bg-white/10 text-white"
-          : "border-white/12 bg-white/6 text-white/75 hover:bg-white/10 hover:text-white",
-      ].join(" ")}
-    >
+    <button onClick={onClick} className={["plx-tab", active ? "plx-tabActive" : ""].join(" ")}>
       {children}
     </button>
   );
@@ -1037,11 +755,7 @@ function Select({
   options: { value: string; label: string }[];
 }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="plx-select"
-    >
+    <select value={value} onChange={(e) => onChange(e.target.value)} className="plx-select">
       {options.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
@@ -1057,9 +771,9 @@ function RiskBar({ score }: { score: number }) {
     s >= 75 ? "bg-emerald-400/70" : s >= 55 ? "bg-sky-400/70" : s >= 35 ? "bg-violet-400/70" : "bg-fuchsia-400/70";
   return (
     <div className="w-[140px] max-w-full">
-      <div className="flex items-center justify-between text-[11px] text-white/60 mb-1">
+      <div className="flex items-center justify-between text-[10px] text-white/60 mb-1">
         <span>score</span>
-        <span className="text-white/80 font-semibold">{s}</span>
+        <span className="text-white/85 font-semibold">{s}</span>
       </div>
       <div className="h-2 rounded-full bg-white/10 overflow-hidden">
         <div className={`h-full ${tone}`} style={{ width: `${s}%` }} />
@@ -1104,44 +818,9 @@ function Pill({ tone, children }: { tone: "good" | "warn" | "bad" | "info"; chil
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-      <div className="text-white/60 text-xs font-semibold">{label}</div>
-      <div className="text-white/90 font-extrabold mt-1 truncate">{value}</div>
-    </div>
-  );
-}
-
-function StackedBreakdown({
-  items,
-}: {
-  items: { label: string; value: number; tone: "blue" | "cyan" | "violet" | "pink" }[];
-}) {
-  const toneCls: Record<string, string> = {
-    blue: "bg-sky-400/70",
-    cyan: "bg-cyan-300/70",
-    violet: "bg-violet-400/70",
-    pink: "bg-fuchsia-400/70",
-  };
-  return (
-    <div>
-      <div className="h-3 rounded-full bg-white/10 overflow-hidden flex">
-        {items.map((it) => (
-          <div
-            key={it.label}
-            className={toneCls[it.tone]}
-            style={{ width: `${Math.max(0, it.value) * 100}%` }}
-            title={`${it.label}: ${pct(it.value)}`}
-          />
-        ))}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-white/60">
-        {items.map((it) => (
-          <span key={it.label} className="inline-flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${toneCls[it.tone]}`} />
-            {it.label} <span className="text-white/80 font-semibold">{pct(it.value)}</span>
-          </span>
-        ))}
-      </div>
+    <div className="plx-mini">
+      <div className="plx-miniLabel">{label}</div>
+      <div className="plx-miniValue">{value}</div>
     </div>
   );
 }
@@ -1176,52 +855,23 @@ function StatusTile({
 }) {
   const cls =
     tone === "blue"
-      ? "before:bg-sky-400/20"
+      ? "plx-tile-blue"
       : tone === "violet"
-      ? "before:bg-violet-400/22"
+      ? "plx-tile-violet"
       : tone === "cyan"
-      ? "before:bg-cyan-300/18"
-      : "before:bg-fuchsia-400/18";
+      ? "plx-tile-cyan"
+      : "plx-tile-pink";
   return (
     <div className={["plx-tile", cls].join(" ")}>
-      <div className="relative">
-        <div className="text-white/70 text-xs font-semibold">{label}</div>
-        <div className="text-white font-extrabold text-lg mt-1">{value}</div>
-        <div className="text-white/50 text-xs mt-1">{hint}</div>
-      </div>
-    </div>
-  );
-}
-
-function ActionRow({ title, desc }: { title: string; desc: string }) {
-  return (
-    <button className="plx-row plx-row-click" onClick={() => alert(`Demo: ${title}`)}>
-      <div className="min-w-0 text-left">
-        <div className="text-white font-semibold truncate">{title}</div>
-        <div className="text-white/55 text-xs truncate">{desc}</div>
-      </div>
-      <div className="text-white/60 text-sm">→</div>
-    </button>
-  );
-}
-
-function ChecklistItem({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/6 p-3">
-      <span className="h-6 w-6 rounded-full bg-emerald-400/18 border border-emerald-400/30 grid place-items-center">
-        <span className="text-emerald-100 text-sm">✓</span>
-      </span>
-      <div className="text-white/80 text-sm font-semibold">{label}</div>
+      <div className="text-white/70 text-xs font-semibold">{label}</div>
+      <div className="text-white font-extrabold text-lg mt-1">{value}</div>
+      <div className="text-white/50 text-xs mt-1">{hint}</div>
     </div>
   );
 }
 
 function Tag({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-full border border-white/12 bg-white/6 px-3 py-1 text-[11px] text-white/75">
-      {children}
-    </span>
-  );
+  return <span className="plx-tag">{children}</span>;
 }
 
 function Drawer({
@@ -1239,7 +889,7 @@ function Drawer({
     <div className={open ? "fixed inset-0 z-50" : "hidden"} aria-hidden={!open}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="absolute right-0 top-0 h-full w-full sm:w-[560px] plx-drawer">
-        <div className="flex items-center justify-between gap-3 p-4 border-b border-white/10">
+        <div className="plx-drawerHead">
           <div className="min-w-0">
             <div className="text-white font-extrabold truncate">{title}</div>
             <div className="text-white/55 text-xs">Detalle (demo)</div>
@@ -1255,17 +905,75 @@ function Drawer({
 }
 
 /* =========================
-   STYLES (purple/blue neon)
+   ICONS (SVG inline)
+========================= */
+function IconGrid() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+function IconPulse() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 12h4l2-6 4 12 2-6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconShield() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3 20 6v7c0 5-3.6 8-8 8s-8-3-8-8V6l8-3Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9.5 12.2 11.4 14l3.6-4.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconLink() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconSearch() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M21 21l-4.2-4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconX() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/* =========================
+   STYLES (no sideways + tabla compacta)
 ========================= */
 function GlobalStyles() {
   return (
     <style jsx global>{`
+      :root{
+        --side: 280px;
+      }
+      html, body{
+        max-width: 100%;
+        overflow-x: hidden; /* fija recorrido sideways */
+      }
+
       .plx-bg{
         background:
           radial-gradient(1200px 700px at 18% 8%, rgba(139,92,246,0.12), transparent 55%),
           radial-gradient(900px 650px at 86% 28%, rgba(96,165,250,0.12), transparent 55%),
           radial-gradient(900px 650px at 62% 95%, rgba(217,70,239,0.08), transparent 60%),
           linear-gradient(180deg, rgba(3,7,18,1), rgba(2,6,23,1));
+        color: rgba(255,255,255,0.88);
       }
       .plx-gridNoise{
         background-image:
@@ -1276,159 +984,382 @@ function GlobalStyles() {
         mask-image: radial-gradient(55% 55% at 50% 40%, black 60%, transparent 100%);
       }
 
-      .plx-card{
-        border-radius: 28px;
-        border: 1px solid rgba(255,255,255,0.14);
-        background: rgba(255,255,255,0.06);
+      /* Sidebar */
+      .plx-side{
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: var(--side);
+        z-index: 30;
+        border-right: 1px solid rgba(255,255,255,0.08);
+        background: rgba(2,6,23,0.55);
         backdrop-filter: blur(16px);
-        box-shadow: 0 22px 90px rgba(0,0,0,0.42);
       }
-      .plx-card-soft{
-        box-shadow: 0 18px 70px rgba(0,0,0,0.30);
+      .plx-sideInner{
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 18px 16px;
+        gap: 14px;
       }
 
-      .plx-pill{
-        display:inline-flex;
+      .plx-brand{
+        display:flex;
         align-items:center;
-        gap:10px;
-        border-radius: 999px;
-        border: 1px solid rgba(255,255,255,0.14);
-        background: rgba(255,255,255,0.06);
+        gap: 12px;
+        padding: 10px 10px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04);
+      }
+      .plx-logo{ height: 34px; width: auto; }
+      .plx-brandTitle{ font-weight: 900; color: rgba(255,255,255,0.92); }
+      .plx-brandSub{ font-size: 12px; color: rgba(255,255,255,0.56); }
+
+      .plx-demo{
+        display:flex;
+        align-items:center;
+        gap: 10px;
         padding: 10px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.05);
+        font-weight: 900;
+        font-size: 12px;
+        color: rgba(255,255,255,0.78);
       }
       .plx-dot{
         width: 10px;
         height: 10px;
         border-radius: 999px;
         background: rgba(96,165,250,0.95);
-        box-shadow: 0 0 20px rgba(96,165,250,0.55);
+        box-shadow: 0 0 18px rgba(96,165,250,0.55);
       }
 
+      .plx-nav{ display: grid; gap: 10px; padding-top: 4px; }
+      .plx-navItem{
+        width: 100%;
+        text-align: left;
+        display:flex;
+        gap: 12px;
+        align-items:flex-start;
+        border-radius: 18px;
+        padding: 12px 12px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04);
+        transition: .15s ease;
+        color: rgba(255,255,255,0.80);
+      }
+      .plx-navItem:hover{
+        background: rgba(255,255,255,0.07);
+        border-color: rgba(255,255,255,0.14);
+      }
+      .plx-navItemActive{
+        background: rgba(255,255,255,0.09);
+        border-color: rgba(255,255,255,0.18);
+        box-shadow: 0 18px 70px rgba(0,0,0,0.25);
+        color: rgba(255,255,255,0.92);
+      }
+      .plx-navIcon{
+        margin-top: 2px;
+        width: 18px;
+        height: 18px;
+        color: rgba(255,255,255,0.72);
+        flex: 0 0 auto;
+      }
+      .plx-navTitle{
+        display:block;
+        font-weight: 950;
+        color: rgba(255,255,255,0.90);
+        line-height: 1.05;
+      }
+      .plx-navDesc{
+        display:block;
+        margin-top: 3px;
+        font-size: 12px;
+        color: rgba(255,255,255,0.55);
+        line-height: 1.25;
+      }
+
+      .plx-sideFoot{
+        margin-top: auto;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
+      .plx-quick{ display: grid; gap: 8px; }
+      .plx-quickLink{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.10);
+        background: rgba(255,255,255,0.04);
+        padding: 10px 12px;
+        font-weight: 900;
+        font-size: 13px;
+        color: rgba(255,255,255,0.82);
+        text-decoration: none;
+        transition: .15s ease;
+      }
+      .plx-quickLink:hover{
+        background: rgba(255,255,255,0.07);
+        border-color: rgba(255,255,255,0.14);
+      }
+      .plx-copyright{
+        margin-top: 10px;
+        font-size: 11px;
+        color: rgba(255,255,255,0.45);
+      }
+
+      /* Main */
+      .plx-main{ padding-left: var(--side); min-height: 100vh; }
+      .plx-topbar{
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        padding: 18px 18px 12px;
+        backdrop-filter: blur(14px);
+        background: linear-gradient(180deg, rgba(2,6,23,0.78), rgba(2,6,23,0.35));
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+      .plx-topbarInner{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap: 14px;
+        max-width: 1320px;
+        margin: 0 auto;
+      }
+      .plx-kicker{ font-size: 12px; font-weight: 900; color: rgba(255,255,255,0.70); }
+      .plx-title{
+        margin-top: 2px;
+        font-size: 26px;
+        font-weight: 950;
+        letter-spacing: -0.02em;
+        color: rgba(255,255,255,0.95);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 680px;
+      }
+      .plx-sub{ margin-top: 4px; font-size: 13px; color: rgba(255,255,255,0.55); }
+
+      .plx-topActions{
+        display:flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items:flex-end;
+        min-width: min(520px, 100%);
+      }
       .plx-search{
         display:flex;
         align-items:center;
         gap: 10px;
         border-radius: 18px;
-        border: 1px solid rgba(255,255,255,0.14);
+        border: 1px solid rgba(255,255,255,0.12);
         background: rgba(255,255,255,0.06);
         padding: 10px 12px;
-        min-width: min(520px, 100%);
+        width: min(520px, 100%);
       }
-      .plx-search-input{
-        flex: 1;
+      .plx-searchIcon{ color: rgba(255,255,255,0.55); display:grid; place-items:center; }
+      .plx-searchInput{
+        flex:1;
         background: transparent;
         border: 0;
         outline: none;
         color: rgba(255,255,255,0.92);
         font-size: 14px;
       }
-      .plx-search-input::placeholder{ color: rgba(255,255,255,0.45); }
+      .plx-searchInput::placeholder{ color: rgba(255,255,255,0.45); }
+      .plx-searchClear{
+        border: 0;
+        background: transparent;
+        color: rgba(255,255,255,0.55);
+        padding: 4px 6px;
+        cursor: pointer;
+        display:grid;
+        place-items:center;
+      }
+      .plx-searchClear:hover{ color: rgba(255,255,255,0.85); }
 
+      .plx-btnRow{ display:flex; gap: 10px; }
       .plx-btn{
         border-radius: 16px;
         padding: 10px 12px;
-        font-weight: 800;
+        font-weight: 900;
         font-size: 13px;
         transition: 0.15s ease;
         border: 1px solid transparent;
       }
-      .plx-btn-primary{
-        background: rgba(255,255,255,0.95);
-        color: rgba(0,0,0,0.90);
-      }
+      .plx-btn-primary{ background: rgba(255,255,255,0.95); color: rgba(0,0,0,0.90); }
       .plx-btn-primary:hover{ opacity: 0.92; }
       .plx-btn-ghost{
         border-color: rgba(255,255,255,0.14);
         background: rgba(255,255,255,0.06);
         color: rgba(255,255,255,0.90);
       }
-      .plx-btn-ghost:hover{
-        background: rgba(255,255,255,0.10);
-        border-color: rgba(255,255,255,0.18);
-      }
+      .plx-btn-ghost:hover{ background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.18); }
       .plx-btn-mini{
-        padding: 8px 10px;
-        font-size: 12px;
+        padding: 7px 9px;
+        font-size: 11px;
         border-color: rgba(255,255,255,0.14);
         background: rgba(255,255,255,0.06);
         color: rgba(255,255,255,0.88);
       }
-      .plx-btn-mini:hover{
-        background: rgba(255,255,255,0.10);
-        border-color: rgba(255,255,255,0.18);
+      .plx-btn-mini:hover{ background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.18); }
+
+      .plx-tabs{
+        max-width: 1320px;
+        margin: 10px auto 0;
+        display:flex;
+        flex-wrap: wrap;
+        gap: 8px;
       }
+      .plx-tab{
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.05);
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 900;
+        color: rgba(255,255,255,0.72);
+        transition: .15s ease;
+      }
+      .plx-tab:hover{ background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.9); }
+      .plx-tabActive{ background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.18); color: rgba(255,255,255,0.92); }
+
+      .plx-content{
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 18px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .plx-kpis{
+        display:grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+      @media (max-width: 1100px){ .plx-kpis{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 560px){
+        :root{ --side: 0px; }
+        .plx-side{ display:none; }
+        .plx-main{ padding-left: 0; }
+        .plx-kpis{ grid-template-columns: 1fr; }
+        .plx-topbarInner{ flex-direction: column; }
+        .plx-topActions{ align-items: stretch; min-width: 100%; }
+        .plx-title{ max-width: 100%; white-space: normal; }
+      }
+
+      .plx-card{
+        border-radius: 24px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.06);
+        backdrop-filter: blur(16px);
+        box-shadow: 0 20px 90px rgba(0,0,0,0.38);
+      }
+      .plx-pad{ padding: 16px; }
+
+      .plx-headRow{ display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; }
+      .plx-headRowRight{ display:flex; gap: 10px; align-items:center; }
+      .plx-hTitle{ font-weight: 950; color: rgba(255,255,255,0.92); }
+      .plx-hSub{ margin-top: 4px; font-size: 13px; color: rgba(255,255,255,0.55); }
 
       .plx-select{
         border-radius: 16px;
-        border: 1px solid rgba(255,255,255,0.14);
+        border: 1px solid rgba(255,255,255,0.12);
         background: rgba(255,255,255,0.06);
         color: rgba(255,255,255,0.88);
         padding: 10px 12px;
         font-size: 13px;
-        font-weight: 800;
+        font-weight: 900;
         outline: none;
       }
+
+      /* TABLE: sin scroll X y letra pequeña */
+      .plx-tableWrap{
+        margin-top: 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.10);
+        overflow: hidden; /* importante: mata scroll lateral */
+      }
+      .plx-tableNoX{ overflow-x: hidden; }
+      .plx-table{
+        width: 100%;
+        table-layout: fixed; /* fuerza que quepa */
+        border-collapse: collapse;
+        background: rgba(2,6,23,0.22);
+      }
+      .plx-tableSmall{
+        font-size: 12px; /* más pequeña */
+      }
+      .plx-table thead th{
+        text-align:left;
+        font-size: 10px;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.55);
+        padding: 10px 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .plx-table tbody td{
+        padding: 10px 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        color: rgba(255,255,255,0.75);
+        vertical-align: middle;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .plx-table tbody tr:hover{ background: rgba(255,255,255,0.04); }
+
+      .plx-cellClamp{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,"Liberation Mono","Courier New", monospace; }
+      .plx-strong{ font-weight: 900; color: rgba(255,255,255,0.90); }
+      .plx-muted{ font-size: 11px; color: rgba(255,255,255,0.55); }
+
+      .plx-right{ text-align:right; }
+      .plx-empty{ text-align:center; color: rgba(255,255,255,0.55); padding: 22px 10px; }
 
       .plx-kpi{
         position: relative;
         overflow: hidden;
-        border-radius: 22px;
-        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.10);
         background: rgba(255,255,255,0.06);
         padding: 14px;
       }
       .plx-kpi:before{
         content:"";
         position:absolute;
-        top:-44px;
-        right:-44px;
-        width: 180px;
-        height: 180px;
+        top:-50px;
+        right:-50px;
+        width: 190px;
+        height: 190px;
         border-radius: 999px;
-        filter: blur(26px);
+        filter: blur(28px);
+        opacity: 0.9;
       }
-
-      .plx-tableWrap{
-        overflow:auto;
-        border-radius: 20px;
-        border: 1px solid rgba(255,255,255,0.10);
-      }
-      .plx-table{
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 880px;
-        background: rgba(2,6,23,0.25);
-      }
-      .plx-table thead th{
-        text-align:left;
-        font-size: 11px;
-        letter-spacing: 0.10em;
-        text-transform: uppercase;
-        color: rgba(255,255,255,0.55);
-        padding: 12px 12px;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-        background: rgba(255,255,255,0.04);
-      }
-      .plx-table tbody td{
-        padding: 12px 12px;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
-        color: rgba(255,255,255,0.75);
-        vertical-align: middle;
-      }
-      .plx-table tbody tr:hover{
-        background: rgba(255,255,255,0.04);
-      }
-
-      .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      .plx-kpiLabel{ font-size: 12px; font-weight: 900; color: rgba(255,255,255,0.62); }
+      .plx-kpiValue{ margin-top: 6px; font-size: 24px; font-weight: 950; color: rgba(255,255,255,0.94); }
+      .plx-kpiSub{ margin-top: 6px; font-size: 12px; color: rgba(255,255,255,0.55); }
+      .plx-kpi-violet:before{ background: rgba(139,92,246,0.22); }
+      .plx-kpi-blue:before{ background: rgba(96,165,250,0.20); }
+      .plx-kpi-pink:before{ background: rgba(217,70,239,0.18); }
+      .plx-kpi-cyan:before{ background: rgba(34,211,238,0.16); }
 
       .plx-pillTag{
         display:inline-flex;
         align-items:center;
         justify-content:center;
         border-radius: 999px;
-        padding: 7px 10px;
-        font-size: 11px;
-        font-weight: 900;
+        padding: 6px 9px;
+        font-size: 10.5px;
+        font-weight: 950;
         border: 1px solid rgba(255,255,255,0.14);
         background: rgba(255,255,255,0.06);
         color: rgba(255,255,255,0.88);
@@ -1441,13 +1372,55 @@ function GlobalStyles() {
       .plx-pill-good{ border-color: rgba(34,197,94,0.30); background: rgba(34,197,94,0.10); }
       .plx-pill-bad{ border-color: rgba(239,68,68,0.30); background: rgba(239,68,68,0.10); }
 
-      .plx-tile{
-        position: relative;
+      .plx-miniGrid{
+        margin-top: 14px;
+        display:grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .plx-mini{
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.10);
+        background: rgba(255,255,255,0.05);
+        padding: 12px 12px;
+        min-width: 0;
+      }
+      .plx-miniLabel{ font-size: 12px; font-weight: 900; color: rgba(255,255,255,0.60); }
+      .plx-miniValue{
+        margin-top: 6px;
+        font-weight: 950;
+        color: rgba(255,255,255,0.92);
+        white-space: nowrap;
         overflow: hidden;
-        border-radius: 22px;
-        border: 1px solid rgba(255,255,255,0.12);
+        text-overflow: ellipsis;
+      }
+
+      .plx-labelSm{
+        font-size: 11px;
+        font-weight: 900;
+        color: rgba(255,255,255,0.62);
+        margin-bottom: 8px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .plx-break{ margin-top: 14px; }
+
+      .plx-grid2b{
+        display:grid;
+        grid-template-columns: 420px minmax(0, 1fr);
+        gap: 16px;
+        align-items:start;
+      }
+      @media (max-width: 1100px){ .plx-grid2b{ grid-template-columns: 1fr; } }
+
+      .plx-tiles{ margin-top: 14px; display:grid; gap: 10px; }
+      .plx-tile{
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.10);
         background: rgba(255,255,255,0.06);
         padding: 14px;
+        position: relative;
+        overflow: hidden;
       }
       .plx-tile:before{
         content:"";
@@ -1459,30 +1432,45 @@ function GlobalStyles() {
         border-radius: 999px;
         filter: blur(30px);
       }
+      .plx-tile-blue:before{ background: rgba(96,165,250,0.18); }
+      .plx-tile-violet:before{ background: rgba(139,92,246,0.20); }
+      .plx-tile-cyan:before{ background: rgba(34,211,238,0.16); }
+      .plx-tile-pink:before{ background: rgba(217,70,239,0.14); }
 
       .plx-row{
         display:flex;
         align-items:center;
         justify-content:space-between;
         gap: 12px;
-        border-radius: 22px;
+        border-radius: 18px;
         border: 1px solid rgba(255,255,255,0.10);
         background: rgba(255,255,255,0.06);
         padding: 12px 12px;
       }
-      .plx-row-click{
-        cursor: pointer;
-        transition: 0.15s ease;
-      }
-      .plx-row-click:hover{
-        background: rgba(255,255,255,0.10);
-        border-color: rgba(255,255,255,0.16);
-      }
+      .plx-rowRight{ display:flex; align-items:center; gap: 10px; }
 
+      .plx-list{ margin-top: 14px; display:grid; gap: 10px; }
       .plx-drawer{
         border-left: 1px solid rgba(255,255,255,0.12);
         background: rgba(6,10,22,0.88);
         backdrop-filter: blur(18px);
+      }
+      .plx-drawerHead{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap: 12px;
+        padding: 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.10);
+      }
+      .plx-tag{
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.06);
+        padding: 6px 10px;
+        font-size: 11px;
+        color: rgba(255,255,255,0.75);
+        font-weight: 900;
       }
     `}</style>
   );
@@ -1499,7 +1487,6 @@ function tabTitle(tab: TabKey) {
 }
 
 function mxn(n: number) {
-  // best-effort formatting
   try {
     return new Intl.NumberFormat("es-MX", {
       style: "currency",
@@ -1554,174 +1541,25 @@ function seedData(): {
   tasks: { id: string; title: string; company: string; owner: string; sla: string; priority: string; tone: "good" | "warn" | "bad" | "info" }[];
 } {
   const loans: Loan[] = [
-    {
-      id: "LN-1042",
-      borrower: "Transporte del Valle SA",
-      rfc: "TVA1902218K1",
-      product: "Revolvente",
-      originationDate: "2025-10-14",
-      principalMXN: 12000000,
-      outstandingMXN: 9850000,
-      rateAPR: 0.295,
-      termMonths: 18,
-      status: "watch",
-      dpd: 0,
-      riskScore: 62,
-    },
-    {
-      id: "LN-1107",
-      borrower: "Agroinsumos La Esperanza",
-      rfc: "ALE2009183R2",
-      product: "Simple",
-      originationDate: "2025-08-03",
-      principalMXN: 6000000,
-      outstandingMXN: 4120000,
-      rateAPR: 0.27,
-      termMonths: 12,
-      status: "current",
-      dpd: 0,
-      riskScore: 78,
-    },
-    {
-      id: "LN-1219",
-      borrower: "Rising Farms MX",
-      rfc: "RFM2101079Z5",
-      product: "Factoraje",
-      originationDate: "2025-11-22",
-      principalMXN: 4500000,
-      outstandingMXN: 3180000,
-      rateAPR: 0.32,
-      termMonths: 9,
-      status: "late",
-      dpd: 11,
-      riskScore: 41,
-    },
-    {
-      id: "LN-1258",
-      borrower: "Servicios Industriales Norte",
-      rfc: "SIN1805032H7",
-      product: "Arrendamiento",
-      originationDate: "2025-07-12",
-      principalMXN: 22000000,
-      outstandingMXN: 18750000,
-      rateAPR: 0.265,
-      termMonths: 24,
-      status: "current",
-      dpd: 0,
-      riskScore: 83,
-    },
-    {
-      id: "LN-1304",
-      borrower: "Comercializadora Kappa",
-      rfc: "CKA1709111M3",
-      product: "Simple",
-      originationDate: "2025-05-29",
-      principalMXN: 8000000,
-      outstandingMXN: 6500000,
-      rateAPR: 0.34,
-      termMonths: 18,
-      status: "default",
-      dpd: 67,
-      riskScore: 18,
-    },
+    { id: "LN-1042", borrower: "Transporte del Valle SA", rfc: "TVA1902218K1", product: "Revolvente", originationDate: "2025-10-14", principalMXN: 12000000, outstandingMXN: 9850000, rateAPR: 0.295, termMonths: 18, status: "watch", dpd: 0, riskScore: 62 },
+    { id: "LN-1107", borrower: "Agroinsumos La Esperanza", rfc: "ALE2009183R2", product: "Simple", originationDate: "2025-08-03", principalMXN: 6000000, outstandingMXN: 4120000, rateAPR: 0.27, termMonths: 12, status: "current", dpd: 0, riskScore: 78 },
+    { id: "LN-1219", borrower: "Rising Farms MX", rfc: "RFM2101079Z5", product: "Factoraje", originationDate: "2025-11-22", principalMXN: 4500000, outstandingMXN: 3180000, rateAPR: 0.32, termMonths: 9, status: "late", dpd: 11, riskScore: 41 },
+    { id: "LN-1258", borrower: "Servicios Industriales Norte", rfc: "SIN1805032H7", product: "Arrendamiento", originationDate: "2025-07-12", principalMXN: 22000000, outstandingMXN: 18750000, rateAPR: 0.265, termMonths: 24, status: "current", dpd: 0, riskScore: 83 },
+    { id: "LN-1304", borrower: "Comercializadora Kappa", rfc: "CKA1709111M3", product: "Simple", originationDate: "2025-05-29", principalMXN: 8000000, outstandingMXN: 6500000, rateAPR: 0.34, termMonths: 18, status: "default", dpd: 67, riskScore: 18 },
   ];
 
   const kyc: KycCompany[] = [
-    {
-      id: "KYC-3021",
-      company: "Transporte del Valle SA",
-      rfc: "TVA1902218K1",
-      promotor: "Equipo Norte",
-      requestedAt: "2026-01-28",
-      status: "in_review",
-      satCfdiMonths: 24,
-      buroScore: 712,
-      flags: ["Domicilio por verificar", "Beneficiario final pendiente"],
-    },
-    {
-      id: "KYC-3090",
-      company: "Rising Farms MX",
-      rfc: "RFM2101079Z5",
-      promotor: "Equipo Bajío",
-      requestedAt: "2026-01-19",
-      status: "pending",
-      satCfdiMonths: 18,
-      buroScore: 655,
-      flags: ["CFDI incompleto (6m)"],
-    },
-    {
-      id: "KYC-3115",
-      company: "Servicios Industriales Norte",
-      rfc: "SIN1805032H7",
-      promotor: "Equipo Centro",
-      requestedAt: "2026-01-09",
-      status: "approved",
-      satCfdiMonths: 24,
-      buroScore: 780,
-      flags: [],
-    },
-    {
-      id: "KYC-3188",
-      company: "Comercializadora Kappa",
-      rfc: "CKA1709111M3",
-      promotor: "Equipo Occidente",
-      requestedAt: "2025-12-18",
-      status: "rejected",
-      satCfdiMonths: 12,
-      buroScore: 590,
-      flags: ["Inconsistencia fiscal", "PLD alto riesgo"],
-    },
+    { id: "KYC-3021", company: "Transporte del Valle SA", rfc: "TVA1902218K1", promotor: "Equipo Norte", requestedAt: "2026-01-28", status: "in_review", satCfdiMonths: 24, buroScore: 712, flags: ["Domicilio por verificar", "Beneficiario final pendiente"] },
+    { id: "KYC-3090", company: "Rising Farms MX", rfc: "RFM2101079Z5", promotor: "Equipo Bajío", requestedAt: "2026-01-19", status: "pending", satCfdiMonths: 18, buroScore: 655, flags: ["CFDI incompleto (6m)"] },
+    { id: "KYC-3115", company: "Servicios Industriales Norte", rfc: "SIN1805032H7", promotor: "Equipo Centro", requestedAt: "2026-01-09", status: "approved", satCfdiMonths: 24, buroScore: 780, flags: [] },
+    { id: "KYC-3188", company: "Comercializadora Kappa", rfc: "CKA1709111M3", promotor: "Equipo Occidente", requestedAt: "2025-12-18", status: "rejected", satCfdiMonths: 12, buroScore: 590, flags: ["Inconsistencia fiscal", "PLD alto riesgo"] },
   ];
 
   const collateral: Collateral[] = [
-    {
-      id: "COL-8001",
-      company: "Servicios Industriales Norte",
-      rfc: "SIN1805032H7",
-      type: "Activo fijo (RUG)",
-      description: "Montacargas y equipo de almacén. Registro con folio RUG.",
-      valueMXN: 5200000,
-      coveragePct: 28,
-      rugFolio: "RUG-19-558201",
-      verified: true,
-      updatedAt: "2026-01-30",
-    },
-    {
-      id: "COL-8014",
-      company: "Transporte del Valle SA",
-      rfc: "TVA1902218K1",
-      type: "Fuente de pago",
-      description: "Cesión de derechos de cobro con pagador AAA (contrato anual).",
-      valueMXN: 9000000,
-      coveragePct: 45,
-      paymentSource: "Cesión de cobranza · Pagador AAA",
-      verified: false,
-      updatedAt: "2026-02-02",
-    },
-    {
-      id: "COL-8033",
-      company: "Agroinsumos La Esperanza",
-      rfc: "ALE2009183R2",
-      type: "Fuente de pago",
-      description: "Domiciliación de pagos + contrato de suministro (3 años).",
-      valueMXN: 3200000,
-      coveragePct: 35,
-      paymentSource: "Domiciliación · Contrato suministro",
-      verified: true,
-      updatedAt: "2026-01-25",
-    },
-    {
-      id: "COL-8051",
-      company: "Rising Farms MX",
-      rfc: "RFM2101079Z5",
-      type: "Activo fijo (RUG)",
-      description: "Tractor agrícola y remolques. Registro pendiente.",
-      valueMXN: 2700000,
-      coveragePct: 22,
-      rugFolio: "—",
-      verified: false,
-      updatedAt: "2026-02-03",
-    },
+    { id: "COL-8001", company: "Servicios Industriales Norte", rfc: "SIN1805032H7", type: "Activo fijo (RUG)", description: "Montacargas y equipo de almacén. Registro con folio RUG.", valueMXN: 5200000, coveragePct: 28, rugFolio: "RUG-19-558201", verified: true, updatedAt: "2026-01-30" },
+    { id: "COL-8014", company: "Transporte del Valle SA", rfc: "TVA1902218K1", type: "Fuente de pago", description: "Cesión de derechos de cobro con pagador AAA (contrato anual).", valueMXN: 9000000, coveragePct: 45, paymentSource: "Cesión de cobranza · Pagador AAA", verified: false, updatedAt: "2026-02-02" },
+    { id: "COL-8033", company: "Agroinsumos La Esperanza", rfc: "ALE2009183R2", type: "Fuente de pago", description: "Domiciliación de pagos + contrato de suministro (3 años).", valueMXN: 3200000, coveragePct: 35, paymentSource: "Domiciliación · Contrato suministro", verified: true, updatedAt: "2026-01-25" },
+    { id: "COL-8051", company: "Rising Farms MX", rfc: "RFM2101079Z5", type: "Activo fijo (RUG)", description: "Tractor agrícola y remolques. Registro pendiente.", valueMXN: 2700000, coveragePct: 22, rugFolio: "—", verified: false, updatedAt: "2026-02-03" },
   ];
 
   const tasks = [
