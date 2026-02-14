@@ -5,45 +5,66 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 export default function Home() {
-  const [reveal, setReveal] = useState(0); // 0 = intro visible, 1 = main visible
+  // 3-stage scroll: Intro -> Mid (compact compare) -> Main
+  const [y, setY] = useState(0);
+  const [vh, setVh] = useState(800);
 
   useEffect(() => {
-    const onScroll = () => {
-      const y = window.scrollY || 0;
-      const vh = window.innerHeight || 1;
-
-      // Reveal después de ~1.35 pantallas (ajusta a tu gusto)
-      const t = clamp((y - vh * 0.9) / (vh * 0.45), 0, 1);
-      setReveal(t);
+    const on = () => {
+      setY(window.scrollY || 0);
+      setVh(window.innerHeight || 1);
     };
-
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    on();
+    window.addEventListener("scroll", on, { passive: true });
+    window.addEventListener("resize", on, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", on);
+      window.removeEventListener("resize", on);
+    };
   }, []);
 
-  const introStyle = useMemo(
-    () => ({
-      opacity: 1 - reveal,
-      transform: `translateY(${reveal * -18}px) scale(${1 - reveal * 0.02})`,
-      filter: `blur(${reveal * 4}px)`,
-      pointerEvents: reveal > 0.98 ? ("none" as const) : ("auto" as const),
-    }),
-    [reveal]
-  );
+  // Smooth stages (C2 smooth): Intro out -> Mid in/out -> Main in
+  const introOut = smoother01((y - vh * 0.9) / (vh * 0.45));
+  const midIn = smoother01((y - vh * 1.12) / (vh * 0.35));
+  const midOut = smoother01((y - vh * 1.78) / (vh * 0.35));
+  const mainIn = smoother01((y - vh * 2.1) / (vh * 0.55));
 
-  const mainStyle = useMemo(
-    () => ({
-      opacity: reveal,
-      transform: `translateY(${(1 - reveal) * 16}px)`,
-      filter: `blur(${(1 - reveal) * 4}px)`,
-      pointerEvents: reveal < 0.02 ? ("none" as const) : ("auto" as const),
-    }),
-    [reveal]
-  );
+  const introStyle = useMemo(() => {
+    const t = introOut;
+    return {
+      opacity: 1 - t,
+      transform: `translateY(${t * -18}px) scale(${1 - t * 0.02})`,
+      filter: `blur(${t * 4}px)`,
+      pointerEvents: t > 0.98 ? ("none" as const) : ("auto" as const),
+    };
+  }, [introOut]);
+
+  const midOpacity = midIn * (1 - midOut);
+  const midStyle = useMemo(() => {
+    const lift = (1 - midIn) * 10;
+    const drop = midOut * 8;
+    const blur = (1 - midIn) * 3 + midOut * 2.5;
+    return {
+      opacity: midOpacity,
+      transform: `translateY(${lift + drop}px) scale(${0.994 + midIn * 0.006 - midOut * 0.004})`,
+      filter: `blur(${blur}px)`,
+      pointerEvents:
+        midOpacity < 0.02 ? ("none" as const) : ("auto" as const),
+    };
+  }, [midIn, midOut, midOpacity]);
+
+  const mainStyle = useMemo(() => {
+    const t = mainIn;
+    return {
+      opacity: t,
+      transform: `translateY(${(1 - t) * 16}px)`,
+      filter: `blur(${(1 - t) * 4}px)`,
+      pointerEvents: t < 0.02 ? ("none" as const) : ("auto" as const),
+    };
+  }, [mainIn]);
 
   return (
-    <main className="min-h-[230vh] pliny-bg px-4 py-0">
+    <main className="min-h-[340vh] pliny-bg px-4 py-0">
       {/* Glow overlays */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
@@ -52,7 +73,7 @@ export default function Home() {
       </div>
 
       {/* =========================
-          VIEW 1 — WOW INTRO (más pequeño + geométrico + neon purple/blue atrás)
+          VIEW 1 — WOW INTRO
          ========================= */}
       <section
         className="sticky top-0 h-[100svh] flex items-center justify-center"
@@ -70,17 +91,14 @@ export default function Home() {
                 {/* LOGO WOW */}
                 <div className="mt-8 relative">
                   <div className="ringWrap">
-                    {/* Neon gradient behind logo */}
                     <div className="neonBackdrop" aria-hidden />
                     <div className="neonBackdrop neon2" aria-hidden />
                     <div className="neonBackdrop neon3" aria-hidden />
 
-                    {/* Ring lights */}
                     <div className="ring" />
                     <div className="ring ring2" />
                     <div className="ring ring3" />
 
-                    {/* More geometric plate */}
                     <div className="logoPlate">
                       <img
                         src="/plinius.png"
@@ -88,7 +106,6 @@ export default function Home() {
                         className="logoImg"
                         draggable={false}
                       />
-                      {/* subtle inner grid lines */}
                       <div className="gridLines" aria-hidden />
                     </div>
                   </div>
@@ -104,7 +121,7 @@ export default function Home() {
                 </h1>
 
                 <p className="mt-3 text-white/75 text-sm md:text-base leading-relaxed max-w-xl">
-                  Conecta SAT/CFDI, señales de riesgo y scoring para originación y monitoreo — en minutos.
+                  Conecta SAT/CFDI, señales de riesgo y scoring — en minutos.
                 </p>
 
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
@@ -140,13 +157,176 @@ export default function Home() {
 
             <div className="px-6 md:px-10 py-4 border-t border-white/10 flex items-center justify-between text-[11px] text-white/55">
               <span>© {new Date().getFullYear()} Plinius</span>
-              <span className="hidden sm:inline">Private Credit Infrastructure</span>
+              <span className="hidden sm:inline">
+                Private Credit Infrastructure
+              </span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Spacer para “mucho scroll” */}
+      {/* spacer */}
+      <div className="h-[70vh]" />
+
+      {/* =========================
+          VIEW 1.5 — SINGLE COMPACT VIEW (ALL IN ONE)
+         ========================= */}
+      <section
+        className="sticky top-0 h-[100svh] flex items-center justify-center"
+        style={midStyle}
+      >
+        <div className="w-full max-w-7xl px-3 sm:px-4">
+          <div className="rounded-[28px] border border-white/15 bg-white/6 backdrop-blur-xl shadow-2xl overflow-hidden">
+            <header className="px-5 md:px-8 py-5 border-b border-white/10">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1 text-[11px] text-white/85">
+                  <span className="h-2 w-2 rounded-full bg-lime-300 shadow-[0_0_18px_rgba(163,230,53,0.85)]" />
+                  Asset classes · México
+                </div>
+                <div className="text-[11px] text-white/55">
+                  Menos texto · más señal
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+                <h2 className="text-[20px] sm:text-[24px] md:text-[32px] font-semibold text-white leading-tight">
+                  ¿Por qué{" "}
+                  <span className="text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.55)]">
+                    Crédito Privado
+                  </span>{" "}
+                  en México?
+                </h2>
+
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/pricing/lead?plan=pro"
+                    className="hidden sm:inline-flex items-center justify-center rounded-2xl border border-lime-300/30 bg-lime-300/10 text-lime-50 font-semibold py-2.5 px-4 hover:bg-lime-300/15 transition shadow-[0_0_0_1px_rgba(163,230,53,0.10),0_10px_30px_rgba(163,230,53,0.10)]"
+                  >
+                    Solicitar integración
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center justify-center rounded-2xl bg-white text-black font-semibold py-2.5 px-4 hover:opacity-90 transition"
+                  >
+                    Entrar
+                  </Link>
+                </div>
+              </div>
+
+              <p className="mt-2 text-white/70 text-sm max-w-4xl">
+                Para muchos portafolios, el crédito privado puede ocupar el “espacio medio”: mayor carry que deuda pública, menor volatilidad que acciones, y un perfil de riesgos más controlable que activos altamente cíclicos — con la advertencia clave de ilíquidez y riesgo de crédito.
+              </p>
+            </header>
+
+            {/* CONTENT: 5 boxes in one horizontal line */}
+            <div className="px-4 md:px-8 py-5">
+              <div className="compareRow">
+                <MiniAssetBox
+                  title="Public Equities"
+                  tag="MX"
+                  color="cyan"
+                  cons={["Volatilidad", "Concentración", "Drawdowns"]}
+                />
+                <MiniAssetBox
+                  title="Deuda Pública"
+                  tag="Cetes"
+                  color="violet"
+                  cons={["Retorno real", "Reinversión", "Duración/curva"]}
+                />
+                <MiniAssetBox
+                  title="Private Equity"
+                  tag="PE"
+                  color="pink"
+                  cons={["J-curve", "Fees altos", "Dispersión"]}
+                />
+                <MiniAssetBox
+                  title="Inmobiliario"
+                  tag="RE"
+                  color="amber"
+                  cons={["Vacancia", "CapEx", "Ilíquido"]}
+                />
+                <MiniAssetBox
+                  title="Deuda Privada"
+                  tag="Plinius"
+                  color="lime"
+                  pros={["Carry", "Covenants", "Monitoreo SAT/CFDI"]}
+                  highlight
+                />
+              </div>
+
+              <div className="mt-4 grid lg:grid-cols-[1fr_420px] gap-4 items-stretch">
+                <div className="rounded-3xl border border-white/15 bg-white/6 p-4">
+                  <div className="flex items-end justify-between gap-3">
+                    <div>
+                      <div className="text-white font-semibold text-sm">
+                        Performance (5Y) · normalizado
+                      </div>
+                      <div className="text-white/55 text-[11px] mt-0.5">
+                        Ilustrativo. Cambia por benchmarks reales cuando quieras.
+                      </div>
+                    </div>
+                    <span className="hidden sm:inline-flex rounded-full border border-white/15 bg-white/6 px-2.5 py-1 text-[10px] text-white/75">
+                      5Y
+                    </span>
+                  </div>
+                  <div className="mt-3">
+                    <MiniChartCompact />
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/15 bg-white/6 p-4">
+                  <div className="text-white font-semibold text-sm">
+                    ¿Qué gana tu stack?
+                  </div>
+                  <ul className="mt-3 space-y-2 text-sm text-white/80">
+                    <li className="flex gap-2">
+                      <PulseDot />
+                      <span>Scoring + reporte PDF</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <PulseDot />
+                      <span>Alertas / señales</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <PulseDot />
+                      <span>Integración API-first</span>
+                    </li>
+                  </ul>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <Link
+                      href="/pricing/lead?plan=pro"
+                      className="inline-flex items-center justify-center rounded-2xl border border-cyan-300/25 bg-cyan-300/10 text-cyan-50 font-semibold py-2.5 px-3 hover:bg-cyan-300/15 transition"
+                    >
+                      Integración
+                    </Link>
+                    <Link
+                      href="/admin/login"
+                      className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/6 text-white font-semibold py-2.5 px-3 hover:bg-white/10 transition"
+                    >
+                      Admin
+                    </Link>
+                  </div>
+
+                  <div className="mt-3 text-[11px] text-white/55">
+                    Riesgos: default + ilíquidez. Mitigación: underwriting, covenants,
+                    monitoreo.
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 text-[11px] text-white/55 flex flex-wrap items-center justify-between gap-2">
+                <span>Rojo = desventajas · Verde pulsante = beneficios</span>
+                <span className="hidden sm:inline">
+                  © {new Date().getFullYear()} Plinius
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* spacer */}
       <div className="h-[70vh]" />
 
       {/* =========================
@@ -155,7 +335,6 @@ export default function Home() {
       <section className="pb-10" style={mainStyle}>
         <div className="mx-auto max-w-6xl">
           <div className="rounded-3xl border border-white/15 bg-white/6 backdrop-blur-xl shadow-2xl overflow-hidden">
-            {/* Top */}
             <header className="px-5 md:px-8 py-4 border-b border-white/10">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -203,7 +382,6 @@ export default function Home() {
             </header>
 
             <div className="grid lg:grid-cols-[1.05fr_0.95fr]">
-              {/* Left */}
               <section className="px-5 md:px-8 py-5 md:py-7 border-b lg:border-b-0 lg:border-r border-white/10">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1 text-[11px] text-white/85">
                   <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.9)]" />
@@ -251,7 +429,6 @@ export default function Home() {
                 </div>
               </section>
 
-              {/* Right */}
               <aside className="px-5 md:px-8 py-5 md:py-7">
                 <div className="flex items-center justify-between">
                   <div className="text-white font-semibold">Planes</div>
@@ -263,7 +440,11 @@ export default function Home() {
                     plan="Basic"
                     price="$70"
                     desc="Hasta 10 scans"
-                    bullets={["Dashboard + PDF", "Soporte estándar", "Integración guiada"]}
+                    bullets={[
+                      "Dashboard + PDF",
+                      "Soporte estándar",
+                      "Integración guiada",
+                    ]}
                     href="/pricing/lead?plan=basic"
                     glow="cyan"
                   />
@@ -296,15 +477,47 @@ export default function Home() {
       {/* Global CSS local */}
       <style jsx global>{`
         .pliny-bg {
-          background: radial-gradient(1200px 700px at 20% 10%, rgba(34, 211, 238, 0.08), transparent 55%),
-            radial-gradient(900px 650px at 85% 35%, rgba(217, 70, 239, 0.08), transparent 55%),
-            radial-gradient(900px 650px at 55% 95%, rgba(163, 230, 53, 0.07), transparent 60%),
+          background: radial-gradient(
+              1200px 700px at 20% 10%,
+              rgba(34, 211, 238, 0.08),
+              transparent 55%
+            ),
+            radial-gradient(
+              900px 650px at 85% 35%,
+              rgba(217, 70, 239, 0.08),
+              transparent 55%
+            ),
+            radial-gradient(
+              900px 650px at 55% 95%,
+              rgba(163, 230, 53, 0.07),
+              transparent 60%
+            ),
             linear-gradient(180deg, rgba(3, 7, 18, 1), rgba(2, 6, 23, 1));
         }
 
+        /* 5 boxes row: always one horizontal line; becomes scrollable on small screens */
+        .compareRow {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(180px, 1fr));
+          gap: 12px;
+          align-items: stretch;
+        }
+        @media (max-width: 1024px) {
+          .compareRow {
+            grid-template-columns: repeat(5, minmax(200px, 1fr));
+            overflow-x: auto;
+            padding-bottom: 6px;
+            scroll-snap-type: x mandatory;
+          }
+          .compareRow > * {
+            scroll-snap-align: start;
+          }
+        }
+
+        /* intro ring system */
         .ringWrap {
           position: relative;
-          width: clamp(170px, 24vw, 250px); /* más pequeño */
+          width: clamp(170px, 24vw, 250px);
           aspect-ratio: 1 / 1;
           display: grid;
           place-items: center;
@@ -312,7 +525,6 @@ export default function Home() {
           isolation: isolate;
         }
 
-        /* Neon purple/blue behind */
         .neonBackdrop {
           position: absolute;
           inset: -32px;
@@ -347,7 +559,7 @@ export default function Home() {
 
         .neon3 {
           inset: -60px;
-          opacity: 0.30;
+          opacity: 0.3;
           filter: blur(28px);
           animation-duration: 13.5s;
         }
@@ -364,12 +576,11 @@ export default function Home() {
           }
         }
 
-        /* Geometric plate */
         .logoPlate {
           position: relative;
           width: 80%;
           height: 80%;
-          border-radius: 22px; /* más geométrico */
+          border-radius: 22px;
           border: 1px solid rgba(255, 255, 255, 0.16);
           background: rgba(255, 255, 255, 0.05);
           backdrop-filter: blur(16px);
@@ -395,7 +606,8 @@ export default function Home() {
             );
           background-size: 22px 22px;
           opacity: 0.14;
-          mask-image: radial-gradient(circle at 50% 50%, #000 35%, transparent 80%);
+          mask-image: radial-gradient(circle at 50% 50%, #000 35%, transparent
+                80%);
           pointer-events: none;
         }
 
@@ -408,11 +620,10 @@ export default function Home() {
           z-index: 3;
         }
 
-        /* Ring lights with conic gradient */
         .ring {
           position: absolute;
           inset: -12px;
-          border-radius: 36px; /* más “cuadrado redondeado” */
+          border-radius: 36px;
           padding: 2px;
           background: conic-gradient(
             from 0deg,
@@ -427,11 +638,12 @@ export default function Home() {
             rgba(34, 211, 238, 0) 100%
           );
           animation: spin 3.9s linear infinite;
-          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          -webkit-mask: linear-gradient(#000 0 0) content-box,
+            linear-gradient(#000 0 0);
           -webkit-mask-composite: xor;
           mask-composite: exclude;
           box-shadow: 0 0 44px rgba(34, 211, 238, 0.12),
-            0 0 54px rgba(139, 92, 246, 0.10);
+            0 0 54px rgba(139, 92, 246, 0.1);
           z-index: 1;
         }
 
@@ -492,16 +704,43 @@ export default function Home() {
             opacity: 0;
           }
         }
+
+        /* Benefits pulse */
+        @keyframes pulseGreen {
+          0% {
+            opacity: 0.65;
+            transform: scale(0.95);
+            filter: drop-shadow(0 0 0 rgba(163, 230, 53, 0));
+          }
+          55% {
+            opacity: 1;
+            transform: scale(1);
+            filter: drop-shadow(0 0 10px rgba(163, 230, 53, 0.55));
+          }
+          100% {
+            opacity: 0.65;
+            transform: scale(0.95);
+            filter: drop-shadow(0 0 0 rgba(163, 230, 53, 0));
+          }
+        }
       `}</style>
     </main>
   );
 }
 
-/* ---------- UI bits ---------- */
+/* ---------- math / easing ---------- */
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
+
+/** clamp to [0,1] then smootherstep: 6t^5 - 15t^4 + 10t^3 (C2 smooth) */
+function smoother01(t: number) {
+  const x = clamp(t, 0, 1);
+  return x * x * x * (x * (x * 6 - 15) + 10);
+}
+
+/* ---------- UI bits ---------- */
 
 function Chip({
   text,
@@ -596,5 +835,225 @@ function MiniLink({ title, href }: { title: string; href: string }) {
     >
       {title}
     </Link>
+  );
+}
+
+function MiniAssetBox({
+  title,
+  tag,
+  cons,
+  pros,
+  color,
+  highlight,
+}: {
+  title: string;
+  tag: string;
+  cons?: string[];
+  pros?: string[];
+  color: "cyan" | "violet" | "pink" | "amber" | "lime";
+  highlight?: boolean;
+}) {
+  const colorMap: Record<
+    string,
+    { border: string; glow: string; pill: string; bg: string }
+  > = {
+    cyan: {
+      border: "border-cyan-300/25",
+      glow: "before:bg-cyan-400/18",
+      pill: "border-cyan-300/25 bg-cyan-300/10 text-cyan-50",
+      bg: "from-cyan-500/10",
+    },
+    violet: {
+      border: "border-violet-300/25",
+      glow: "before:bg-violet-400/18",
+      pill: "border-violet-300/25 bg-violet-300/10 text-violet-50",
+      bg: "from-violet-500/10",
+    },
+    pink: {
+      border: "border-fuchsia-300/25",
+      glow: "before:bg-fuchsia-400/18",
+      pill: "border-fuchsia-300/25 bg-fuchsia-300/10 text-fuchsia-50",
+      bg: "from-fuchsia-500/10",
+    },
+    amber: {
+      border: "border-amber-300/25",
+      glow: "before:bg-amber-400/16",
+      pill: "border-amber-300/25 bg-amber-300/10 text-amber-50",
+      bg: "from-amber-500/10",
+    },
+    lime: {
+      border: "border-lime-300/28",
+      glow: "before:bg-lime-400/22",
+      pill: "border-lime-300/28 bg-lime-300/12 text-lime-50",
+      bg: "from-lime-500/12",
+    },
+  };
+
+  const c = colorMap[color];
+
+  return (
+    <div
+      className={[
+        "relative rounded-3xl border bg-white/6 p-4 overflow-hidden",
+        c.border,
+        "before:content-[''] before:absolute before:-top-10 before:-right-10 before:h-40 before:w-40 before:rounded-full before:blur-3xl",
+        c.glow,
+        highlight
+          ? "shadow-[0_0_0_1px_rgba(163,230,53,0.10),0_22px_70px_rgba(0,0,0,0.28)]"
+          : "hover:border-white/25 transition",
+      ].join(" ")}
+    >
+      <div
+        className={[
+          "absolute inset-0 opacity-70 pointer-events-none",
+          "bg-gradient-to-br",
+          c.bg,
+          "to-transparent",
+        ].join(" ")}
+      />
+      <div className="relative">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-white font-semibold text-sm leading-tight">
+            {title}
+          </div>
+          <span
+            className={[
+              "shrink-0 inline-flex rounded-full border px-2 py-0.5 text-[10px]",
+              c.pill,
+            ].join(" ")}
+          >
+            {tag}
+          </span>
+        </div>
+
+        {cons?.length ? (
+          <ul className="mt-3 space-y-1.5 text-[12px] text-white/80">
+            {cons.slice(0, 3).map((x) => (
+              <li key={x} className="flex gap-2 items-start">
+                <span className="mt-[6px] h-2 w-2 rounded-full bg-red-400 shadow-[0_0_12px_rgba(248,113,113,0.35)]" />
+                <span className="leading-snug">{x}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {pros?.length ? (
+          <ul className="mt-3 space-y-1.5 text-[12px] text-white/80">
+            {pros.slice(0, 3).map((x) => (
+              <li key={x} className="flex gap-2 items-start">
+                <span className="mt-[5px] inline-flex items-center justify-center">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full bg-lime-300"
+                    style={{ animation: "pulseGreen 1.35s ease-in-out infinite" }}
+                  />
+                </span>
+                <span className="leading-snug">{x}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function PulseDot() {
+  return (
+    <span className="mt-[6px] inline-flex items-center justify-center">
+      <span
+        className="h-2.5 w-2.5 rounded-full bg-lime-300"
+        style={{ animation: "pulseGreen 1.25s ease-in-out infinite" }}
+      />
+    </span>
+  );
+}
+
+/** Compact inline SVG chart */
+function MiniChartCompact() {
+  const labels = ["Y-5", "Y-4", "Y-3", "Y-2", "Y-1", "Hoy"];
+  const series = [
+    { name: "Eq", data: [100, 108, 95, 112, 109, 118], strong: false },
+    { name: "Gov", data: [100, 103, 108, 112, 116, 120], strong: false },
+    { name: "PE", data: [100, 96, 101, 114, 122, 130], strong: false },
+    { name: "RE", data: [100, 104, 110, 107, 111, 116], strong: false },
+    { name: "PD", data: [100, 106, 113, 121, 130, 140], strong: true },
+  ];
+
+  const W = 760;
+  const H = 210;
+  const pad = 16;
+
+  const all = series.flatMap((s) => s.data);
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+
+  const sx = (i: number) =>
+    pad + (i * (W - pad * 2)) / (labels.length - 1);
+  const sy = (v: number) =>
+    pad + ((max - v) * (H - pad * 2)) / Math.max(1, max - min);
+
+  const path = (arr: number[]) =>
+    arr
+      .map((v, i) => `${i === 0 ? "M" : "L"} ${sx(i).toFixed(2)} ${sy(v).toFixed(2)}`)
+      .join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+      {/* grid */}
+      {[0, 1, 2, 3].map((k) => {
+        const yy = pad + (k * (H - pad * 2)) / 3;
+        return (
+          <line
+            key={k}
+            x1={pad}
+            y1={yy}
+            x2={W - pad}
+            y2={yy}
+            stroke="white"
+            strokeWidth="1"
+            strokeDasharray="4 6"
+            opacity="0.20"
+          />
+        );
+      })}
+
+      {/* lines */}
+      {series.map((s) => (
+        <path
+          key={s.name}
+          d={path(s.data)}
+          fill="none"
+          stroke={s.strong ? "rgba(163,230,53,0.95)" : "rgba(255,255,255,0.50)"}
+          strokeWidth={s.strong ? 2.5 : 1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          opacity={s.strong ? 0.95 : 0.55}
+        />
+      ))}
+
+      {/* end dots */}
+      {series.map((s) => {
+        const last = s.data[s.data.length - 1];
+        return (
+          <circle
+            key={s.name + "-dot"}
+            cx={sx(labels.length - 1)}
+            cy={sy(last)}
+            r={s.strong ? 3.2 : 2.5}
+            fill={s.strong ? "rgba(163,230,53,1)" : "rgba(255,255,255,0.70)"}
+            opacity={s.strong ? 1 : 0.7}
+          />
+        );
+      })}
+
+      {/* x labels */}
+      <g fontSize="10" fill="rgba(255,255,255,0.55)">
+        {labels.map((l, i) => (
+          <text key={l} x={sx(i)} y={H - 6} textAnchor="middle">
+            {l}
+          </text>
+        ))}
+      </g>
+    </svg>
   );
 }
