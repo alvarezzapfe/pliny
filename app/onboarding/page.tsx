@@ -1,6 +1,7 @@
+/* app/onboarding/page.tsx */
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type StepId = "empresa" | "documentos" | "buro_sat" | "autorizacion";
@@ -19,7 +20,7 @@ type Profile = {
     activity?: string;
     incorporationDate?: string;
     email?: string;
-    phone?: string;
+    phone?: string; // ejemplo: +52 5512345678
     efirmaSerial?: string;
   };
 
@@ -30,6 +31,8 @@ type Profile = {
     acceptedAt?: string;
   };
 };
+
+const STORAGE_KEY = "plinius_profile";
 
 const EMPTY_PROFILE: Profile = {
   updatedAt: new Date(0).toISOString(),
@@ -64,7 +67,13 @@ export default function OnboardingPage() {
   const [activity, setActivity] = useState("");
   const [incDate, setIncDate] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+
+  // Teléfono: code + 10 dígitos
+  const [phoneCountry, setPhoneCountry] = useState<CountryOpt>(COUNTRIES[0]);
+  const [phone10, setPhone10] = useState("");
+
+  const fullPhone = `${phoneCountry.dial} ${phone10}`.trim();
+
   const [efirmaSerial, setEfirmaSerial] = useState("");
 
   // ---- Autorización ----
@@ -73,8 +82,6 @@ export default function OnboardingPage() {
   const [acceptTerms, setAcceptTerms] = useState(false);
 
   const exitOnboarding = () => {
-    // opcional: limpiar sesión o solo salir
-    // localStorage.removeItem("bcl_session");
     window.location.href = "/";
   };
 
@@ -87,24 +94,41 @@ export default function OnboardingPage() {
     }
   };
 
+  const hydratePhoneFromStored = (storedPhone?: string) => {
+    if (!storedPhone) return;
+    const m = storedPhone.trim().match(/^(\+\d{1,3})\s*([0-9]{10})$/);
+    if (!m) return;
+    const dial = m[1];
+    const digits = m[2];
+    const found = COUNTRIES.find((c) => c.dial === dial);
+    if (found) setPhoneCountry(found);
+    setPhone10(digits);
+  };
+
   const persist = (patch?: Partial<Profile>) => {
-    const raw = localStorage.getItem("burocrowdlink_profile");
+    const raw = localStorage.getItem(STORAGE_KEY);
     let current: Profile = EMPTY_PROFILE;
 
     const parsed = safeJson(raw);
     if (parsed) current = { ...EMPTY_PROFILE, ...parsed };
+
+    // hidrata phone una vez si existía en storage
+    if (!phone10 && current.companyCaptured?.phone) {
+      hydratePhoneFromStored(current.companyCaptured.phone);
+    }
 
     const next: Profile = {
       ...current,
       updatedAt: new Date().toISOString(),
       companyCaptured: {
         ...(current.companyCaptured || {}),
-        companyName: companyName || current.companyCaptured?.companyName || "—",
-        rfc: rfc || current.companyCaptured?.rfc || "—",
+        // ✅ ya no forzamos "—" para permitir flujo sin llenar
+        companyName: companyName || current.companyCaptured?.companyName || "",
+        rfc: rfc || current.companyCaptured?.rfc || "",
         activity: activity || current.companyCaptured?.activity || "",
         incorporationDate: incDate || current.companyCaptured?.incorporationDate || "",
         email: email || current.companyCaptured?.email || "",
-        phone: phone || current.companyCaptured?.phone || "",
+        phone: fullPhone || current.companyCaptured?.phone || "",
         efirmaSerial: efirmaSerial || current.companyCaptured?.efirmaSerial || "",
       },
       authorization: {
@@ -114,7 +138,7 @@ export default function OnboardingPage() {
       ...patch,
     };
 
-    localStorage.setItem("burocrowdlink_profile", JSON.stringify(next));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     return next;
   };
 
@@ -122,14 +146,17 @@ export default function OnboardingPage() {
     // guarda en cada avance
     persist();
 
+    // ✅ YA NO BLOQUEAMOS en "empresa"/"documentos"/"buro_sat"
+    // Solo bloqueamos en "autorizacion" (T&C + correo DG)
+
     if (step.id === "autorizacion") {
       if (!acceptTerms) return alert("Debes aceptar Términos y Condiciones.");
-      if (!directorName.trim()) return alert("Ingresa nombre y apellidos del Director General.");
       if (!directorEmail.trim()) return alert("Ingresa el correo del Director General.");
+      if (!isValidEmail(directorEmail.trim())) return alert("Correo del Director General inválido.");
 
       persist({
         authorization: {
-          directorName: directorName.trim(),
+          directorName: directorName.trim() || "", // opcional por ahora
           directorEmail: directorEmail.trim(),
           acceptedTerms: true,
           acceptedAt: new Date().toISOString(),
@@ -147,7 +174,6 @@ export default function OnboardingPage() {
 
   // ---- PDF (print-to-pdf) ----
   const downloadAuthorizationPDF = () => {
-    // se imprime la sección "print-only"
     window.print();
   };
 
@@ -173,9 +199,9 @@ export default function OnboardingPage() {
           <header className="no-print px-4 md:px-8 py-4 md:py-5 border-b border-white/10">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <img src="/plinius.png" alt="Crowdlink" className="h-9 w-auto" />
+                <img src="/plinius.png" alt="Plinius" className="h-9 w-auto" />
                 <div className="min-w-0">
-                  <div className="text-white font-semibold leading-tight truncate">burocrowdlink</div>
+                  <div className="text-white font-semibold leading-tight truncate">Plinius</div>
                   <div className="text-white/65 text-sm truncate">Onboarding persona moral</div>
                 </div>
               </div>
@@ -186,7 +212,6 @@ export default function OnboardingPage() {
                   <div className="text-white font-semibold text-sm">{pct}%</div>
                 </div>
 
-                {/* ✅ Botón Salir */}
                 <button
                   type="button"
                   onClick={exitOnboarding}
@@ -214,7 +239,9 @@ export default function OnboardingPage() {
                     onClick={() => go(idx)}
                     className={[
                       "shrink-0 rounded-full border px-3 py-1.5 text-xs transition",
-                      active ? "border-white/30 bg-white/15 text-white" : "border-white/15 bg-white/5 text-white/80",
+                      active
+                        ? "border-white/30 bg-white/15 text-white"
+                        : "border-white/15 bg-white/5 text-white/80",
                     ].join(" ")}
                   >
                     {s.title}
@@ -272,9 +299,8 @@ export default function OnboardingPage() {
             {/* Content */}
             <section className="px-4 md:px-8 py-4 md:py-6">
               <div className="rounded-3xl border border-white/12 bg-black/20 p-4 md:p-5">
-                {/* BOX FIJO: compacto, sin scroll exterior */}
+                {/* BOX FIJO */}
                 <div className="rounded-3xl border border-white/10 bg-white/5 h-[380px] md:h-[420px] lg:h-[440px] overflow-hidden">
-                  {/* scroll interno controlado */}
                   <div className="h-full overflow-y-auto px-4 md:px-5 py-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -289,23 +315,66 @@ export default function OnboardingPage() {
                     <div className="mt-4">
                       {step.id === "empresa" && (
                         <div className="grid md:grid-cols-2 gap-2.5">
-                          <Field label="Razón social" placeholder="Ej. PorCuanto S.A. de C.V." value={companyName} onChange={setCompanyName} />
-                          <Field label="RFC" placeholder="AAAA010101AAA" value={rfc} onChange={setRfc} />
-                          <Field label="Giro / Actividad" placeholder="Ej. Servicios financieros" value={activity} onChange={setActivity} />
-                          <Field label="Fecha de constitución" placeholder="YYYY-MM-DD" type="date" value={incDate} onChange={setIncDate} />
-                          <Field label="Correo" placeholder="contacto@empresa.com" type="email" value={email} onChange={setEmail} />
-                          <Field label="Teléfono" placeholder="+52 55 ..." value={phone} onChange={setPhone} />
+                          <Field
+                            label="Razón social"
+                            placeholder="Ej. Infraestructura en Finanzas AI, S.A.P.I. de C.V."
+                            value={companyName}
+                            onChange={(v) => setCompanyName(v)}
+                          />
+
+                          <Field
+                            label="RFC"
+                            placeholder="AAAA010101AAA"
+                            value={rfc}
+                            onChange={(v) => setRfc(normalizeRFC(v))}
+                            inputMode="text"
+                            autoCapitalize="characters"
+                          />
+
+                          <Field
+                            label="Giro / Actividad"
+                            placeholder="Ej. Servicios financieros"
+                            value={activity}
+                            onChange={setActivity}
+                          />
+
+                          <Field
+                            label="Fecha de constitución"
+                            placeholder="YYYY-MM-DD"
+                            type="date"
+                            value={incDate}
+                            onChange={setIncDate}
+                          />
+
+                          <Field
+                            label="Correo"
+                            placeholder="contacto@empresa.com"
+                            type="email"
+                            value={email}
+                            onChange={(v) => setEmail(v.trim())}
+                            inputMode="email"
+                            autoCapitalize="none"
+                          />
+
+                          <PhoneField
+                            label="Teléfono"
+                            country={phoneCountry}
+                            onCountryChange={setPhoneCountry}
+                            digits={phone10}
+                            onDigitsChange={setPhone10}
+                          />
 
                           <div className="md:col-span-2">
                             <Field
                               label="No. de Serie de la e.firma"
                               placeholder="Ej. 3082010A02..."
                               value={efirmaSerial}
-                              onChange={setEfirmaSerial}
+                              onChange={(v) => setEfirmaSerial(normalizeSerial(v))}
+                              inputMode="text"
+                              autoCapitalize="characters"
                             />
                             <div className="mt-1 text-[11px] text-white/55">
-                              Riesgo: bajo–medio. No revela la llave, pero es un identificador. En producción: enmascarar (últimos 4),
-                              no loguearlo, y cifrar en reposo.
+                              Sugerencia producción: enmascarar (últimos 4), no loguearlo, y cifrar en reposo.
                             </div>
                           </div>
                         </div>
@@ -326,16 +395,17 @@ export default function OnboardingPage() {
                             const merged: Profile = {
                               ...payload,
                               companyCaptured: {
-                                companyName: companyName.trim() || "—",
-                                rfc: rfc.trim() || "—",
+                                companyName: companyName.trim(),
+                                rfc: rfc.trim(),
                                 activity: activity.trim(),
                                 incorporationDate: incDate.trim(),
                                 email: email.trim(),
-                                phone: phone.trim(),
+                                phone: fullPhone.trim(),
                                 efirmaSerial: efirmaSerial.trim(),
                               },
+                              authorization: safeJson(localStorage.getItem(STORAGE_KEY))?.authorization || {},
                             };
-                            localStorage.setItem("burocrowdlink_profile", JSON.stringify(merged));
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
                             persist(); // refuerza
                           }}
                         />
@@ -349,42 +419,45 @@ export default function OnboardingPage() {
                               Yo, <span className="text-white font-semibold">{dg}</span>, como{" "}
                               <span className="text-white font-semibold">DIRECTOR GENERAL</span> de la Empresa:{" "}
                               <span className="text-white font-semibold">{rs}</span>, con RFC{" "}
-                              <span className="text-white font-semibold">{rf}</span>, autorizo para celebrar las operaciones
-                              de financiamiento colectivo con Crowdlink (PorCuanto S.A. de C.V., Institución de Financiamiento
-                              Colectivo), que es una ITF regulada y supervisada por la Comisión Nacional Bancaria y de Valores en
-                              México.
+                              <span className="text-white font-semibold">{rf}</span>, autorizo a{" "}
+                              <span className="text-white font-semibold">Plinius</span> para recabar, procesar y utilizar la
+                              información necesaria para evaluar, estructurar y, en su caso, formalizar productos de financiamiento,
+                              así como realizar verificaciones y conexiones a proveedores (por ejemplo, SAT/Buró) conforme a los
+                              términos aplicables.
                             </div>
                           </div>
 
                           <div className="grid md:grid-cols-2 gap-2.5">
                             <Field
-                              label="Nombre y apellidos del Director General"
+                              label="Nombre y apellidos del Director General (opcional por ahora)"
                               placeholder="Ej. Luis Armando Alvarez Zapfe"
                               value={directorName}
                               onChange={(v) => {
                                 setDirectorName(v);
                                 persist({
                                   authorization: {
-                                    ...(safeJson(localStorage.getItem("burocrowdlink_profile"))?.authorization || {}),
+                                    ...(safeJson(localStorage.getItem(STORAGE_KEY))?.authorization || {}),
                                     directorName: v,
                                   },
                                 });
                               }}
                             />
                             <Field
-                              label="Correo del Director General (firma electrónica)"
+                              label="Correo del Director General (requerido)"
                               placeholder="director@empresa.com"
                               type="email"
                               value={directorEmail}
                               onChange={(v) => {
-                                setDirectorEmail(v);
+                                setDirectorEmail(v.trim());
                                 persist({
                                   authorization: {
-                                    ...(safeJson(localStorage.getItem("burocrowdlink_profile"))?.authorization || {}),
-                                    directorEmail: v,
+                                    ...(safeJson(localStorage.getItem(STORAGE_KEY))?.authorization || {}),
+                                    directorEmail: v.trim(),
                                   },
                                 });
                               }}
+                              inputMode="email"
+                              autoCapitalize="none"
                             />
                           </div>
 
@@ -449,7 +522,7 @@ export default function OnboardingPage() {
               </div>
 
               <div className="mt-3 text-[11px] text-white/50 text-center">
-                © {new Date().getFullYear()} Crowdlink • burocrowdlink
+                © {new Date().getFullYear()} Plinius
               </div>
             </section>
           </div>
@@ -458,29 +531,34 @@ export default function OnboardingPage() {
           <section className="print-only hidden">
             <div style={{ padding: 32, fontFamily: "Arial, Helvetica, sans-serif" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>Autorización • burocrowdlink</div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Autorización • Plinius</div>
                 <div style={{ fontSize: 12, color: "#444" }}>{new Date().toISOString().slice(0, 10)}</div>
               </div>
 
               <hr style={{ margin: "16px 0" }} />
 
               <div style={{ fontSize: 14, lineHeight: 1.5 }}>
-                Yo, <b>{dg}</b>, como <b>DIRECTOR GENERAL</b> de la Empresa: <b>{rs}</b>, con RFC <b>{rf}</b>, autorizo para
-                celebrar las operaciones de financiamiento colectivo con Crowdlink (PorCuanto S.A. de C.V., Institución de
-                Financiamiento Colectivo), que es una ITF regulada y supervisada por la Comisión Nacional Bancaria y de Valores
-                en México.
+                Yo, <b>{dg}</b>, como <b>DIRECTOR GENERAL</b> de la Empresa: <b>{rs}</b>, con RFC <b>{rf}</b>, autorizo a{" "}
+                <b>Plinius</b> para recabar, procesar y utilizar la información necesaria para evaluación crediticia,
+                verificación (SAT/Buró) y estructuración de crédito conforme a los términos aplicables.
               </div>
 
               <div style={{ marginTop: 18, fontSize: 13 }}>
-                <div><b>Nombre del Director General:</b> {directorName || "—"}</div>
-                <div><b>Correo para firma electrónica:</b> {directorEmail || "—"}</div>
-                <div><b>Acepta Términos y Condiciones:</b> {acceptTerms ? "Sí" : "No"}</div>
+                <div>
+                  <b>Nombre del Director General:</b> {directorName || "—"}
+                </div>
+                <div>
+                  <b>Correo para firma electrónica:</b> {directorEmail || "—"}
+                </div>
+                <div>
+                  <b>Acepta Términos y Condiciones:</b> {acceptTerms ? "Sí" : "No"}
+                </div>
               </div>
 
               <hr style={{ margin: "16px 0" }} />
 
               <div style={{ fontSize: 11, color: "#666" }}>
-                Este documento es un borrador generado por burocrowdlink. En producción se integrará firma electrónica y acuse.
+                Este documento es un borrador generado por Plinius. En producción se integrará firma electrónica y acuse.
               </div>
             </div>
           </section>
@@ -498,12 +576,16 @@ function Field({
   type = "text",
   value,
   onChange,
+  inputMode,
+  autoCapitalize,
 }: {
   label: string;
   placeholder: string;
   type?: string;
   value?: string;
   onChange?: (v: string) => void;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  autoCapitalize?: React.HTMLAttributes<HTMLInputElement>["autoCapitalize"];
 }) {
   return (
     <div>
@@ -512,6 +594,8 @@ function Field({
         type={type}
         value={value ?? ""}
         onChange={(e) => onChange?.(e.target.value)}
+        inputMode={inputMode}
+        autoCapitalize={autoCapitalize}
         className="w-full rounded-2xl bg-black/35 border border-white/15 text-white px-3 py-2 outline-none focus:border-white/35 text-sm"
         placeholder={placeholder}
       />
@@ -538,6 +622,82 @@ function DocMini({ title, desc }: { title: string; desc: string }) {
   );
 }
 
+/* ---------- Teléfono con bandera + 10 dígitos ---------- */
+
+type CountryOpt = { iso: string; label: string; dial: string; flag: string };
+
+const COUNTRIES: CountryOpt[] = [
+  { iso: "MX", label: "México", dial: "+52", flag: "🇲🇽" },
+  { iso: "US", label: "EE.UU.", dial: "+1", flag: "🇺🇸" },
+  { iso: "CA", label: "Canadá", dial: "+1", flag: "🇨🇦" },
+  { iso: "ES", label: "España", dial: "+34", flag: "🇪🇸" },
+  { iso: "CO", label: "Colombia", dial: "+57", flag: "🇨🇴" },
+  { iso: "AR", label: "Argentina", dial: "+54", flag: "🇦🇷" },
+  { iso: "CL", label: "Chile", dial: "+56", flag: "🇨🇱" },
+  { iso: "PE", label: "Perú", dial: "+51", flag: "🇵🇪" },
+  { iso: "BR", label: "Brasil", dial: "+55", flag: "🇧🇷" },
+];
+
+function PhoneField({
+  label,
+  country,
+  onCountryChange,
+  digits,
+  onDigitsChange,
+}: {
+  label: string;
+  country: CountryOpt;
+  onCountryChange: (c: CountryOpt) => void;
+  digits: string;
+  onDigitsChange: (v: string) => void;
+}) {
+  const onDigits = (raw: string) => {
+    const only = raw.replace(/\D/g, "").slice(0, 10);
+    onDigitsChange(only);
+  };
+
+  return (
+    <div>
+      <label className="block text-[11px] text-white/70 mb-1">{label}</label>
+      <div className="flex gap-2">
+        <select
+          value={country.iso}
+          onChange={(e) => {
+            const next = COUNTRIES.find((c) => c.iso === e.target.value) || COUNTRIES[0];
+            onCountryChange(next);
+          }}
+          className="rounded-2xl bg-black/35 border border-white/15 text-white px-3 py-2 outline-none focus:border-white/35 text-sm"
+        >
+          {COUNTRIES.map((c) => (
+            <option key={c.iso} value={c.iso}>
+              {c.flag} {c.dial} {c.label}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel-national"
+          pattern="[0-9]{10}"
+          maxLength={10}
+          value={digits}
+          onChange={(e) => onDigits(e.target.value)}
+          placeholder="10 dígitos"
+          className="w-full rounded-2xl bg-black/35 border border-white/15 text-white px-3 py-2 outline-none focus:border-white/35 text-sm"
+        />
+      </div>
+
+      <div className="mt-1 text-[11px] text-white/55">
+        Formato: <span className="text-white/70">{country.dial}</span> +{" "}
+        <span className="text-white/70">10 dígitos</span>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Mock + SAT/Buró ---------- */
+
 function make24MonthsMock(): RevenuePoint[] {
   const now = new Date();
   const points: RevenuePoint[] = [];
@@ -560,8 +720,10 @@ function BuroSatCompact({ onSaved }: { onSaved: (p: Profile) => void }) {
   const saveMockResult = () => {
     const payload: Profile = {
       updatedAt: new Date().toISOString(),
-      revenueMonthlyMXN: make24MonthsMock(), // ✅ 24 meses
+      revenueMonthlyMXN: make24MonthsMock(),
       buroScore: 742,
+      companyCaptured: {},
+      authorization: {},
     };
     onSaved(payload);
     alert("Mock guardado ✅ Continúa a Autorización.");
@@ -571,9 +733,7 @@ function BuroSatCompact({ onSaved }: { onSaved: (p: Profile) => void }) {
     <div className="space-y-3">
       <div className="rounded-3xl border border-white/12 bg-white/5 p-4">
         <div className="text-white font-semibold text-sm">Conectar SAT / Buró (placeholder)</div>
-        <div className="text-white/65 text-xs mt-1">
-          Aquí va e.firma/CIEC + extracción CFDI para estimar facturación.
-        </div>
+        <div className="text-white/65 text-xs mt-1">Aquí va e.firma/CIEC + extracción CFDI para estimar facturación.</div>
 
         <div className="mt-3 grid md:grid-cols-2 gap-2.5">
           <Field label="RFC" placeholder="AAAA010101AAA" />
@@ -591,7 +751,7 @@ function BuroSatCompact({ onSaved }: { onSaved: (p: Profile) => void }) {
 
           <button
             type="button"
-            onClick={() => localStorage.removeItem("burocrowdlink_profile")}
+            onClick={() => localStorage.removeItem("plinius_profile")}
             className="rounded-2xl border border-white/15 bg-white/5 text-white px-4 py-2.5 hover:bg-white/10 transition text-sm"
           >
             Limpiar mock
@@ -607,4 +767,26 @@ function BuroSatCompact({ onSaved }: { onSaved: (p: Profile) => void }) {
       </div>
     </div>
   );
+}
+
+/* ---------- utils ---------- */
+
+function normalizeRFC(v: string) {
+  return v
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/[^A-Z0-9&Ñ]/g, "")
+    .slice(0, 13);
+}
+
+function normalizeSerial(v: string) {
+  return v
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 40);
+}
+
+function isValidEmail(v: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 }

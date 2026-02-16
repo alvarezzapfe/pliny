@@ -121,7 +121,7 @@ export default function Home() {
                 </h1>
 
                 <p className="mt-3 text-white/75 text-sm md:text-base leading-relaxed max-w-xl">
-                  Conecta SAT/CFDI, señales de riesgo y scoring — en minutos.
+                  Busca y encuentra oportunidades de Credito. Gestiona tu portafolio de Credito.
                 </p>
 
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
@@ -133,11 +133,12 @@ export default function Home() {
 
                 <div className="mt-8 grid w-full max-w-md gap-3 sm:grid-cols-2">
                   <Link
-                    href="/login"
-                    className="inline-flex items-center justify-center rounded-2xl bg-white text-black font-semibold py-3 px-4 hover:opacity-90 transition"
-                  >
-                    Entrar
-                  </Link>
+  href="/market"
+  className="inline-flex items-center justify-center rounded-2xl bg-white text-black font-semibold py-3 px-4 hover:opacity-90 transition"
+>
+  Acceder Demo Market
+</Link>
+
                   <Link
                     href="/pricing/lead?plan=pro"
                     className="inline-flex items-center justify-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-50 font-semibold py-3 px-4 hover:bg-cyan-300/15 transition shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_10px_30px_rgba(34,211,238,0.10)]"
@@ -154,6 +155,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
+            
 
             <div className="px-6 md:px-10 py-4 border-t border-white/10 flex items-center justify-between text-[11px] text-white/55">
               <span>© {new Date().getFullYear()} Plinius</span>
@@ -184,7 +186,7 @@ export default function Home() {
                   Asset classes · México
                 </div>
                 <div className="text-[11px] text-white/55">
-                  Menos texto · más señal
+                  
                 </div>
               </div>
 
@@ -346,14 +348,14 @@ export default function Home() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <div className="text-white font-semibold leading-tight truncate">
-                        Plinius
+                        
                       </div>
                       <span className="hidden sm:inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] text-white/75">
                         API / SaaS para Private Credit
                       </span>
                     </div>
                     <div className="text-white/70 text-xs md:text-sm truncate">
-                      Salud financiera • SAT/CFDI • señales de riesgo • reporteo
+                      
                     </div>
                   </div>
                 </div>
@@ -397,8 +399,7 @@ export default function Home() {
                 </h2>
 
                 <p className="mt-2 text-white/75 text-sm leading-relaxed">
-                  Integra SAT/CFDI, señales de riesgo y reportes ejecutivos (PDF) para
-                  decisiones rápidas con trazabilidad.
+                  Integra y accede a oportunidades de Credito Privado.
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -439,9 +440,9 @@ export default function Home() {
                   <PlanCard
                     plan="Basic"
                     price="$70"
-                    desc="Hasta 10 scans"
+                    desc="Hasta 10 oportunidades"
                     bullets={[
-                      "Dashboard + PDF",
+                      "Dashboard",
                       "Soporte estándar",
                       "Integración guiada",
                     ]}
@@ -451,7 +452,7 @@ export default function Home() {
                   <PlanCard
                     plan="Pro"
                     price="$500"
-                    desc="Scans ilimitados"
+                    desc="Oportunidades ilimitadas"
                     bullets={["Todo Basic", "Soporte prioritario", "Roadmap API"]}
                     href="/pricing/lead?plan=pro"
                     glow="violet"

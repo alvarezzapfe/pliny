@@ -1,6 +1,11 @@
+/* app/dashboard/page.tsx
+   - ✅ Sin scroll vertical (todo cabe en 1 vista) usando height fijo + grids compactos
+   - ✅ Más ancho horizontal (max-w-7xl + px más generoso)
+   - ✅ Sidebar y contenido con alturas controladas; contenido interno con overflow-hidden
+*/
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type RevenuePoint = { month: string; value: number };
 
@@ -15,14 +20,22 @@ type Profile = {
   updatedAt: string;
   revenueMonthlyMXN: RevenuePoint[];
   buroScore: number; // 100-900
-  companyCaptured?: { companyName?: string; rfc?: string };
+  companyCaptured?: {
+    companyName?: string;
+    rfc?: string;
+    activity?: string;
+    incorporationDate?: string;
+    email?: string;
+    phone?: string;
+    efirmaSerial?: string;
+  };
   satIdentity?: { companyName?: string; rfc?: string; verifiedAt?: string };
   authorization?: Authorization;
 };
 
 const MONTHS_24: string[] = [
-  "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic", "Ene",
-  "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic", "Ene",
+  "Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic","Ene",
+  "Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic","Ene",
 ];
 
 const FALLBACK_24: RevenuePoint[] = MONTHS_24.map((m) => ({ month: m, value: 0 }));
@@ -31,24 +44,31 @@ const FALLBACK: Profile = {
   updatedAt: new Date(0).toISOString(),
   revenueMonthlyMXN: FALLBACK_24,
   buroScore: 100,
-  companyCaptured: { companyName: "—", rfc: "—" },
+  companyCaptured: {
+    companyName: "—",
+    rfc: "—",
+    activity: "—",
+    incorporationDate: "—",
+    email: "—",
+    phone: "—",
+    efirmaSerial: "—",
+  },
   satIdentity: { companyName: "—", rfc: "—" },
   authorization: {},
 };
 
-type Tab = "panel" | "empresa" | "pdf";
+type Tab = "panel" | "empresa" | "capturados" | "pdf";
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [profile, setProfile] = useState<Profile>(FALLBACK);
   const [tab, setTab] = useState<Tab>("panel");
 
-  // qué se imprime
   const [printMode, setPrintMode] = useState<"none" | "report" | "authorization">("none");
 
   useEffect(() => {
     setMounted(true);
-    const raw = localStorage.getItem("burocrowdlink_profile");
+    const raw = localStorage.getItem("plinius_profile");
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as Profile;
@@ -102,13 +122,13 @@ export default function DashboardPage() {
   const auth: Authorization = profile.authorization || {};
   const hasAuthorization = !!(
     auth.acceptedTerms &&
-    (auth.directorName || "").trim() &&
-    (auth.directorEmail || "").trim()
+    (auth.directorEmail || "").trim() &&
+    isValidEmail((auth.directorEmail || "").trim())
   );
   const authDate = auth.acceptedAt ? formatUTC(auth.acceptedAt) : "—";
 
   const logout = () => {
-    localStorage.removeItem("burocrowdlink_profile");
+    localStorage.removeItem("plinius_profile");
     localStorage.removeItem("bcl_session");
     window.location.href = "/login";
   };
@@ -129,35 +149,40 @@ export default function DashboardPage() {
     return () => window.removeEventListener("afterprint", handler);
   }, []);
 
-  // ------- resumen ejecutivo -------
+  // --- scoring boxes ---
   const scoreBand = useMemo(() => scoreToBand(profile.buroScore), [profile.buroScore]);
 
-  const last12 = useMemo(() => revenue.slice(-12), [revenue]);
-  const prev12 = useMemo(() => revenue.slice(0, 12), [revenue]);
-
-  const sum12 = useMemo(() => last12.reduce((a, b) => a + (b.value || 0), 0), [last12]);
-  const sumPrev12 = useMemo(() => prev12.reduce((a, b) => a + (b.value || 0), 0), [prev12]);
-
   const yoy = useMemo(() => {
-    if (!sumPrev12) return null;
-    return Math.round(((sum12 - sumPrev12) / Math.max(1, sumPrev12)) * 100);
-  }, [sum12, sumPrev12]);
+    const last12 = revenue.slice(-12).reduce((a, b) => a + (b.value || 0), 0);
+    const prev12 = revenue.slice(0, 12).reduce((a, b) => a + (b.value || 0), 0);
+    if (!prev12) return null;
+    return Math.round(((last12 - prev12) / Math.max(1, prev12)) * 100);
+  }, [revenue]);
 
-  const last6 = useMemo(() => revenue.slice(-6).map((x) => x.value || 0), [revenue]);
-  const trend6 = useMemo(() => {
-    // tendencia muy simple: compara promedio últimos 3 vs anteriores 3
-    const a = avg(last6.slice(0, 3));
-    const b = avg(last6.slice(3, 6));
-    if (a === 0 && b === 0) return "estable";
-    if (b > a * 1.08) return "al alza";
-    if (b < a * 0.92) return "a la baja";
-    return "estable";
-  }, [last6]);
+  const stability = useMemo(() => {
+    const xs = revenue.slice(-12).map((x) => x.value || 0).filter((x) => x >= 0);
+    const mean = avg(xs);
+    if (!xs.length || mean === 0) return { pct: 0, label: "N/D" };
+    const variance = xs.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / xs.length;
+    const stdev = Math.sqrt(variance);
+    const cv = stdev / mean;
+    const est = Math.round(100 * Math.max(0, Math.min(1, 1 - cv)));
+    const label = est >= 75 ? "Alta" : est >= 50 ? "Media" : "Baja";
+    return { pct: est, label };
+  }, [revenue]);
+
+  const creditGrade = useMemo(() => {
+    const s = profile.buroScore || 100;
+    if (s >= 760) return "A";
+    if (s >= 680) return "B";
+    if (s >= 580) return "C";
+    return "D";
+  }, [profile.buroScore]);
 
   if (!mounted) return null;
 
   return (
-    <main className="min-h-screen bg-white text-black">
+    <main className="min-h-screen bg-white text-black overflow-hidden">
       {/* Print styles */}
       <style>{`
         @media print{
@@ -169,18 +194,18 @@ export default function DashboardPage() {
         }
       `}</style>
 
-      {/* Topbar azul */}
+      {/* Topbar */}
       <header className="bg-[#0084FF] text-white no-print">
-        <div className="mx-auto max-w-6xl px-5 md:px-8 py-4 flex items-center justify-between gap-4">
+        <div className="mx-auto max-w-7xl px-6 md:px-10 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <img
               src="/plinius.png"
-              alt="Crowdlink"
+              alt="Plinius"
               className="h-9 w-auto"
               style={{ filter: "brightness(0) invert(1)" }}
             />
             <div className="min-w-0">
-              <div className="font-semibold leading-tight truncate">Dashboard</div>
+              <div className="font-semibold leading-tight truncate">Plinius Dashboard</div>
               <div className="text-white/85 text-xs truncate">Actualizado: {updatedDate}</div>
             </div>
           </div>
@@ -194,22 +219,18 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Layout */}
-      <div className="mx-auto max-w-6xl px-5 md:px-8 py-6 no-print">
-        <div className="grid lg:grid-cols-[260px_1fr] gap-4 items-stretch min-h-[calc(100vh-120px)]">
-          {/* Sidebar */}
-          <aside className="rounded-3xl border border-black/10 bg-white/60 backdrop-blur-xl p-4 h-full flex flex-col">
-            <div>
+      {/* Layout (altura fija, sin scroll) */}
+      <div className="mx-auto max-w-7xl px-6 md:px-10 py-5 no-print">
+        <div className="grid lg:grid-cols-[270px_1fr] gap-4 items-stretch h-[calc(100vh-92px-40px)]">
+          {/* Sidebar (altura completa) */}
+          <aside className="rounded-3xl border border-black/10 bg-white/60 backdrop-blur-xl p-4 h-full flex flex-col overflow-hidden">
+            <div className="min-h-0 flex flex-col">
               <div className="text-black/55 text-[11px] uppercase tracking-wider">Secciones</div>
 
               <nav className="mt-3 space-y-2">
                 <SideBtn active={tab === "panel"} onClick={() => setTab("panel")} title="Panel" desc="Score + Facturación" />
-                <SideBtn
-                  active={tab === "empresa"}
-                  onClick={() => setTab("empresa")}
-                  title="Datos de empresa"
-                  desc="Capturado vs SAT"
-                />
+                <SideBtn active={tab === "empresa"} onClick={() => setTab("empresa")} title="Datos de empresa" desc="Capturado vs SAT" />
+                <SideBtn active={tab === "capturados"} onClick={() => setTab("capturados")} title="Datos capturados" desc="Solo lectura" />
                 <SideBtn
                   active={tab === "pdf"}
                   onClick={() => {
@@ -227,10 +248,10 @@ export default function DashboardPage() {
                 <div className="text-black/55 text-xs truncate">{capturedRFC}</div>
               </div>
 
-              {/* Autorización DG */}
+              {/* Autorización DG (compacto) */}
               <div className="mt-3 rounded-2xl border border-black/10 bg-white/70 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-black/60 text-xs">Autorización DG</div>
+                  <div className="text-black/60 text-xs">Autorización</div>
                   <span
                     className={[
                       "rounded-full border px-2.5 py-1 text-[11px]",
@@ -244,7 +265,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="mt-2 text-sm">
-                  <div className="text-black/55 text-xs">Director General</div>
+                  <div className="text-black/55 text-xs">DG</div>
                   <div className="font-semibold truncate">{auth.directorName || "—"}</div>
                   <div className="text-black/55 text-xs truncate">{auth.directorEmail || "—"}</div>
                   <div className="text-black/45 text-[11px] mt-1">Fecha: {authDate}</div>
@@ -257,100 +278,115 @@ export default function DashboardPage() {
                     onClick={printAuthorization}
                     className="rounded-2xl bg-black text-white font-semibold px-3.5 py-2 text-xs hover:opacity-95 transition disabled:opacity-50"
                   >
-                    Descargar autorización (PDF)
+                    Descargar (PDF)
                   </button>
-                  <div className="text-[11px] text-black/45 flex items-center">*Print → Guardar como PDF</div>
+                  <div className="text-[11px] text-black/45 flex items-center">*Print → PDF</div>
                 </div>
               </div>
 
-              <div className="mt-3 text-[11px] text-black/45 leading-relaxed">
-                Tip: “Imprimir Reporte” usa impresión del navegador (Guardar como PDF).
+              <div className="mt-auto pt-4 text-[11px] text-black/35">
+                © {new Date().getFullYear()} Plinius
               </div>
-            </div>
-
-            <div className="mt-auto pt-4 text-[11px] text-black/35">
-              © {new Date().getFullYear()} Crowdlink
             </div>
           </aside>
 
-          {/* Content */}
-          <section className="min-w-0 h-full flex flex-col">
-            {/* Row arriba: 3 boxes valuación */}
+          {/* Content (altura completa, sin scroll) */}
+          <section className="min-w-0 h-full flex flex-col overflow-hidden">
+            {/* Top metrics (compacto) */}
             <div className="grid md:grid-cols-3 gap-3">
-              <MiniCard title="Valuación Crowdlink" subtitle="Estimación rápida" value="—" hint="Placeholder: múltiplos / DCF" />
-              <MiniCard title="Última valuación" subtitle="Fecha" value="—" hint="Se conectará al módulo" />
-              <MiniAction
-                title="Ir a valuación"
-                subtitle="Servicio"
-                buttonText="Abrir módulo"
-                onClick={() => (window.location.href = "/valuacion-crowdlink")}
+              <MiniCard
+                title="Credit Grade"
+                subtitle="Clasificación"
+                value={creditGrade}
+                hint={`Buró ${profile.buroScore} • ${scoreBand.label}`}
+              />
+              <MiniCard
+                title="Estabilidad ingresos"
+                subtitle="Últimos 12 meses"
+                value={`${stability.pct}%`}
+                hint={`Volatilidad → ${stability.label}`}
+              />
+              <MiniCard
+                title="Crecimiento YoY"
+                subtitle="12m vs 12m previos"
+                value={yoy === null ? "—" : `${yoy >= 0 ? "+" : ""}${yoy}%`}
+                hint="Estimación simple"
               />
             </div>
 
-            <div className="flex-1 mt-4">
-              {/* PANEL */}
+            {/* Main area: fill remaining height */}
+            <div className="flex-1 mt-3 min-h-0 overflow-hidden">
+              {/* PANEL (sin overflow; barras compactas) */}
               {tab === "panel" && (
-                <>
+                <div className="h-full flex flex-col min-h-0">
                   <div className="grid md:grid-cols-3 gap-3">
-                    <StatCard label="Score Buró" value={String(profile.buroScore ?? "—")} sub="Escala 100–900" />
-                    <StatCard label="Prom. facturación mensual" value={`$${avgVal.toLocaleString("es-MX")}`} sub="MXN" />
+                    <StatCard label="Score Buró" value={String(profile.buroScore ?? "—")} sub="100–900" />
+                    <StatCard label="Prom. mensual" value={`$${avgVal.toLocaleString("es-MX")}`} sub="MXN" />
                     <StatCard label="Máx. mensual" value={`$${maxVal.toLocaleString("es-MX")}`} sub="MXN" />
                   </div>
 
-                  <div className="mt-4 grid lg:grid-cols-2 gap-4">
-                    <Card title="Niveles de facturación" subtitle="MXN • 24 meses (placeholder / API)">
-                      <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-4">
-                        <div className="h-44 overflow-x-auto overflow-y-hidden pb-2 [-webkit-overflow-scrolling:touch]">
-                          <div className="min-w-[920px] flex items-end gap-3 h-40">
-                            {revenue.map((p, idx) => {
+                  {/* 2 cards que ocupan el resto */}
+                  <div className="mt-3 grid lg:grid-cols-2 gap-4 flex-1 min-h-0">
+                    <Card title="Facturación (24 meses)" subtitle="MXN • placeholder / API" className="h-full">
+                      <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-3 h-[calc(100%-52px)]">
+                        {/* chart compacto (altura fija) */}
+                        <div className="h-[180px] overflow-hidden">
+                          <div className="h-full flex items-end gap-2">
+                            {revenue.slice(0, 24).map((p, idx) => {
                               const h = Math.round(((p.value || 0) / maxVal) * 100);
                               return (
-                                <div key={`${p.month}-${idx}`} className="w-8 flex flex-col items-center gap-2">
+                                <div key={`${p.month}-${idx}`} className="flex-1 flex flex-col items-center gap-1">
                                   <div
-                                    className="w-full rounded-2xl bg-[#0084FF]"
+                                    className="w-full rounded-xl bg-[#0084FF]"
                                     style={{ height: `${Math.max(6, h)}%`, transition: "height .35s ease" }}
                                     title={`${p.month}: $${(p.value || 0).toLocaleString("es-MX")}`}
                                   />
-                                  <div className="text-black/70 text-[11px]">{p.month}</div>
+                                  {/* labels cada 3 */}
+                                  {idx % 3 === 2 ? (
+                                    <div className="text-black/60 text-[10px] leading-none">{p.month}</div>
+                                  ) : (
+                                    <div className="h-[10px]" />
+                                  )}
                                 </div>
                               );
                             })}
                           </div>
                         </div>
 
-                        <div className="mt-2 flex items-center justify-between text-black/70 text-sm">
+                        <div className="mt-2 flex items-center justify-between text-black/65 text-xs">
                           <span>Máx: ${maxVal.toLocaleString("es-MX")}</span>
                           <span>Prom: ${avgVal.toLocaleString("es-MX")}</span>
                         </div>
-                      </div>
 
-                      <div className="mt-2 text-[11px] text-black/50">
-                        Nota: aquí conectamos e.firma/CFDI para llenar esto de verdad.
+                        <div className="mt-1 text-[10.5px] text-black/45">
+                          Nota: conector e.firma/CFDI llenará esto.
+                        </div>
                       </div>
                     </Card>
 
-                    <Card title="Score Buró de Crédito" subtitle="Velocímetro • 100 (malo) → 900 (bueno)">
-                      <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-4">
-                        <Gauge score={profile.buroScore} />
-                        <div className="mt-3 flex items-center justify-between text-black/60 text-sm">
+                    <Card title="Score Buró" subtitle="Velocímetro • 100 → 900" className="h-full">
+                      <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-3 h-[calc(100%-52px)] flex flex-col">
+                        <div className="flex-1 flex items-center justify-center">
+                          <Gauge score={profile.buroScore} compact />
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-black/60 text-xs">
                           <span>100</span>
                           <span className="text-black font-semibold">{profile.buroScore}</span>
                           <span>900</span>
                         </div>
-
-                        <div className="mt-2 text-[11px] text-black/50">
-                          Color visual (rojo→amarillo→verde). Score real vendrá de Buró/motor.
+                        <div className="mt-1 text-[10.5px] text-black/45">
+                          Placeholder visual. Score real vendrá de Buró/motor.
                         </div>
                       </div>
                     </Card>
                   </div>
-                </>
+                </div>
               )}
 
-              {/* EMPRESA */}
+              {/* EMPRESA (compacto, 1 vista) */}
               {tab === "empresa" && (
-                <div className="space-y-4">
-                  <Card title="Datos de empresa" subtitle="Comparación: capturado vs SAT">
+                <div className="h-full min-h-0">
+                  <Card title="Datos de empresa" subtitle="Capturado vs SAT" className="h-full">
                     <div className="mt-3 grid lg:grid-cols-2 gap-3">
                       <InfoCard
                         label="Capturado"
@@ -372,25 +408,15 @@ export default function DashboardPage() {
                       <VerifyCard
                         title="Match RFC"
                         ok={rfcMatch}
-                        detail={
-                          rfcMatch === null ? "Pendiente: conecta SAT para validar." : rfcMatch ? "RFC coincide." : "RFC NO coincide (revisar)."
-                        }
+                        detail={rfcMatch === null ? "Pendiente: conecta SAT." : rfcMatch ? "RFC coincide." : "RFC NO coincide."}
                       />
                       <VerifyCard
                         title="Match Razón social"
                         ok={nameMatch}
-                        detail={
-                          nameMatch === null ? "Pendiente: conecta SAT para validar." : nameMatch ? "Razón social coincide." : "Razón social NO coincide (revisar)."
-                        }
+                        detail={nameMatch === null ? "Pendiente: conecta SAT." : nameMatch ? "Razón social coincide." : "Razón social NO coincide."}
                       />
                     </div>
 
-                    <div className="mt-3 text-[11px] text-black/50">
-                      En producción: aquí va constancia fiscal, régimen, actividad y hash de verificación.
-                    </div>
-                  </Card>
-
-                  <Card title="Acciones" subtitle="Mock útil (solo demo)">
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         onClick={() => {
@@ -404,7 +430,7 @@ export default function DashboardPage() {
                             updatedAt: new Date().toISOString(),
                           };
                           setProfile(next);
-                          localStorage.setItem("burocrowdlink_profile", JSON.stringify(next));
+                          localStorage.setItem("plinius_profile", JSON.stringify(next));
                         }}
                         className="rounded-2xl bg-black text-white font-semibold px-4 py-2.5 hover:opacity-95 transition"
                       >
@@ -419,34 +445,69 @@ export default function DashboardPage() {
                             updatedAt: new Date().toISOString(),
                           };
                           setProfile(next);
-                          localStorage.setItem("burocrowdlink_profile", JSON.stringify(next));
+                          localStorage.setItem("plinius_profile", JSON.stringify(next));
                         }}
                         className="rounded-2xl border border-black/10 bg-white/70 px-4 py-2.5 hover:bg-white transition"
                       >
                         Limpiar SAT
                       </button>
                     </div>
+
+                    <div className="mt-2 text-[11px] text-black/45">
+                      En producción: constancia fiscal, régimen, actividad y hash de verificación.
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {/* CAPTURADOS (compacto, solo lectura) */}
+              {tab === "capturados" && (
+                <div className="h-full min-h-0">
+                  <Card title="Datos capturados (solo lectura)" subtitle="Ingresados en onboarding" className="h-full">
+                    <div className="mt-3 grid md:grid-cols-2 gap-3">
+                      <InfoCard
+                        label="Empresa"
+                        rows={[
+                          { k: "Razón social", v: profile.companyCaptured?.companyName || "—" },
+                          { k: "RFC", v: profile.companyCaptured?.rfc || "—" },
+                          { k: "Actividad", v: profile.companyCaptured?.activity || "—" },
+                          { k: "Constitución", v: profile.companyCaptured?.incorporationDate || "—" },
+                        ]}
+                      />
+                      <InfoCard
+                        label="Contacto"
+                        rows={[
+                          { k: "Correo", v: profile.companyCaptured?.email || "—" },
+                          { k: "Teléfono", v: profile.companyCaptured?.phone || "—" },
+                          { k: "Serie e.firma", v: profile.companyCaptured?.efirmaSerial || "—" },
+                        ]}
+                      />
+                    </div>
+
+                    <div className="mt-2 text-[11px] text-black/45">
+                      Nota: lectura solamente. “Editar” sería flujo con permisos y auditoría.
+                    </div>
                   </Card>
                 </div>
               )}
             </div>
 
-            <div className="mt-6 flex items-center justify-between text-xs text-black/45">
-              <span>© {new Date().getFullYear()} Crowdlink</span>
-              <span className="text-black/35">burocrowdlink</span>
+            {/* Footer inline (sin empujar a scroll) */}
+            <div className="mt-3 flex items-center justify-between text-xs text-black/40">
+              <span>© {new Date().getFullYear()} Plinius</span>
+              <span className="text-black/30">plinius</span>
             </div>
           </section>
         </div>
       </div>
 
       {/* ===========================
-          PRINT-ONLY: REPORTE (incluye gráficas + resumen)
+          PRINT-ONLY: REPORTE
           =========================== */}
       <section className="print-only print-report hidden">
         <div style={{ padding: 28, fontFamily: "Arial, Helvetica, sans-serif" }}>
-          {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div style={{ fontWeight: 800, fontSize: 16 }}>Reporte • burocrowdlink</div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>Reporte • Plinius</div>
             <div style={{ fontSize: 12, color: "#444" }}>{updatedDate}</div>
           </div>
 
@@ -456,7 +517,6 @@ export default function DashboardPage() {
 
           <hr style={{ margin: "14px 0" }} />
 
-          {/* Datos empresa */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
               <div style={{ fontSize: 11, color: "#666" }}>Razón social (capturada)</div>
@@ -479,7 +539,6 @@ export default function DashboardPage() {
 
           <hr style={{ margin: "14px 0" }} />
 
-          {/* Resumen ejecutivo */}
           <div>
             <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}>Resumen ejecutivo</div>
             <div style={{ fontSize: 12, color: "#222", lineHeight: 1.55 }}>
@@ -488,24 +547,20 @@ export default function DashboardPage() {
                 <span style={{ color: "#666" }}>{scoreBand.note}</span>
               </div>
               <div>
-                • <b>Facturación promedio mensual:</b> ${avgVal.toLocaleString("es-MX")} MXN.{" "}
-                <span style={{ color: "#666" }}>Tendencia últimos 6 meses: {trend6}.</span>
+                • <b>Facturación promedio mensual:</b> ${avgVal.toLocaleString("es-MX")} MXN.
               </div>
               <div>
-                • <b>Comparativo 12m vs 12m previos:</b>{" "}
-                {yoy === null ? "N/D (sin base previa)" : `${yoy >= 0 ? "+" : ""}${yoy}%`}{" "}
-                <span style={{ color: "#666" }}>(estimación simple con los 24 meses).</span>
+                • <b>YoY:</b> {yoy === null ? "N/D" : `${yoy >= 0 ? "+" : ""}${yoy}%`}{" "}
+                <span style={{ color: "#666" }}>(estimación simple con 24 meses).</span>
               </div>
               <div>
-                • <b>Recomendación (placeholder):</b>{" "}
-                {scoreBand.reco}
+                • <b>Recomendación (placeholder):</b> {scoreBand.reco}
               </div>
             </div>
           </div>
 
           <hr style={{ margin: "14px 0" }} />
 
-          {/* Métricas rápidas */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
               <div style={{ fontSize: 11, color: "#666" }}>Score Buró</div>
@@ -521,7 +576,6 @@ export default function DashboardPage() {
 
           <hr style={{ margin: "14px 0" }} />
 
-          {/* Gráficas */}
           <div style={{ display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: 16, alignItems: "start" }}>
             <div>
               <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}>Facturación (24 meses)</div>
@@ -551,12 +605,12 @@ export default function DashboardPage() {
       </section>
 
       {/* ===========================
-          PRINT-ONLY: AUTORIZACIÓN DG
+          PRINT-ONLY: AUTORIZACIÓN
           =========================== */}
       <section className="print-only print-authorization hidden">
         <div style={{ padding: 28, fontFamily: "Arial, Helvetica, sans-serif" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Autorización • burocrowdlink</div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>Autorización • Plinius</div>
             <div style={{ fontSize: 12, color: "#444" }}>{new Date().toISOString().slice(0, 10)}</div>
           </div>
 
@@ -564,9 +618,9 @@ export default function DashboardPage() {
 
           <div style={{ fontSize: 13, color: "#222", lineHeight: 1.55 }}>
             Yo, <b>{auth.directorName || "__________"}</b>, como <b>DIRECTOR GENERAL</b> de la Empresa:{" "}
-            <b>{capturedName || "__________"}</b>, con RFC <b>{capturedRFC || "__________"}</b>, autorizo para celebrar
-            las operaciones de financiamiento colectivo con Crowdlink (PorCuanto S.A. de C.V., Institución de Financiamiento
-            Colectivo, regulada y supervisada por la Comisión Nacional Bancaria y de Valores en México).
+            <b>{capturedName || "__________"}</b>, con RFC <b>{capturedRFC || "__________"}</b>, autorizo a <b>Plinius</b>{" "}
+            para recabar, procesar y utilizar la información necesaria para evaluación crediticia, verificación (SAT/Buró) y
+            estructuración de crédito conforme a los términos aplicables.
           </div>
 
           <div style={{ marginTop: 14, fontSize: 12, color: "#222" }}>
@@ -592,7 +646,6 @@ export default function DashboardPage() {
    ========================= */
 
 function RevenueChartPrint({ data, maxVal }: { data: RevenuePoint[]; maxVal: number }) {
-  // SVG simple, estable en impresión
   const W = 760;
   const H = 220;
   const padL = 18;
@@ -611,7 +664,6 @@ function RevenueChartPrint({ data, maxVal }: { data: RevenuePoint[]; maxVal: num
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Revenue chart">
       <rect x="0" y="0" width={W} height={H} fill="#fff" />
-      {/* baseline */}
       <line x1={padL} y1={padT + innerH} x2={padL + innerW} y2={padT + innerH} stroke="#ddd" strokeWidth="1" />
       {bars.map((p, idx) => {
         const v = Math.max(0, p.value || 0);
@@ -621,7 +673,6 @@ function RevenueChartPrint({ data, maxVal }: { data: RevenuePoint[]; maxVal: num
         return (
           <g key={`${p.month}-${idx}`}>
             <rect x={x} y={y} width={barW} height={Math.max(2, h)} rx="6" fill="#0084FF" />
-            {/* labels (cada 2 meses para que no se encimen) */}
             {idx % 2 === 1 && (
               <text x={x + barW / 2} y={padT + innerH + 16} textAnchor="middle" fontSize="10" fill="#666">
                 {p.month}
@@ -630,7 +681,6 @@ function RevenueChartPrint({ data, maxVal }: { data: RevenuePoint[]; maxVal: num
           </g>
         );
       })}
-      {/* title corner */}
       <text x={padL} y={H - 6} fontSize="10" fill="#999">
         24 meses (placeholder)
       </text>
@@ -655,20 +705,8 @@ function GaugePrint({ score }: { score: number }) {
         </linearGradient>
       </defs>
 
-      <path
-        d="M 40 160 A 120 120 0 0 1 280 160"
-        fill="none"
-        stroke="rgba(0,0,0,0.10)"
-        strokeWidth="18"
-        strokeLinecap="round"
-      />
-      <path
-        d="M 40 160 A 120 120 0 0 1 280 160"
-        fill="none"
-        stroke="url(#rgp)"
-        strokeWidth="14"
-        strokeLinecap="round"
-      />
+      <path d="M 40 160 A 120 120 0 0 1 280 160" fill="none" stroke="rgba(0,0,0,0.10)" strokeWidth="18" strokeLinecap="round" />
+      <path d="M 40 160 A 120 120 0 0 1 280 160" fill="none" stroke="url(#rgp)" strokeWidth="14" strokeLinecap="round" />
 
       {Array.from({ length: 9 }).map((_, idx) => {
         const a = (-90 + idx * 22.5) * (Math.PI / 180);
@@ -680,18 +718,7 @@ function GaugePrint({ score }: { score: number }) {
         const y1 = cy + r1 * Math.sin(a);
         const x2 = cx + r2 * Math.cos(a);
         const y2 = cy + r2 * Math.sin(a);
-        return (
-          <line
-            key={idx}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="rgba(0,0,0,0.18)"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        );
+        return <line key={idx} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(0,0,0,0.18)" strokeWidth="2" strokeLinecap="round" />;
       })}
 
       <g transform={`translate(160 160) rotate(${angle})`}>
@@ -708,7 +735,7 @@ function GaugePrint({ score }: { score: number }) {
 }
 
 /* =========================
-   UI (APP)
+   UI COMPONENTS
    ========================= */
 
 function SideBtn({
@@ -739,10 +766,20 @@ function SideBtn({
   );
 }
 
-function Card({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+function Card({
+  title,
+  subtitle,
+  children,
+  className = "",
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="rounded-3xl border border-black/10 bg-white/60 backdrop-blur-xl shadow-sm p-5">
-      <div className="text-black font-semibold text-[17px] leading-tight">{title}</div>
+    <div className={["rounded-3xl border border-black/10 bg-white/60 backdrop-blur-xl shadow-sm p-5", className].join(" ")}>
+      <div className="text-black font-semibold text-[16px] leading-tight">{title}</div>
       <div className="text-black/60 text-sm mt-1">{subtitle}</div>
       {children}
     </div>
@@ -811,36 +848,8 @@ function MiniCard({
     <div className="rounded-3xl border border-black/10 bg-white/60 backdrop-blur-xl shadow-sm p-4">
       <div className="text-black/60 text-xs">{subtitle}</div>
       <div className="mt-1 font-semibold text-black">{title}</div>
-      <div className="mt-3 text-2xl font-semibold text-black leading-tight">{value}</div>
+      <div className="mt-2 text-2xl font-semibold text-black leading-tight">{value}</div>
       <div className="mt-1 text-[11px] text-black/45">{hint}</div>
-    </div>
-  );
-}
-
-function MiniAction({
-  title,
-  subtitle,
-  buttonText,
-  onClick,
-}: {
-  title: string;
-  subtitle: string;
-  buttonText: string;
-  onClick: () => void;
-}) {
-  return (
-    <div className="rounded-3xl border border-black/10 bg-white/60 backdrop-blur-xl shadow-sm p-4 flex flex-col">
-      <div className="text-black/60 text-xs">{subtitle}</div>
-      <div className="mt-1 font-semibold text-black">{title}</div>
-      <div className="mt-auto pt-4">
-        <button
-          onClick={onClick}
-          className="w-full rounded-2xl bg-black text-white font-semibold px-4 py-2.5 hover:opacity-95 transition"
-        >
-          {buttonText}
-        </button>
-      </div>
-      <div className="mt-2 text-[11px] text-black/45">Se crea como nueva página + servicio.</div>
     </div>
   );
 }
@@ -875,7 +884,6 @@ function avg(xs: number[]) {
 function scoreToBand(score: number) {
   const s = Number.isFinite(score) ? score : 100;
 
-  // etiquetas “placeholder” (no es buró oficial)
   if (s < 580) {
     return {
       label: "Riesgo alto",
@@ -904,20 +912,27 @@ function scoreToBand(score: number) {
   };
 }
 
+function isValidEmail(v: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+}
+
 /* =========================
    Gauge (APP)
    ========================= */
 
-function Gauge({ score }: { score: number }) {
+function Gauge({ score, compact = false }: { score: number; compact?: boolean }) {
   const min = 100;
   const max = 900;
   const clamped = Math.max(min, Math.min(max, score));
   const t = (clamped - min) / (max - min);
   const angle = -90 + t * 180;
 
+  const w = compact ? 280 : 320;
+  const h = compact ? 160 : 182;
+
   return (
     <div className="w-full flex items-center justify-center">
-      <svg width="320" height="182" viewBox="0 0 320 190" role="img" aria-label="Gauge score">
+      <svg width={w} height={h} viewBox="0 0 320 190" role="img" aria-label="Gauge score">
         <defs>
           <linearGradient id="rg" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="rgba(255,80,80,0.95)" />
