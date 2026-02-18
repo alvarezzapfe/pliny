@@ -133,12 +133,11 @@ export default function Home() {
 
                 <div className="mt-8 grid w-full max-w-md gap-3 sm:grid-cols-2">
                   <Link
-  href="/market"
-  className="inline-flex items-center justify-center rounded-2xl bg-white text-black font-semibold py-3 px-4 hover:opacity-90 transition"
->
-  Acceder Demo Market
-</Link>
-
+                    href="/login"
+                    className="inline-flex items-center justify-center rounded-2xl bg-white text-black font-semibold py-3 px-4 hover:opacity-90 transition"
+                  >
+                    Entrar
+                  </Link>
                   <Link
                     href="/pricing/lead?plan=pro"
                     className="inline-flex items-center justify-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-50 font-semibold py-3 px-4 hover:bg-cyan-300/15 transition shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_10px_30px_rgba(34,211,238,0.10)]"

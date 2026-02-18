@@ -4,18 +4,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { setSession } from "@/lib/auth";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(""); // temporal: cualquier contraseña sirve
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const hint = useMemo(
     () =>
-      "Mock: para usuarios normales cualquier contraseña funciona (temporal). Admin entra en /admin/login.",
+      "Tip: si aún no tienes cuenta, regístrate. Admin entra en /admin/login.",
     []
   );
 
@@ -24,19 +25,36 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const ok = email.trim().length > 3;
+    const cleanEmail = email.trim().toLowerCase();
 
-    await new Promise((r) => setTimeout(r, 250));
-    setLoading(false);
-
-    if (!ok) {
+    if (cleanEmail.length < 5 || !cleanEmail.includes("@")) {
+      setLoading(false);
       setError("Escribe un correo válido.");
       return;
     }
+    if (password.length < 6) {
+      setLoading(false);
+      setError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
 
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password,
+    });
+
+    setLoading(false);
+
+    if (error || !data.user) {
+      setError(error?.message ?? "No se pudo iniciar sesión.");
+      return;
+    }
+
+    // Mantén tu sesión local para tu app (role client)
     setSession({
       role: "client",
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
+      customerId: data.user.id,
       createdAt: new Date().toISOString(),
     });
 
@@ -45,7 +63,7 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen grid lg:grid-cols-2">
-      {/* LEFT: Azul + animación + logo */}
+      {/* LEFT */}
       <section className="relative overflow-hidden burocrowd-loginLeft flex items-center justify-center px-8 py-14">
         <div className="pointer-events-none absolute inset-0">
           <span className="blob b1" />
@@ -55,7 +73,6 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 w-full max-w-md">
-          {/* Brand */}
           <div className="flex items-center gap-3">
             <img src="/plinius.png" alt="Plinius" className="h-14 w-auto" />
             <div className="text-white">
@@ -64,12 +81,10 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Title (minimal) */}
           <h1 className="mt-12 text-4xl md:text-5xl font-semibold tracking-tight text-white">
             Acceder
           </h1>
 
-          {/* Differentiators (short + concrete) */}
           <div className="mt-8 grid gap-3">
             <FeatureRow title="SAT/CFDI" desc="24m facturación" />
             <FeatureRow title="Risk signals" desc="Alertas" />
@@ -83,10 +98,9 @@ export default function LoginPage() {
         </div>
       </section>
 
-      {/* RIGHT: credenciales */}
+      {/* RIGHT */}
       <section className="burocrowd-loginRight flex items-center justify-center px-8 py-14">
         <div className="w-full max-w-md">
-          {/* Top row: back to home */}
           <div className="mb-3 flex items-center justify-between">
             <Link
               href="/"
@@ -108,7 +122,9 @@ export default function LoginPage() {
           <div className="rounded-3xl border border-black/10 bg-white/85 backdrop-blur-xl shadow-2xl p-8">
             <div className="text-black">
               <h2 className="text-2xl font-semibold">Iniciar sesión</h2>
-              <p className="mt-1 text-black/70 text-sm">Ingresa tu correo para continuar</p>
+              <p className="mt-1 text-black/70 text-sm">
+                Ingresa tus credenciales para continuar
+              </p>
             </div>
 
             <form onSubmit={onSubmit} className="mt-7 space-y-4">
@@ -125,17 +141,15 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-sm text-black/70 mb-2">Contraseña (temporal)</label>
+                <label className="block text-sm text-black/70 mb-2">Contraseña</label>
                 <input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type="password"
+                  required
                   className="w-full rounded-2xl bg-white border border-black/10 text-black px-4 py-3 outline-none focus:border-black/30"
-                  placeholder="cualquiera"
+                  placeholder="••••••••"
                 />
-                <div className="mt-2 text-[11px] text-black/55">
-                  Por ahora: cualquier contraseña funciona. En prod esto lo reemplaza handshake token.
-                </div>
               </div>
 
               {error && (
@@ -152,11 +166,18 @@ export default function LoginPage() {
                 {loading ? "Validando..." : "Entrar"}
               </button>
 
-              <div className="pt-2 text-xs text-black/55">{hint}</div>
+              {/* ✅ Registro */}
+              <div className="flex items-center justify-between pt-2">
+                <div className="text-xs text-black/55">{hint}</div>
+                <Link
+                  href="/register"
+                  className="text-xs font-semibold text-black hover:underline"
+                >
+                  ¿No tienes cuenta? Regístrate
+                </Link>
+              </div>
             </form>
 
-            {/* ✅ Quité Crowdlink aquí también por si quieres full limpio.
-                Si lo quieres dejar, cámbialo a Plinius. */}
             <div className="mt-6 text-xs text-black/50">
               © {new Date().getFullYear()} Plinius
             </div>
@@ -164,7 +185,7 @@ export default function LoginPage() {
         </div>
       </section>
 
-      {/* CSS EXTRA para diferenciadores */}
+      {/* CSS EXTRA */}
       <style jsx global>{`
         .plxFeat {
           display: grid;

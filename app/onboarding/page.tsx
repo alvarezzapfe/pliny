@@ -1,8 +1,9 @@
 /* app/onboarding/page.tsx */
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 type StepId = "empresa" | "documentos" | "buro_sat" | "autorizacion";
 type Step = { id: StepId; title: string; subtitle: string };
@@ -32,8 +33,6 @@ type Profile = {
   };
 };
 
-const STORAGE_KEY = "plinius_profile";
-
 const EMPTY_PROFILE: Profile = {
   updatedAt: new Date(0).toISOString(),
   revenueMonthlyMXN: [],
@@ -41,6 +40,67 @@ const EMPTY_PROFILE: Profile = {
   companyCaptured: {},
   authorization: {},
 };
+
+type CountryOpt = { iso: string; label: string; dial: string; flag: string };
+
+const COUNTRIES: CountryOpt[] = [
+  { iso: "MX", label: "México", dial: "+52", flag: "🇲🇽" },
+  { iso: "US", label: "EE.UU.", dial: "+1", flag: "🇺🇸" },
+  { iso: "CA", label: "Canadá", dial: "+1", flag: "🇨🇦" },
+  { iso: "ES", label: "España", dial: "+34", flag: "🇪🇸" },
+  { iso: "CO", label: "Colombia", dial: "+57", flag: "🇨🇴" },
+  { iso: "AR", label: "Argentina", dial: "+54", flag: "🇦🇷" },
+  { iso: "CL", label: "Chile", dial: "+56", flag: "🇨🇱" },
+  { iso: "PE", label: "Perú", dial: "+51", flag: "🇵🇪" },
+  { iso: "BR", label: "Brasil", dial: "+55", flag: "🇧🇷" },
+];
+
+function isValidEmail(v: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+}
+
+function normalizeRFC(v: string) {
+  return v
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/[^A-Z0-9&Ñ]/g, "")
+    .slice(0, 13);
+}
+
+function normalizeSerial(v: string) {
+  return v
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 40);
+}
+
+function safeJson(raw: string | null) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function make24MonthsMock(): RevenuePoint[] {
+  const now = new Date();
+  const points: RevenuePoint[] = [];
+  for (let k = 23; k >= 0; k--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - k, 1));
+    const m = d.toLocaleString("es-MX", { month: "short" }).replace(".", "");
+    const yy = String(d.getUTCFullYear()).slice(2);
+
+    const base = 420000;
+    const wave = Math.round(140000 * Math.sin((k / 24) * Math.PI * 3));
+    const noise = Math.round((Math.random() - 0.5) * 60000);
+    const value = Math.max(0, base + wave + noise);
+
+    points.push({ month: `${m} ${yy}`, value });
+  }
+  return points;
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -58,8 +118,14 @@ export default function OnboardingPage() {
   const [i, setI] = useState(0);
   const step = steps[i];
   const pct = Math.round(((i + 1) / steps.length) * 100);
-
   const go = (next: number) => setI(Math.max(0, Math.min(steps.length - 1, next)));
+
+  // Auth/User
+  const [userId, setUserId] = useState<string | null>(null);
+  const [booting, setBooting] = useState(true);
+
+  // localStorage key per-user (evita contaminar sesiones)
+  const storageKey = useMemo(() => (userId ? `plinius_profile_${userId}` : "plinius_profile"), [userId]);
 
   // ---- Empresa ----
   const [companyName, setCompanyName] = useState("");
@@ -68,10 +134,9 @@ export default function OnboardingPage() {
   const [incDate, setIncDate] = useState("");
   const [email, setEmail] = useState("");
 
-  // Teléfono: code + 10 dígitos
+  // Teléfono
   const [phoneCountry, setPhoneCountry] = useState<CountryOpt>(COUNTRIES[0]);
   const [phone10, setPhone10] = useState("");
-
   const fullPhone = `${phoneCountry.dial} ${phone10}`.trim();
 
   const [efirmaSerial, setEfirmaSerial] = useState("");
@@ -80,19 +145,6 @@ export default function OnboardingPage() {
   const [directorName, setDirectorName] = useState("");
   const [directorEmail, setDirectorEmail] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
-
-  const exitOnboarding = () => {
-    window.location.href = "/";
-  };
-
-  const safeJson = (raw: string | null) => {
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  };
 
   const hydratePhoneFromStored = (storedPhone?: string) => {
     if (!storedPhone) return;
@@ -105,14 +157,32 @@ export default function OnboardingPage() {
     setPhone10(digits);
   };
 
-  const persist = (patch?: Partial<Profile>) => {
-    const raw = localStorage.getItem(STORAGE_KEY);
+  // ---- Supabase persistence ----
+  const upsertProfile = async (profile: Profile, onboardingCompleted: boolean) => {
+    if (!userId) return;
+
+    const payload = {
+      user_id: userId,
+      onboarding_completed: onboardingCompleted,
+      profile,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("plinius_profiles").upsert(payload, { onConflict: "user_id" });
+    if (error) {
+      // No bloqueamos UX por falla de red, pero sí logueamos
+      console.warn("upsert plinius_profiles error:", error.message);
+    }
+  };
+
+  const persist = async (patch?: Partial<Profile>) => {
+    const raw = localStorage.getItem(storageKey);
     let current: Profile = EMPTY_PROFILE;
 
     const parsed = safeJson(raw);
     if (parsed) current = { ...EMPTY_PROFILE, ...parsed };
 
-    // hidrata phone una vez si existía en storage
+    // hidrata phone una vez si existía
     if (!phone10 && current.companyCaptured?.phone) {
       hydratePhoneFromStored(current.companyCaptured.phone);
     }
@@ -122,7 +192,6 @@ export default function OnboardingPage() {
       updatedAt: new Date().toISOString(),
       companyCaptured: {
         ...(current.companyCaptured || {}),
-        // ✅ ya no forzamos "—" para permitir flujo sin llenar
         companyName: companyName || current.companyCaptured?.companyName || "",
         rfc: rfc || current.companyCaptured?.rfc || "",
         activity: activity || current.companyCaptured?.activity || "",
@@ -138,30 +207,103 @@ export default function OnboardingPage() {
       ...patch,
     };
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(storageKey, JSON.stringify(next));
+
+    // guarda a Supabase (no completado todavía)
+    await upsertProfile(next, false);
+
     return next;
   };
 
-  const onNext = () => {
+  const loadProfile = async () => {
+    // 1) sesión
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user?.id ?? null;
+
+    if (!uid) {
+      router.replace("/login");
+      return;
+    }
+    setUserId(uid);
+
+    // 2) DB: ver si ya completó onboarding
+    const { data, error } = await supabase
+      .from("plinius_profiles")
+      .select("onboarding_completed, profile")
+      .eq("user_id", uid)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("load plinius_profiles error:", error.message);
+    }
+
+    if (data?.onboarding_completed) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    // 3) hidrata desde DB si existe, si no desde localStorage
+    let base: Profile | null = (data?.profile as Profile) ?? null;
+    if (!base) {
+      const fromLs = safeJson(localStorage.getItem(`plinius_profile_${uid}`)) || safeJson(localStorage.getItem("plinius_profile"));
+      base = fromLs ? ({ ...EMPTY_PROFILE, ...fromLs } as Profile) : null;
+    }
+
+    if (base?.companyCaptured) {
+      setCompanyName(base.companyCaptured.companyName || "");
+      setRfc(base.companyCaptured.rfc || "");
+      setActivity(base.companyCaptured.activity || "");
+      setIncDate(base.companyCaptured.incorporationDate || "");
+      setEmail(base.companyCaptured.email || "");
+      setEfirmaSerial(base.companyCaptured.efirmaSerial || "");
+      hydratePhoneFromStored(base.companyCaptured.phone || "");
+    }
+
+    if (base?.authorization) {
+      setDirectorName(base.authorization.directorName || "");
+      setDirectorEmail(base.authorization.directorEmail || "");
+      setAcceptTerms(!!base.authorization.acceptedTerms);
+    }
+
+    // asegúralo en LS por usuario
+    if (base) localStorage.setItem(`plinius_profile_${uid}`, JSON.stringify(base));
+    setBooting(false);
+  };
+
+  useEffect(() => {
+    loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const exitOnboarding = () => {
+    window.location.href = "/";
+  };
+
+  const downloadAuthorizationPDF = () => {
+    window.print();
+  };
+
+  const onNext = async () => {
     // guarda en cada avance
-    persist();
+    await persist();
 
-    // ✅ YA NO BLOQUEAMOS en "empresa"/"documentos"/"buro_sat"
-    // Solo bloqueamos en "autorizacion" (T&C + correo DG)
-
+    // pasos 1-3 NO bloquean
     if (step.id === "autorizacion") {
       if (!acceptTerms) return alert("Debes aceptar Términos y Condiciones.");
       if (!directorEmail.trim()) return alert("Ingresa el correo del Director General.");
       if (!isValidEmail(directorEmail.trim())) return alert("Correo del Director General inválido.");
 
-      persist({
+      const finalProfile = await persist({
         authorization: {
-          directorName: directorName.trim() || "", // opcional por ahora
+          directorName: directorName.trim() || "",
           directorEmail: directorEmail.trim(),
           acceptedTerms: true,
           acceptedAt: new Date().toISOString(),
         },
       });
+
+      // marca onboarding como completado
+      await upsertProfile(finalProfile, true);
 
       router.push("/dashboard");
       return;
@@ -172,15 +314,20 @@ export default function OnboardingPage() {
 
   const onBack = () => go(i - 1);
 
-  // ---- PDF (print-to-pdf) ----
-  const downloadAuthorizationPDF = () => {
-    window.print();
-  };
-
   // Texto dinámico
   const rs = companyName.trim() || "__________";
   const rf = rfc.trim() || "__________";
   const dg = directorName.trim() || "__________";
+
+  if (booting) {
+    return (
+      <main className="min-h-screen burocrowd-bg flex items-center justify-center">
+        <div className="rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl px-6 py-4 text-white/80">
+          Cargando onboarding…
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen burocrowd-bg px-3 md:px-6 py-4 md:py-8">
@@ -293,7 +440,9 @@ export default function OnboardingPage() {
                 <div className="text-white/60 text-xs truncate">{rf}</div>
               </div>
 
-              <div className="mt-3 text-white/55 text-xs">Box fijo: sin scroll “de página”.</div>
+              <div className="mt-3 text-white/55 text-xs">
+                Usuario: <span className="text-white/70">{userId?.slice(0, 8)}…</span>
+              </div>
             </aside>
 
             {/* Content */}
@@ -319,7 +468,7 @@ export default function OnboardingPage() {
                             label="Razón social"
                             placeholder="Ej. Infraestructura en Finanzas AI, S.A.P.I. de C.V."
                             value={companyName}
-                            onChange={(v) => setCompanyName(v)}
+                            onChange={setCompanyName}
                           />
 
                           <Field
@@ -373,9 +522,6 @@ export default function OnboardingPage() {
                               inputMode="text"
                               autoCapitalize="characters"
                             />
-                            <div className="mt-1 text-[11px] text-white/55">
-                              Sugerencia producción: enmascarar (últimos 4), no loguearlo, y cifrar en reposo.
-                            </div>
                           </div>
                         </div>
                       )}
@@ -391,22 +537,11 @@ export default function OnboardingPage() {
 
                       {step.id === "buro_sat" && (
                         <BuroSatCompact
-                          onSaved={(payload) => {
-                            const merged: Profile = {
-                              ...payload,
-                              companyCaptured: {
-                                companyName: companyName.trim(),
-                                rfc: rfc.trim(),
-                                activity: activity.trim(),
-                                incorporationDate: incDate.trim(),
-                                email: email.trim(),
-                                phone: fullPhone.trim(),
-                                efirmaSerial: efirmaSerial.trim(),
-                              },
-                              authorization: safeJson(localStorage.getItem(STORAGE_KEY))?.authorization || {},
-                            };
-                            localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-                            persist(); // refuerza
+                          onSaved={async (payload) => {
+                            // guardamos el mock en Profile y persistimos a Supabase
+                            localStorage.setItem(storageKey, JSON.stringify(payload));
+                            await upsertProfile(payload, false);
+                            alert("Mock guardado ✅ Continúa a Autorización.");
                           }}
                         />
                       )}
@@ -429,33 +564,17 @@ export default function OnboardingPage() {
 
                           <div className="grid md:grid-cols-2 gap-2.5">
                             <Field
-                              label="Nombre y apellidos del Director General (opcional por ahora)"
+                              label="Nombre del Director General (opcional)"
                               placeholder="Ej. Luis Armando Alvarez Zapfe"
                               value={directorName}
-                              onChange={(v) => {
-                                setDirectorName(v);
-                                persist({
-                                  authorization: {
-                                    ...(safeJson(localStorage.getItem(STORAGE_KEY))?.authorization || {}),
-                                    directorName: v,
-                                  },
-                                });
-                              }}
+                              onChange={setDirectorName}
                             />
                             <Field
                               label="Correo del Director General (requerido)"
                               placeholder="director@empresa.com"
                               type="email"
                               value={directorEmail}
-                              onChange={(v) => {
-                                setDirectorEmail(v.trim());
-                                persist({
-                                  authorization: {
-                                    ...(safeJson(localStorage.getItem(STORAGE_KEY))?.authorization || {}),
-                                    directorEmail: v.trim(),
-                                  },
-                                });
-                              }}
+                              onChange={(v) => setDirectorEmail(v.trim())}
                               inputMode="email"
                               autoCapitalize="none"
                             />
@@ -465,10 +584,7 @@ export default function OnboardingPage() {
                             <input
                               type="checkbox"
                               checked={acceptTerms}
-                              onChange={(e) => {
-                                setAcceptTerms(e.target.checked);
-                                persist({ authorization: { acceptedTerms: e.target.checked } });
-                              }}
+                              onChange={(e) => setAcceptTerms(e.target.checked)}
                               className="mt-1 h-4 w-4 rounded border-white/30 bg-white/10"
                             />
                             <span className="text-white/80 text-sm">Acepto los Términos y Condiciones</span>
@@ -478,21 +594,13 @@ export default function OnboardingPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                persist({
-                                  authorization: {
-                                    directorName: directorName.trim(),
-                                    directorEmail: directorEmail.trim(),
-                                    acceptedTerms: acceptTerms,
-                                    acceptedAt: acceptTerms ? new Date().toISOString() : undefined,
-                                  },
-                                });
+                                // solo imprime, no finaliza
                                 downloadAuthorizationPDF();
                               }}
-                              className="rounded-2xl bg-white text-black font-semibold px-4 py-2.5 hover:opacity-90 transition"
+                              className="rounded-2xl border border-white/15 bg-white/5 text-white px-4 py-2.5 hover:bg-white/10 transition"
                             >
                               Descargar autorización (PDF)
                             </button>
-
                             <div className="text-[11px] text-white/55 flex items-center">
                               *Se abre impresión → “Guardar como PDF”
                             </div>
@@ -539,26 +647,19 @@ export default function OnboardingPage() {
 
               <div style={{ fontSize: 14, lineHeight: 1.5 }}>
                 Yo, <b>{dg}</b>, como <b>DIRECTOR GENERAL</b> de la Empresa: <b>{rs}</b>, con RFC <b>{rf}</b>, autorizo a{" "}
-                <b>Plinius</b> para recabar, procesar y utilizar la información necesaria para evaluación crediticia,
-                verificación (SAT/Buró) y estructuración de crédito conforme a los términos aplicables.
+                <b>Plinius</b> para recabar, procesar y utilizar la información necesaria para evaluación crediticia y verificación.
               </div>
 
               <div style={{ marginTop: 18, fontSize: 13 }}>
-                <div>
-                  <b>Nombre del Director General:</b> {directorName || "—"}
-                </div>
-                <div>
-                  <b>Correo para firma electrónica:</b> {directorEmail || "—"}
-                </div>
-                <div>
-                  <b>Acepta Términos y Condiciones:</b> {acceptTerms ? "Sí" : "No"}
-                </div>
+                <div><b>Nombre del Director General:</b> {directorName || "—"}</div>
+                <div><b>Correo:</b> {directorEmail || "—"}</div>
+                <div><b>Acepta Términos:</b> {acceptTerms ? "Sí" : "No"}</div>
               </div>
 
               <hr style={{ margin: "16px 0" }} />
 
               <div style={{ fontSize: 11, color: "#666" }}>
-                Este documento es un borrador generado por Plinius. En producción se integrará firma electrónica y acuse.
+                Documento generado por Plinius (borrador). En producción se integrará firma electrónica y acuse.
               </div>
             </div>
           </section>
@@ -622,22 +723,6 @@ function DocMini({ title, desc }: { title: string; desc: string }) {
   );
 }
 
-/* ---------- Teléfono con bandera + 10 dígitos ---------- */
-
-type CountryOpt = { iso: string; label: string; dial: string; flag: string };
-
-const COUNTRIES: CountryOpt[] = [
-  { iso: "MX", label: "México", dial: "+52", flag: "🇲🇽" },
-  { iso: "US", label: "EE.UU.", dial: "+1", flag: "🇺🇸" },
-  { iso: "CA", label: "Canadá", dial: "+1", flag: "🇨🇦" },
-  { iso: "ES", label: "España", dial: "+34", flag: "🇪🇸" },
-  { iso: "CO", label: "Colombia", dial: "+57", flag: "🇨🇴" },
-  { iso: "AR", label: "Argentina", dial: "+54", flag: "🇦🇷" },
-  { iso: "CL", label: "Chile", dial: "+56", flag: "🇨🇱" },
-  { iso: "PE", label: "Perú", dial: "+51", flag: "🇵🇪" },
-  { iso: "BR", label: "Brasil", dial: "+55", flag: "🇧🇷" },
-];
-
 function PhoneField({
   label,
   country,
@@ -687,33 +772,8 @@ function PhoneField({
           className="w-full rounded-2xl bg-black/35 border border-white/15 text-white px-3 py-2 outline-none focus:border-white/35 text-sm"
         />
       </div>
-
-      <div className="mt-1 text-[11px] text-white/55">
-        Formato: <span className="text-white/70">{country.dial}</span> +{" "}
-        <span className="text-white/70">10 dígitos</span>
-      </div>
     </div>
   );
-}
-
-/* ---------- Mock + SAT/Buró ---------- */
-
-function make24MonthsMock(): RevenuePoint[] {
-  const now = new Date();
-  const points: RevenuePoint[] = [];
-  for (let k = 23; k >= 0; k--) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - k, 1));
-    const m = d.toLocaleString("es-MX", { month: "short" }).replace(".", "");
-    const yy = String(d.getUTCFullYear()).slice(2);
-
-    const base = 420000;
-    const wave = Math.round(140000 * Math.sin((k / 24) * Math.PI * 3));
-    const noise = Math.round((Math.random() - 0.5) * 60000);
-    const value = Math.max(0, base + wave + noise);
-
-    points.push({ month: `${m} ${yy}`, value });
-  }
-  return points;
 }
 
 function BuroSatCompact({ onSaved }: { onSaved: (p: Profile) => void }) {
@@ -726,14 +786,15 @@ function BuroSatCompact({ onSaved }: { onSaved: (p: Profile) => void }) {
       authorization: {},
     };
     onSaved(payload);
-    alert("Mock guardado ✅ Continúa a Autorización.");
   };
 
   return (
     <div className="space-y-3">
       <div className="rounded-3xl border border-white/12 bg-white/5 p-4">
         <div className="text-white font-semibold text-sm">Conectar SAT / Buró (placeholder)</div>
-        <div className="text-white/65 text-xs mt-1">Aquí va e.firma/CIEC + extracción CFDI para estimar facturación.</div>
+        <div className="text-white/65 text-xs mt-1">
+          Aquí va e.firma/CIEC + extracción CFDI para estimar facturación.
+        </div>
 
         <div className="mt-3 grid md:grid-cols-2 gap-2.5">
           <Field label="RFC" placeholder="AAAA010101AAA" />
@@ -748,45 +809,8 @@ function BuroSatCompact({ onSaved }: { onSaved: (p: Profile) => void }) {
           >
             Conectar y escanear (mock)
           </button>
-
-          <button
-            type="button"
-            onClick={() => localStorage.removeItem("plinius_profile")}
-            className="rounded-2xl border border-white/15 bg-white/5 text-white px-4 py-2.5 hover:bg-white/10 transition text-sm"
-          >
-            Limpiar mock
-          </button>
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-white/12 bg-black/20 p-4">
-        <div className="text-white font-semibold text-sm">Resultado (placeholder)</div>
-        <div className="mt-1 text-white/70 text-sm">
-          Guarda el mock y luego ve a <span className="text-white font-semibold">Autorización</span>.
         </div>
       </div>
     </div>
   );
-}
-
-/* ---------- utils ---------- */
-
-function normalizeRFC(v: string) {
-  return v
-    .toUpperCase()
-    .replace(/\s+/g, "")
-    .replace(/[^A-Z0-9&Ñ]/g, "")
-    .slice(0, 13);
-}
-
-function normalizeSerial(v: string) {
-  return v
-    .toUpperCase()
-    .replace(/\s+/g, "")
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 40);
-}
-
-function isValidEmail(v: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 }
