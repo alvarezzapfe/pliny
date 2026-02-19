@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 export default function Home() {
-  // 3-stage scroll: Intro -> Mid (compact compare) -> Main
+  // 3-stage scroll: Intro -> Mid -> Main
   const [y, setY] = useState(0);
   const [vh, setVh] = useState(800);
 
@@ -33,8 +33,8 @@ export default function Home() {
     const t = introOut;
     return {
       opacity: 1 - t,
-      transform: `translateY(${t * -18}px) scale(${1 - t * 0.02})`,
-      filter: `blur(${t * 4}px)`,
+      transform: `translateY(${t * -14}px) scale(${1 - t * 0.015})`,
+      filter: `blur(${t * 3.2}px)`,
       pointerEvents: t > 0.98 ? ("none" as const) : ("auto" as const),
     };
   }, [introOut]);
@@ -46,10 +46,11 @@ export default function Home() {
     const blur = (1 - midIn) * 3 + midOut * 2.5;
     return {
       opacity: midOpacity,
-      transform: `translateY(${lift + drop}px) scale(${0.994 + midIn * 0.006 - midOut * 0.004})`,
+      transform: `translateY(${lift + drop}px) scale(${
+        0.994 + midIn * 0.006 - midOut * 0.004
+      })`,
       filter: `blur(${blur}px)`,
-      pointerEvents:
-        midOpacity < 0.02 ? ("none" as const) : ("auto" as const),
+      pointerEvents: midOpacity < 0.02 ? ("none" as const) : ("auto" as const),
     };
   }, [midIn, midOut, midOpacity]);
 
@@ -73,94 +74,83 @@ export default function Home() {
       </div>
 
       {/* =========================
-          VIEW 1 — WOW INTRO
+          VIEW 1 — INTRO (FROM MY LAST: FULL BLEED, NO CARD)
          ========================= */}
       <section
         className="sticky top-0 h-[100svh] flex items-center justify-center"
         style={introStyle}
       >
-        <div className="relative w-full max-w-3xl px-4">
-          <div className="mx-auto w-full rounded-[28px] border border-white/15 bg-white/6 backdrop-blur-xl shadow-2xl overflow-hidden">
-            <div className="px-6 md:px-10 py-10 md:py-12">
-              <div className="flex flex-col items-center text-center">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1 text-[11px] text-white/85">
-                  <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.9)]" />
-                  Private Credit API / SaaS · México
-                </div>
+        <div className="relative w-full max-w-5xl px-4">
+          <div className="flex flex-col items-center text-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-3 py-1 text-[11px] text-white/85 backdrop-blur">
+              <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.9)]" />
+              Private Credit Infrastructure · México
+            </div>
 
-                {/* LOGO WOW */}
-                <div className="mt-8 relative">
-                  <div className="ringWrap">
-                    <div className="neonBackdrop" aria-hidden />
-                    <div className="neonBackdrop neon2" aria-hidden />
-                    <div className="neonBackdrop neon3" aria-hidden />
+            {/* LOGO WOW */}
+            <div className="mt-9 relative">
+              <div className="ringWrap">
+                <div className="neonBackdrop" aria-hidden />
+                <div className="neonBackdrop neon2" aria-hidden />
+                <div className="neonBackdrop neon3" aria-hidden />
 
-                    <div className="ring" />
-                    <div className="ring ring2" />
-                    <div className="ring ring3" />
+                <div className="ring" />
+                <div className="ring ring2" />
+                <div className="ring ring3" />
 
-                    <div className="logoPlate">
-                      <img
-                        src="/plinius.png"
-                        alt="Plinius"
-                        className="logoImg"
-                        draggable={false}
-                      />
-                      <div className="gridLines" aria-hidden />
-                    </div>
-                  </div>
-
-                  <div className="pointer-events-none absolute inset-x-0 -bottom-10 mx-auto h-20 w-[340px] rounded-full bg-violet-300/18 blur-3xl" />
-                </div>
-
-                <h1 className="mt-7 text-3xl md:text-5xl font-semibold text-white leading-tight">
-                  Plinius{" "}
-                  <span className="text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.6)]">
-                    Private Credit
-                  </span>
-                </h1>
-
-                <p className="mt-3 text-white/75 text-sm md:text-base leading-relaxed max-w-xl">
-                  Busca y encuentra oportunidades de Credito. Gestiona tu portafolio de Credito.
-                </p>
-
-                <div className="mt-6 flex flex-wrap justify-center gap-2">
-                  <Chip text="SAT/CFDI" tone="cyan" />
-                  <Chip text="Risk Signals" tone="lime" />
-                  <Chip text="Score & PDF" tone="violet" />
-                  <Chip text="API First" tone="pink" />
-                </div>
-
-                <div className="mt-8 grid w-full max-w-md gap-3 sm:grid-cols-2">
-                  <Link
-                    href="/login"
-                    className="inline-flex items-center justify-center rounded-2xl bg-white text-black font-semibold py-3 px-4 hover:opacity-90 transition"
-                  >
-                    Entrar
-                  </Link>
-                  <Link
-                    href="/pricing/lead?plan=pro"
-                    className="inline-flex items-center justify-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-50 font-semibold py-3 px-4 hover:bg-cyan-300/15 transition shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_10px_30px_rgba(34,211,238,0.10)]"
-                  >
-                    Solicitar integración
-                  </Link>
-                </div>
-
-                <div className="mt-10 flex flex-col items-center gap-2 text-white/55">
-                  <div className="text-[11px]">Desliza para descubrir</div>
-                  <div className="scrollPill">
-                    <span className="dot" />
-                  </div>
+                <div className="logoPlate">
+                  <img
+                    src="/plinius.png"
+                    alt="Plinius"
+                    className="logoImg"
+                    draggable={false}
+                  />
+                  <div className="gridLines" aria-hidden />
                 </div>
               </div>
-            </div>
-            
 
-            <div className="px-6 md:px-10 py-4 border-t border-white/10 flex items-center justify-between text-[11px] text-white/55">
-              <span>© {new Date().getFullYear()} Plinius</span>
-              <span className="hidden sm:inline">
-                Private Credit Infrastructure
+              <div className="pointer-events-none absolute inset-x-0 -bottom-10 mx-auto h-20 w-[360px] rounded-full bg-violet-300/16 blur-3xl" />
+            </div>
+
+            <h1 className="mt-7 text-3xl md:text-6xl font-semibold text-white leading-tight tracking-tight">
+              Plinius{" "}
+              <span className="text-cyan-200 drop-shadow-[0_0_14px_rgba(34,211,238,0.55)]">
+                Crédito Privado
               </span>
+            </h1>
+
+            <p className="mt-3 text-white/75 text-sm md:text-base leading-relaxed max-w-2xl">
+              Origen + underwriting + monitoreo. Señales SAT/CFDI y reportes listos
+              para comité.
+            </p>
+
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <Chip text="SAT/CFDI" tone="cyan" />
+              <Chip text="Tiempos rápidos" tone="lime" />
+              <Chip text="Scoring + PDF" tone="violet" />
+              <Chip text="API-first" tone="pink" />
+            </div>
+
+            <div className="mt-8 grid w-full max-w-md gap-3 sm:grid-cols-2">
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center rounded-2xl bg-white text-black font-semibold py-3 px-4 hover:opacity-90 transition"
+              >
+                Entrar
+              </Link>
+              <Link
+                href="/pricing/lead?plan=pro"
+                className="inline-flex items-center justify-center rounded-2xl border border-cyan-300/28 bg-cyan-300/10 text-cyan-50 font-semibold py-3 px-4 hover:bg-cyan-300/15 transition shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_10px_30px_rgba(34,211,238,0.10)]"
+              >
+                Solicitar integración
+              </Link>
+            </div>
+
+            <div className="mt-10 flex flex-col items-center gap-2 text-white/55">
+              <div className="text-[11px]">Desliza para descubrir</div>
+              <div className="scrollPill">
+                <span className="dot" />
+              </div>
             </div>
           </div>
         </div>
@@ -170,7 +160,7 @@ export default function Home() {
       <div className="h-[70vh]" />
 
       {/* =========================
-          VIEW 1.5 — SINGLE COMPACT VIEW (ALL IN ONE)
+          VIEW 1.5 — MID (YOUR CODE)
          ========================= */}
       <section
         className="sticky top-0 h-[100svh] flex items-center justify-center"
@@ -184,9 +174,7 @@ export default function Home() {
                   <span className="h-2 w-2 rounded-full bg-lime-300 shadow-[0_0_18px_rgba(163,230,53,0.85)]" />
                   Asset classes · México
                 </div>
-                <div className="text-[11px] text-white/55">
-                  
-                </div>
+                <div className="text-[11px] text-white/55"></div>
               </div>
 
               <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
@@ -215,11 +203,14 @@ export default function Home() {
               </div>
 
               <p className="mt-2 text-white/70 text-sm max-w-4xl">
-                Para muchos portafolios, el crédito privado puede ocupar el “espacio medio”: mayor carry que deuda pública, menor volatilidad que acciones, y un perfil de riesgos más controlable que activos altamente cíclicos — con la advertencia clave de ilíquidez y riesgo de crédito.
+                Para muchos portafolios, el crédito privado puede ocupar el
+                “espacio medio”: mayor carry que deuda pública, menor volatilidad
+                que acciones, y un perfil de riesgos más controlable que activos
+                altamente cíclicos — con la advertencia clave de ilíquidez y
+                riesgo de crédito.
               </p>
             </header>
 
-            {/* CONTENT: 5 boxes in one horizontal line */}
             <div className="px-4 md:px-8 py-5">
               <div className="compareRow">
                 <MiniAssetBox
@@ -310,8 +301,8 @@ export default function Home() {
                   </div>
 
                   <div className="mt-3 text-[11px] text-white/55">
-                    Riesgos: default + ilíquidez. Mitigación: underwriting, covenants,
-                    monitoreo.
+                    Riesgos: default + ilíquidez. Mitigación: underwriting,
+                    covenants, monitoreo.
                   </div>
                 </div>
               </div>
@@ -331,7 +322,7 @@ export default function Home() {
       <div className="h-[70vh]" />
 
       {/* =========================
-          VIEW 2 — MAIN LANDING
+          VIEW 2 — MAIN LANDING (YOUR CODE)
          ========================= */}
       <section className="pb-10" style={mainStyle}>
         <div className="mx-auto max-w-6xl">
@@ -346,16 +337,12 @@ export default function Home() {
                   />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className="text-white font-semibold leading-tight truncate">
-                        
-                      </div>
+                      <div className="text-white font-semibold leading-tight truncate"></div>
                       <span className="hidden sm:inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] text-white/75">
                         API / SaaS para Private Credit
                       </span>
                     </div>
-                    <div className="text-white/70 text-xs md:text-sm truncate">
-                      
-                    </div>
+                    <div className="text-white/70 text-xs md:text-sm truncate"></div>
                   </div>
                 </div>
 
@@ -440,11 +427,7 @@ export default function Home() {
                     plan="Basic"
                     price="$70"
                     desc="Hasta 10 oportunidades"
-                    bullets={[
-                      "Dashboard",
-                      "Soporte estándar",
-                      "Integración guiada",
-                    ]}
+                    bullets={["Dashboard", "Soporte estándar", "Integración guiada"]}
                     href="/pricing/lead?plan=basic"
                     glow="cyan"
                   />
@@ -581,8 +564,8 @@ export default function Home() {
           width: 80%;
           height: 80%;
           border-radius: 22px;
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background: rgba(255, 255, 255, 0.04);
           backdrop-filter: blur(16px);
           box-shadow: 0 22px 70px rgba(0, 0, 0, 0.48);
           display: grid;
@@ -606,8 +589,7 @@ export default function Home() {
             );
           background-size: 22px 22px;
           opacity: 0.14;
-          mask-image: radial-gradient(circle at 50% 50%, #000 35%, transparent
-                80%);
+          mask-image: radial-gradient(circle at 50% 50%, #000 35%, transparent 80%);
           pointer-events: none;
         }
 
@@ -987,19 +969,20 @@ function MiniChartCompact() {
   const min = Math.min(...all);
   const max = Math.max(...all);
 
-  const sx = (i: number) =>
-    pad + (i * (W - pad * 2)) / (labels.length - 1);
+  const sx = (i: number) => pad + (i * (W - pad * 2)) / (labels.length - 1);
   const sy = (v: number) =>
     pad + ((max - v) * (H - pad * 2)) / Math.max(1, max - min);
 
   const path = (arr: number[]) =>
     arr
-      .map((v, i) => `${i === 0 ? "M" : "L"} ${sx(i).toFixed(2)} ${sy(v).toFixed(2)}`)
+      .map(
+        (v, i) =>
+          `${i === 0 ? "M" : "L"} ${sx(i).toFixed(2)} ${sy(v).toFixed(2)}`
+      )
       .join(" ");
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-      {/* grid */}
       {[0, 1, 2, 3].map((k) => {
         const yy = pad + (k * (H - pad * 2)) / 3;
         return (
@@ -1017,13 +1000,14 @@ function MiniChartCompact() {
         );
       })}
 
-      {/* lines */}
       {series.map((s) => (
         <path
           key={s.name}
           d={path(s.data)}
           fill="none"
-          stroke={s.strong ? "rgba(163,230,53,0.95)" : "rgba(255,255,255,0.50)"}
+          stroke={
+            s.strong ? "rgba(163,230,53,0.95)" : "rgba(255,255,255,0.50)"
+          }
           strokeWidth={s.strong ? 2.5 : 1.5}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -1031,7 +1015,6 @@ function MiniChartCompact() {
         />
       ))}
 
-      {/* end dots */}
       {series.map((s) => {
         const last = s.data[s.data.length - 1];
         return (
@@ -1046,7 +1029,6 @@ function MiniChartCompact() {
         );
       })}
 
-      {/* x labels */}
       <g fontSize="10" fill="rgba(255,255,255,0.55)">
         {labels.map((l, i) => (
           <text key={l} x={sx(i)} y={H - 6} textAnchor="middle">
