@@ -1,7 +1,7 @@
 /* app/dashboard/page.tsx */
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -52,7 +52,14 @@ type CreditRequest = {
   status: "draft" | "submitted" | "authorized" | "funded" | "rejected";
 };
 
-type Tab = "panel" | "datos" | "solicitudes" | "pdf";
+type Tab = "chat" | "panel" | "datos" | "solicitudes" | "pdf";
+
+type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  ts: string;
+};
 
 /* =========================
    Fallbacks
@@ -101,6 +108,8 @@ const DEMO_REQUESTS: CreditRequest[] = [
   },
 ];
 
+const AI_NAME = "PLINIO CORE";
+
 /* =========================
    Page
    ========================= */
@@ -109,12 +118,11 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
-
   const [userId, setUserId] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
 
   const [profile, setProfile] = useState<Profile>(FALLBACK);
-  const [tab, setTab] = useState<Tab>("panel");
+  const [tab, setTab] = useState<Tab>("chat");
 
   const [printMode, setPrintMode] = useState<"none" | "report" | "authorization">("none");
 
@@ -131,7 +139,21 @@ export default function DashboardPage() {
   });
 
   // Solicitudes (por ahora demo)
-  const [requests, setRequests] = useState<CreditRequest[]>(DEMO_REQUESTS);
+  const [requests] = useState<CreditRequest[]>(DEMO_REQUESTS);
+
+  // Chat UI (mock live-like)
+  const [chatInput, setChatInput] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: "m1",
+      role: "assistant",
+      content:
+        `Soy ${AI_NAME}. Puedo ayudarte a interpretar score, validar señales SAT/CFDI, y preparar una recomendación preliminar de crédito.\n\nPrueba: "¿Qué monto/plazo sugerirías con este perfil?"`,
+      ts: new Date().toISOString(),
+    },
+  ]);
+  const chatListRef = useRef<HTMLDivElement | null>(null);
 
   const revenue = profile.revenueMonthlyMXN || FALLBACK_24;
 
@@ -166,7 +188,7 @@ export default function DashboardPage() {
       ? normalize(capturedName) === normalize(satName)
       : null;
 
-  // Autorización (AHORA SOLO EN DATOS)
+  // Autorización
   const auth: Authorization = profile.authorization || {};
   const hasAuthorization = !!(
     auth.acceptedTerms &&
@@ -179,7 +201,6 @@ export default function DashboardPage() {
     return Number.isFinite(profile.buroScore) && (profile.buroScore ?? 0) > 100;
   }, [profile.buroScore]);
 
-  // --- scoring boxes ---
   const scoreBand = useMemo(() => scoreToBand(profile.buroScore), [profile.buroScore]);
 
   const yoy = useMemo(() => {
@@ -264,7 +285,6 @@ export default function DashboardPage() {
 
     setProfile(merged);
     localStorage.setItem(`plinius_profile_${uid}`, JSON.stringify(merged));
-
     setBooting(false);
   };
 
@@ -298,6 +318,11 @@ export default function DashboardPage() {
       setBuroMsg("");
     }
   }, [mounted, tab, hasRealBuro]);
+
+  useEffect(() => {
+    if (!chatListRef.current) return;
+    chatListRef.current.scrollTop = chatListRef.current.scrollHeight;
+  }, [chatMessages, chatSending, tab]);
 
   /* =========================
      Actions
@@ -382,10 +407,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/buro/score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rfc: capturedRFC,
-          companyName: capturedName,
-        }),
+        body: JSON.stringify({ rfc: capturedRFC, companyName: capturedName }),
       });
 
       const json = await res.json();
@@ -413,12 +435,50 @@ export default function DashboardPage() {
     router.push("/solicitudes/nueva");
   };
 
+  const sendChat = async () => {
+    const text = chatInput.trim();
+    if (!text || chatSending) return;
+
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: "user",
+      content: text,
+      ts: new Date().toISOString(),
+    };
+
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatInput("");
+    setChatSending(true);
+
+    // Mock live assistant response (UI-first)
+    setTimeout(() => {
+      const assistantReply = buildPlinioReply(text, {
+        buroScore: profile.buroScore,
+        creditGrade,
+        satConnected,
+        yoy,
+        stabilityPct: stability.pct,
+        companyName: capturedName,
+      });
+
+      const aiMsg: ChatMessage = {
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        content: assistantReply,
+        ts: new Date().toISOString(),
+      };
+
+      setChatMessages((prev) => [...prev, aiMsg]);
+      setChatSending(false);
+    }, 850);
+  };
+
   if (!mounted) return null;
 
   if (booting) {
     return (
-      <main className="min-h-screen bg-white grid place-items-center">
-        <div className="rounded-3xl border border-black/10 bg-white/80 backdrop-blur-xl px-6 py-4 text-black/70 shadow-sm">
+      <main className="min-h-screen bg-[#071226] grid place-items-center">
+        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl px-6 py-4 text-white/80 shadow-sm">
           Cargando dashboard…
         </div>
       </main>
@@ -426,17 +486,17 @@ export default function DashboardPage() {
   }
 
   const satPill = satConnected
-    ? { label: "Conectado", cls: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700" }
+    ? { label: "Conectado", cls: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300" }
     : satStatus === "processing"
-    ? { label: "Procesando", cls: "border-blue-500/20 bg-blue-500/10 text-blue-700" }
+    ? { label: "Procesando", cls: "border-blue-400/20 bg-blue-400/10 text-blue-200" }
     : satStatus === "uploaded"
-    ? { label: "Archivos cargados", cls: "border-black/10 bg-black/5 text-black/70" }
+    ? { label: "Archivos cargados", cls: "border-white/10 bg-white/5 text-white/70" }
     : satStatus === "error"
-    ? { label: "Error", cls: "border-red-500/20 bg-red-500/10 text-red-700" }
-    : { label: "Pendiente", cls: "border-black/10 bg-black/5 text-black/60" };
+    ? { label: "Error", cls: "border-red-400/20 bg-red-400/10 text-red-300" }
+    : { label: "Pendiente", cls: "border-white/10 bg-white/5 text-white/60" };
 
   return (
-    <main className="min-h-screen bg-white text-black overflow-hidden">
+    <main className="min-h-screen bg-[#071226] text-white overflow-hidden">
       {/* Print styles */}
       <style>{`
         @media print{
@@ -449,9 +509,9 @@ export default function DashboardPage() {
         }
       `}</style>
 
-      {/* Topbar */}
-      <header className="bg-[#2B1B55] text-white no-print">
-        <div className="mx-auto max-w-7xl px-6 md:px-10 py-4 flex items-center justify-between gap-4">
+      {/* Topbar (AZUL) */}
+      <header className="bg-[#0D3B8E] text-white no-print border-b border-white/10">
+        <div className="mx-auto max-w-[1600px] px-6 md:px-10 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <img
               src="/plinius.png"
@@ -461,7 +521,7 @@ export default function DashboardPage() {
             />
             <div className="min-w-0">
               <div className="font-semibold leading-tight truncate">Plinius Dashboard</div>
-              <div className="text-white/80 text-xs truncate">Actualizado: {updatedDate}</div>
+              <div className="text-white/75 text-xs truncate">Actualizado: {updatedDate}</div>
             </div>
           </div>
 
@@ -471,7 +531,7 @@ export default function DashboardPage() {
             </div>
             <button
               onClick={logout}
-              className="rounded-2xl bg-white text-black font-semibold px-4 py-2.5 hover:opacity-90 transition"
+              className="rounded-2xl bg-white text-[#071226] font-semibold px-4 py-2.5 hover:opacity-90 transition"
             >
               Cerrar sesión
             </button>
@@ -479,75 +539,83 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Layout */}
-      <div className="mx-auto max-w-7xl px-6 md:px-10 py-5 no-print">
-        <div className="grid lg:grid-cols-[270px_1fr] gap-4 items-stretch h-[calc(100vh-92px-40px)]">
+      {/* Ambient bg */}
+      <div className="pointer-events-none fixed inset-0 no-print">
+        <div className="absolute -top-20 -left-20 h-80 w-80 rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="absolute top-32 right-10 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="absolute bottom-10 left-1/3 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
+      </div>
 
-          {/* Sidebar (sin autorización ya) */}
-          <aside className="rounded-3xl border border-black/10 bg-white/60 backdrop-blur-xl h-full overflow-hidden">
+      {/* Layout */}
+      <div className="mx-auto max-w-[1600px] px-6 md:px-10 py-5 no-print">
+        <div className="grid lg:grid-cols-[290px_1fr] gap-4 items-stretch h-[calc(100vh-92px-40px)]">
+          {/* Sidebar */}
+          <aside className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl h-full overflow-hidden shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
             <div className="h-full grid grid-rows-[auto_auto_auto_1fr]">
               <div className="p-4">
-                <div className="text-black/55 text-[11px] uppercase tracking-wider">Secciones</div>
+                <div className="text-white/45 text-[11px] uppercase tracking-wider">Workspace</div>
 
                 <nav className="mt-3 space-y-2">
-                  <SideBtn active={tab === "panel"} onClick={() => setTab("panel")} title="Panel" desc="Score + Ingresos + SAT" />
-                  <SideBtn active={tab === "datos"} onClick={() => setTab("datos")} title="Datos" desc="Capturado + SAT + Autorización" />
-                  <SideBtn active={tab === "solicitudes"} onClick={() => setTab("solicitudes")} title="Solicitudes" desc="Lista + iniciar" />
+                  <SideBtn active={tab === "chat"} onClick={() => setTab("chat")} title={AI_NAME} desc="Chat crediticio / underwriting copilot" icon="ai" />
+                  <SideBtn active={tab === "panel"} onClick={() => setTab("panel")} title="Panel" desc="Score + ingresos + buró" icon="panel" />
+                  <SideBtn active={tab === "datos"} onClick={() => setTab("datos")} title="Datos" desc="Capturado + SAT + autorización" icon="data" />
+                  <SideBtn active={tab === "solicitudes"} onClick={() => setTab("solicitudes")} title="Solicitudes" desc="Tabla + iniciar" icon="req" />
                   <SideBtn
                     active={tab === "pdf"}
                     onClick={() => {
                       setTab("pdf");
                       printReport();
                     }}
-                    title="Imprimir Reporte (PDF)"
+                    title="Reporte PDF"
                     desc="2 hojas • ejecutivo + detalle"
+                    icon="pdf"
                   />
                 </nav>
               </div>
 
               <div className="px-4">
-                <div className="rounded-2xl border border-black/10 bg-white/70 p-3">
-                  <div className="text-black/60 text-[11px]">Empresa</div>
-                  <div className="mt-1 font-semibold text-black truncate text-sm">{capturedName}</div>
-                  <div className="text-black/55 text-xs truncate">{capturedRFC}</div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <div className="text-white/55 text-[11px]">Empresa</div>
+                  <div className="mt-1 font-semibold text-white truncate text-sm">{capturedName}</div>
+                  <div className="text-white/55 text-xs truncate">{capturedRFC}</div>
                 </div>
               </div>
 
               {/* SAT compact */}
               <div className="px-4 mt-3">
-                <div className="rounded-2xl border border-black/10 bg-white/70 p-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-black/60 text-[11px]">SAT</div>
+                    <div className="text-white/60 text-[11px]">SAT</div>
                     <span className={`rounded-full border px-2.5 py-1 text-[11px] ${satPill.cls}`}>{satPill.label}</span>
                   </div>
 
-                  <div className="mt-2 text-[11px] text-black/55 leading-snug">
+                  <div className="mt-2 text-[11px] text-white/50 leading-snug">
                     {satConnected
                       ? `Verificado: ${formatUTC(profile.satIdentity?.verifiedAt || "")}`
                       : profile.satIdentity?.lastMessage
                       ? profile.satIdentity.lastMessage
-                      : "Cargar CIEC/e.firma para extracción CFDI y validación RFC."}
+                      : "Carga CIEC / e.firma para extracción CFDI."}
                   </div>
 
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={openSatModal}
-                      className="rounded-2xl bg-black text-white font-semibold px-3.5 py-2 text-xs hover:opacity-95 transition"
+                      className="rounded-2xl bg-white text-[#071226] font-semibold px-3.5 py-2 text-xs hover:opacity-95 transition"
                     >
-                      Cargar archivos
+                      Cargar
                     </button>
                     <button
                       type="button"
                       onClick={processSatMock}
-                      className="rounded-2xl border border-black/10 bg-white/70 px-3.5 py-2 hover:bg-white transition text-xs"
+                      className="rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2 hover:bg-white/10 transition text-xs"
                     >
-                      Procesar (mock)
+                      Mock
                     </button>
                     <button
                       type="button"
                       onClick={clearSat}
-                      className="rounded-2xl border border-black/10 bg-white/70 px-3.5 py-2 hover:bg-white transition text-xs"
+                      className="rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2 hover:bg-white/10 transition text-xs"
                     >
                       Limpiar
                     </button>
@@ -556,36 +624,126 @@ export default function DashboardPage() {
               </div>
 
               <div className="px-4 pb-4 mt-3 flex items-end">
-                <div className="text-[11px] text-black/35">© {new Date().getFullYear()} Plinius</div>
+                <div className="text-[11px] text-white/30">© {new Date().getFullYear()} Plinius</div>
               </div>
             </div>
           </aside>
 
           {/* Content */}
           <section className="min-w-0 h-full flex flex-col overflow-hidden">
-            {/* Top metrics */}
-            <div className="grid md:grid-cols-3 gap-3">
-              <MiniCard
-                title="Credit Grade"
-                subtitle="Clasificación"
-                value={creditGrade}
-                hint={`Buró ${profile.buroScore} • ${scoreBand.label}`}
-              />
-              <MiniCard
-                title="Estabilidad ingresos"
-                subtitle="Últimos 12 meses"
-                value={`${stability.pct}%`}
-                hint={`Volatilidad → ${stability.label}`}
-              />
-              <MiniCard
-                title="Crecimiento YoY"
-                subtitle="12m vs 12m previos"
-                value={yoy === null ? "—" : `${yoy >= 0 ? "+" : ""}${yoy}%`}
-                hint="Estimación simple"
-              />
-            </div>
+            {/* ✅ SOLO mostrar métricas superiores en PANEL */}
+            {tab === "panel" && (
+              <div className="grid md:grid-cols-3 gap-3">
+                <MiniCard
+                  title="Credit Grade"
+                  subtitle="Clasificación"
+                  value={creditGrade}
+                  hint={`Buró ${profile.buroScore} • ${scoreBand.label}`}
+                />
+                <MiniCard
+                  title="Estabilidad ingresos"
+                  subtitle="Últimos 12 meses"
+                  value={`${stability.pct}%`}
+                  hint={`Volatilidad → ${stability.label}`}
+                />
+                <MiniCard
+                  title="Crecimiento YoY"
+                  subtitle="12m vs 12m previos"
+                  value={yoy === null ? "—" : `${yoy >= 0 ? "+" : ""}${yoy}%`}
+                  hint="Estimación simple"
+                />
+              </div>
+            )}
 
-            <div className="flex-1 mt-3 min-h-0 overflow-hidden">
+            <div className={`${tab === "panel" ? "mt-3" : ""} flex-1 min-h-0 overflow-hidden`}>
+              {/* CHAT AI */}
+              {tab === "chat" && (
+                <div className="h-full min-h-0">
+                  <div className="h-full rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-sm overflow-hidden flex flex-col">
+                    {/* chat header */}
+                    <div className="px-5 py-4 border-b border-white/10 bg-white/5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <div className="font-semibold text-white">{AI_NAME}</div>
+                          </div>
+                          <div className="text-white/55 text-xs mt-1">
+                            Underwriting copilot • SAT / Buró / señales de ingresos (UI mock)
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setChatMessages([
+                              {
+                                id: `reset-${Date.now()}`,
+                                role: "assistant",
+                                content: `Soy ${AI_NAME}. Listo para ayudarte con evaluación preliminar y estructura de crédito.`,
+                                ts: new Date().toISOString(),
+                              },
+                            ])
+                          }
+                          className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
+                        >
+                          Nuevo chat
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* messages */}
+                    <div ref={chatListRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
+                      {chatMessages.map((m) => (
+                        <ChatBubble key={m.id} role={m.role} content={m.content} ts={m.ts} />
+                      ))}
+
+                      {chatSending && (
+                        <div className="flex justify-start">
+                          <div className="max-w-[80%] rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                            <div className="flex items-center gap-2 text-white/70 text-sm">
+                              <span className="h-1.5 w-1.5 rounded-full bg-white/70 animate-bounce" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-white/70 animate-bounce [animation-delay:120ms]" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-white/70 animate-bounce [animation-delay:240ms]" />
+                              <span className="ml-2 text-xs">{AI_NAME} escribiendo…</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* input */}
+                    <div className="p-4 border-t border-white/10 bg-[#071226]/60">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-2 flex items-end gap-2">
+                        <textarea
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              sendChat();
+                            }
+                          }}
+                          rows={1}
+                          placeholder={`Escribe a ${AI_NAME}…`}
+                          className="flex-1 resize-none bg-transparent outline-none px-3 py-2 text-sm text-white placeholder:text-white/35 max-h-36"
+                        />
+                        <button
+                          type="button"
+                          onClick={sendChat}
+                          disabled={!chatInput.trim() || chatSending}
+                          className="rounded-xl bg-[#1E6BFF] text-white font-semibold px-4 py-2.5 text-sm hover:opacity-95 transition disabled:opacity-40"
+                        >
+                          Enviar
+                        </button>
+                      </div>
+                      <div className="mt-2 text-[11px] text-white/35">
+                        Enter para enviar • Shift + Enter para salto de línea
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* PANEL */}
               {tab === "panel" && (
                 <div className="h-full flex flex-col min-h-0">
@@ -597,7 +755,7 @@ export default function DashboardPage() {
 
                   <div className="mt-3 grid lg:grid-cols-2 gap-4 flex-1 min-h-0">
                     <Card title="Facturación (24 meses)" subtitle="MXN • placeholder / SAT" className="h-full">
-                      <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-3 h-[calc(100%-52px)]">
+                      <div className="mt-3 rounded-3xl border border-white/10 bg-white/5 p-3 h-[calc(100%-52px)]">
                         <div className="h-[180px] overflow-hidden">
                           <div className="h-full flex items-end gap-2">
                             {revenue.slice(0, 24).map((p, idx) => {
@@ -605,12 +763,12 @@ export default function DashboardPage() {
                               return (
                                 <div key={`${p.month}-${idx}`} className="flex-1 flex flex-col items-center gap-1">
                                   <div
-                                    className="w-full rounded-xl bg-[#6D28D9]"
+                                    className="w-full rounded-xl bg-gradient-to-t from-[#1E6BFF] to-cyan-300"
                                     style={{ height: `${Math.max(6, h)}%`, transition: "height .35s ease" }}
                                     title={`${p.month}: $${(p.value || 0).toLocaleString("es-MX")}`}
                                   />
                                   {idx % 3 === 2 ? (
-                                    <div className="text-black/60 text-[10px] leading-none">{p.month}</div>
+                                    <div className="text-white/55 text-[10px] leading-none">{p.month}</div>
                                   ) : (
                                     <div className="h-[10px]" />
                                   )}
@@ -620,32 +778,31 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        <div className="mt-2 flex items-center justify-between text-black/65 text-xs">
+                        <div className="mt-2 flex items-center justify-between text-white/65 text-xs">
                           <span>Máx: ${maxVal.toLocaleString("es-MX")}</span>
                           <span>Prom: ${avgVal.toLocaleString("es-MX")}</span>
                         </div>
 
-                        <div className="mt-1 text-[10.5px] text-black/45">
+                        <div className="mt-1 text-[10.5px] text-white/40">
                           Se llena al procesar CFDI desde SAT.
                         </div>
                       </div>
                     </Card>
 
                     <Card title="Buró / Score" subtitle="Backend API + estado" className="h-full">
-                      <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-3 h-[calc(100%-52px)] flex flex-col relative overflow-hidden">
-
+                      <div className="mt-3 rounded-3xl border border-white/10 bg-white/5 p-3 h-[calc(100%-52px)] flex flex-col relative overflow-hidden">
                         {buroStatus === "searching" && (
-                          <div className="absolute inset-0 z-10 grid place-items-center bg-white/70 backdrop-blur-sm">
-                            <div className="w-full max-w-xs rounded-3xl border border-black/10 bg-white p-4 shadow-sm">
+                          <div className="absolute inset-0 z-10 grid place-items-center bg-[#071226]/70 backdrop-blur-sm">
+                            <div className="w-full max-w-xs rounded-3xl border border-white/10 bg-[#0A152C] p-4 shadow-sm">
                               <div className="flex items-center gap-3">
-                                <span className="h-3 w-3 rounded-full bg-black/70 animate-pulse" />
-                                <div className="font-semibold text-black text-sm">Buscando en bases…</div>
+                                <span className="h-3 w-3 rounded-full bg-cyan-300 animate-pulse" />
+                                <div className="font-semibold text-white text-sm">Buscando en bases…</div>
                               </div>
-                              <div className="mt-2 text-sm text-black/60">{buroMsg || "Consultando fuentes…"}</div>
-                              <div className="mt-3 h-2 rounded-full bg-black/5 overflow-hidden">
-                                <div className="h-full w-[60%] bg-black/60 animate-pulse" />
+                              <div className="mt-2 text-sm text-white/60">{buroMsg || "Consultando fuentes…"}</div>
+                              <div className="mt-3 h-2 rounded-full bg-white/5 overflow-hidden">
+                                <div className="h-full w-[60%] bg-gradient-to-r from-blue-400 to-cyan-300 animate-pulse" />
                               </div>
-                              <div className="mt-3 text-[11px] text-black/45">
+                              <div className="mt-3 text-[11px] text-white/35">
                                 Placeholder hasta conectar proveedor real.
                               </div>
                             </div>
@@ -656,13 +813,13 @@ export default function DashboardPage() {
                           <Gauge score={profile.buroScore} compact />
                         </div>
 
-                        <div className="mt-2 flex items-center justify-between text-black/60 text-xs">
+                        <div className="mt-2 flex items-center justify-between text-white/60 text-xs">
                           <span>100</span>
-                          <span className="text-black font-semibold">{profile.buroScore}</span>
+                          <span className="text-white font-semibold">{profile.buroScore}</span>
                           <span>900</span>
                         </div>
 
-                        <div className="mt-1 text-[10.5px] text-black/45">
+                        <div className="mt-1 text-[10.5px] text-white/40">
                           {buroStatus === "error"
                             ? `Error: ${buroMsg || "falló consulta"}`
                             : hasRealBuro
@@ -674,7 +831,7 @@ export default function DashboardPage() {
                           <button
                             type="button"
                             onClick={fetchBuroScore}
-                            className="rounded-2xl bg-black text-white font-semibold px-3.5 py-2 text-xs hover:opacity-95 transition"
+                            className="rounded-2xl bg-white text-[#071226] font-semibold px-3.5 py-2 text-xs hover:opacity-95 transition"
                           >
                             Consultar Buró
                           </button>
@@ -684,7 +841,7 @@ export default function DashboardPage() {
                               setBuroStatus("idle");
                               setBuroMsg("");
                             }}
-                            className="rounded-2xl border border-black/10 bg-white/70 px-3.5 py-2 hover:bg-white transition text-xs"
+                            className="rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2 hover:bg-white/10 transition text-xs"
                           >
                             Cancelar
                           </button>
@@ -695,10 +852,10 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {/* DATOS (incluye AUTORIZACIÓN aquí) */}
+              {/* DATOS */}
               {tab === "datos" && (
                 <div className="h-full min-h-0">
-                  <Card title="Datos (capturado + SAT + autorización)" subtitle="Vista pro • sin scroll de página" className="h-full">
+                  <Card title="Datos (capturado + SAT + autorización)" subtitle="Vista compacta y tech" className="h-full">
                     <div className="mt-3 grid lg:grid-cols-3 gap-3">
                       <InfoCard
                         label="Capturado (Onboarding)"
@@ -744,85 +901,80 @@ export default function DashboardPage() {
                       <VerifyCard
                         title="Autorización"
                         ok={hasAuthorization ? true : null}
-                        detail={
-                          hasAuthorization
-                            ? `Firmada • ${authDate}`
-                            : "Pendiente: completa autorización en onboarding."
-                        }
+                        detail={hasAuthorization ? `Firmada • ${authDate}` : "Pendiente"}
                       />
                     </div>
 
-                    <div className="mt-3 grid lg:grid-cols-2 gap-3">
-                      {/* SAT actions */}
-                      <div className="rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-4">
-                        <div className="font-semibold text-black">Acciones SAT</div>
-                        <div className="text-black/60 text-sm mt-1">
-                          Carga CIEC/e.firma y procesa CFDI para facturación y validación.
+                    {/* ✅ compactado: quitamos bloque grande de Acciones SAT y compactamos autorización */}
+                    <div className="mt-3 grid lg:grid-cols-[1.2fr_.8fr] gap-3">
+                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="font-semibold text-white">Acciones rápidas</div>
+                            <div className="text-white/55 text-xs mt-1">
+                              SAT / validación / documentación
+                            </div>
+                          </div>
+                          <span className={`rounded-full border px-3 py-1 text-[11px] ${satPill.cls}`}>{satPill.label}</span>
                         </div>
 
                         <div className="mt-3 flex flex-wrap gap-2">
                           <button
                             onClick={openSatModal}
-                            className="rounded-2xl bg-black text-white font-semibold px-4 py-2.5 hover:opacity-95 transition text-sm"
+                            className="rounded-2xl bg-white text-[#071226] font-semibold px-4 py-2.5 hover:opacity-95 transition text-sm"
                           >
-                            Cargar archivos SAT
+                            Cargar SAT
                           </button>
                           <button
                             onClick={processSatMock}
-                            className="rounded-2xl border border-black/10 bg-white/70 px-4 py-2.5 hover:bg-white transition text-sm"
+                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 hover:bg-white/10 transition text-sm"
                           >
-                            Procesar (mock)
+                            Procesar mock
                           </button>
                           <button
                             onClick={clearSat}
-                            className="rounded-2xl border border-black/10 bg-white/70 px-4 py-2.5 hover:bg-white transition text-sm"
+                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 hover:bg-white/10 transition text-sm"
                           >
-                            Limpiar SAT
+                            Limpiar
                           </button>
                         </div>
 
-                        <div className="mt-2 text-[11px] text-black/45">
-                          En prod: storage + job + polling + evidencias.
+                        <div className="mt-2 text-[11px] text-white/35">
+                          En prod: storage + jobs + polling + evidencias.
                         </div>
                       </div>
 
-                      {/* Autorización detail */}
-                      <div className="rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-4">
+                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="font-semibold text-black">Autorización firmada</div>
+                          <div className="font-semibold text-white">Autorización</div>
                           <span
                             className={[
                               "rounded-full border px-3 py-1 text-[11px]",
                               hasAuthorization
-                                ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700"
-                                : "border-black/10 bg-black/5 text-black/60",
+                                ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
+                                : "border-white/10 bg-white/5 text-white/60",
                             ].join(" ")}
                           >
                             {hasAuthorization ? "Firmada" : "Pendiente"}
                           </span>
                         </div>
 
-                        <div className="mt-3 text-sm">
-                          <div className="text-black/60 text-xs">DG</div>
-                          <div className="font-semibold truncate">{auth.directorName || "—"}</div>
-                          <div className="text-black/55 text-xs truncate">{auth.directorEmail || "—"}</div>
-                          <div className="text-black/45 text-[11px] mt-1">Fecha: {authDate}</div>
+                        <div className="mt-2 text-xs text-white/60 truncate">
+                          {auth.directorEmail || "Sin correo de firma"}
                         </div>
+                        <div className="mt-1 text-[11px] text-white/40">Fecha: {authDate}</div>
 
+                        {/* ✅ muy comprimido */}
                         <div className="mt-3 flex items-center gap-2">
                           <button
                             type="button"
                             disabled={!hasAuthorization}
                             onClick={printAuthorization}
-                            className="rounded-2xl bg-black text-white font-semibold px-3.5 py-2 text-xs hover:opacity-95 transition disabled:opacity-50"
+                            className="rounded-xl bg-white text-[#071226] font-semibold px-3 py-2 text-xs hover:opacity-95 transition disabled:opacity-50"
                           >
-                            Descargar PDF
+                            PDF
                           </button>
-                          <div className="text-[11px] text-black/45">Print → PDF</div>
-                        </div>
-
-                        <div className="mt-2 text-[11px] text-black/45">
-                          En prod: firma electrónica avanzada + acuse.
+                          <span className="text-[11px] text-white/35">Print → PDF</span>
                         </div>
                       </div>
                     </div>
@@ -835,14 +987,14 @@ export default function DashboardPage() {
                 <div className="h-full min-h-0">
                   <Card title="Solicitudes de crédito" subtitle="Tabla + iniciar solicitud" className="h-full">
                     <div className="mt-3 flex items-center justify-between gap-3">
-                      <div className="text-sm text-black/60">
-                        Regla: <span className="font-semibold text-black">1 solicitud activa</span> hasta autorizado/fondeado.
+                      <div className="text-sm text-white/60">
+                        Regla: <span className="font-semibold text-white">1 solicitud activa</span> hasta autorizado/fondeado.
                       </div>
 
                       <button
                         onClick={goNewRequest}
                         disabled={!hasAuthorization}
-                        className="rounded-2xl bg-black text-white font-semibold px-4 py-2.5 hover:opacity-95 transition disabled:opacity-50 text-sm"
+                        className="rounded-2xl bg-white text-[#071226] font-semibold px-4 py-2.5 hover:opacity-95 transition disabled:opacity-50 text-sm"
                         title={!hasAuthorization ? "Requiere autorización firmada para iniciar" : undefined}
                       >
                         Iniciar solicitud
@@ -850,13 +1002,13 @@ export default function DashboardPage() {
                     </div>
 
                     {!hasAuthorization && (
-                      <div className="mt-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 text-amber-800 px-4 py-3 text-sm">
+                      <div className="mt-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 text-amber-200 px-4 py-3 text-sm">
                         Falta autorización firmada. Completa onboarding/Autorización para habilitar solicitudes.
                       </div>
                     )}
 
-                    <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl overflow-hidden">
-                      <div className="grid grid-cols-[140px_1fr_140px_120px_120px] gap-3 px-4 py-3 border-b border-black/10 text-[11px] uppercase tracking-wider text-black/55">
+                    <div className="mt-3 rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
+                      <div className="grid grid-cols-[140px_1fr_140px_120px_120px] gap-3 px-4 py-3 border-b border-white/10 text-[11px] uppercase tracking-wider text-white/50">
                         <div>ID</div>
                         <div>Propósito</div>
                         <div>Monto</div>
@@ -866,17 +1018,17 @@ export default function DashboardPage() {
 
                       <div className="max-h-[260px] overflow-y-auto">
                         {requests.length === 0 ? (
-                          <div className="px-4 py-6 text-sm text-black/60">Aún no hay solicitudes.</div>
+                          <div className="px-4 py-6 text-sm text-white/60">Aún no hay solicitudes.</div>
                         ) : (
                           requests.map((r) => (
                             <div
                               key={r.id}
-                              className="grid grid-cols-[140px_1fr_140px_120px_120px] gap-3 px-4 py-3 border-b border-black/5 text-sm"
+                              className="grid grid-cols-[140px_1fr_140px_120px_120px] gap-3 px-4 py-3 border-b border-white/5 text-sm"
                             >
-                              <div className="font-semibold">{r.id}</div>
-                              <div className="text-black/70 truncate">{r.purpose}</div>
-                              <div className="font-semibold">${r.amountMXN.toLocaleString("es-MX")} MXN</div>
-                              <div className="text-black/70">{r.termMonths}m</div>
+                              <div className="font-semibold text-white">{r.id}</div>
+                              <div className="text-white/70 truncate">{r.purpose}</div>
+                              <div className="font-semibold text-white">${r.amountMXN.toLocaleString("es-MX")} MXN</div>
+                              <div className="text-white/70">{r.termMonths}m</div>
                               <div>
                                 <StatusPill status={r.status} />
                               </div>
@@ -886,7 +1038,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="mt-3 text-[11px] text-black/45">
+                    <div className="mt-3 text-[11px] text-white/35">
                       Siguiente: pantalla <b>/solicitudes/nueva</b> + tabla Supabase <b>credit_requests</b>.
                     </div>
                   </Card>
@@ -894,9 +1046,9 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="mt-3 flex items-center justify-between text-xs text-black/40">
+            <div className="mt-3 flex items-center justify-between text-xs text-white/30">
               <span>© {new Date().getFullYear()} Plinius</span>
-              <span className="text-black/30">plinius</span>
+              <span className="text-white/20">plinius • tech credit OS</span>
             </div>
           </section>
         </div>
@@ -912,9 +1064,9 @@ export default function DashboardPage() {
           onClose={() => setSatModalOpen(false)}
         >
           <div className="space-y-4">
-            <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
-              <div className="font-semibold text-black">Opción 1: e.firma</div>
-              <div className="text-black/60 text-sm mt-1">Sube tu archivo .cer y .key.</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="font-semibold text-white">Opción 1: e.firma</div>
+              <div className="text-white/60 text-sm mt-1">Sube tu archivo .cer y .key.</div>
 
               <div className="mt-3 grid md:grid-cols-2 gap-3">
                 <FilePick
@@ -932,14 +1084,14 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
-              <div className="font-semibold text-black">Opción 2: CIEC</div>
-              <div className="text-black/60 text-sm mt-1">Captura tu contraseña CIEC (demo).</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="font-semibold text-white">Opción 2: CIEC</div>
+              <div className="text-white/60 text-sm mt-1">Captura tu contraseña CIEC (demo).</div>
               <input
                 type="password"
                 value={satFiles.ciec || ""}
                 onChange={(e) => setSatFiles((s) => ({ ...s, ciec: e.target.value }))}
-                className="mt-3 w-full rounded-2xl bg-white border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/25"
+                className="mt-3 w-full rounded-2xl bg-white/5 border border-white/10 px-3 py-2 text-sm outline-none focus:border-white/25 text-white"
                 placeholder="CIEC (demo)"
               />
             </div>
@@ -947,13 +1099,13 @@ export default function DashboardPage() {
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setSatModalOpen(false)}
-                className="rounded-2xl border border-black/10 bg-white/70 px-4 py-2.5 hover:bg-white transition text-sm"
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 hover:bg-white/10 transition text-sm"
               >
                 Cancelar
               </button>
               <button
                 onClick={submitSatFilesPlaceholder}
-                className="rounded-2xl bg-black text-white font-semibold px-4 py-2.5 hover:opacity-95 transition text-sm"
+                className="rounded-2xl bg-white text-[#071226] font-semibold px-4 py-2.5 hover:opacity-95 transition text-sm"
               >
                 Guardar (placeholder)
               </button>
@@ -968,7 +1120,7 @@ export default function DashboardPage() {
       <section className="print-only print-report hidden">
         <div style={{ padding: 28, fontFamily: "Arial, Helvetica, sans-serif" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div style={{ fontWeight: 900, fontSize: 18, color: "#2B1B55" }}>Reporte Ejecutivo • Plinius</div>
+            <div style={{ fontWeight: 900, fontSize: 18, color: "#0D3B8E" }}>Reporte Ejecutivo • Plinius</div>
             <div style={{ fontSize: 12, color: "#444" }}>{updatedDate}</div>
           </div>
 
@@ -1017,7 +1169,7 @@ export default function DashboardPage() {
 
           <div className="page-break" />
 
-          <div style={{ fontWeight: 900, fontSize: 16, color: "#2B1B55" }}>Detalle • Ingresos + Verificación</div>
+          <div style={{ fontWeight: 900, fontSize: 16, color: "#0D3B8E" }}>Detalle • Ingresos + Verificación</div>
           <div style={{ marginTop: 6, fontSize: 11, color: "#666" }}>
             Hoja 2: facturación 24 meses + verificación SAT + autorización.
           </div>
@@ -1089,25 +1241,34 @@ function SideBtn({
   onClick,
   title,
   desc,
+  icon = "panel",
 }: {
   active: boolean;
   onClick: () => void;
   title: string;
   desc: string;
+  icon?: "ai" | "panel" | "data" | "req" | "pdf";
 }) {
   return (
     <button
       onClick={onClick}
       className={[
-        "w-full text-left rounded-2xl border px-4 py-3 transition",
-        active ? "border-black/15 bg-white" : "border-black/10 bg-white/60 hover:bg-white",
+        "w-full text-left rounded-2xl border px-4 py-3 transition group",
+        active
+          ? "border-cyan-300/20 bg-gradient-to-r from-blue-500/10 to-cyan-400/10 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.05)]"
+          : "border-white/10 bg-white/5 hover:bg-white/10",
       ].join(" ")}
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="font-semibold text-sm text-black">{title}</div>
-        {active && <span className="h-2 w-2 rounded-full bg-[#6D28D9]" />}
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-xs">
+            {icon === "ai" ? "✦" : icon === "panel" ? "◫" : icon === "data" ? "▣" : icon === "req" ? "≣" : "PDF"}
+          </span>
+          <div className="font-semibold text-sm text-white truncate">{title}</div>
+        </div>
+        {active && <span className="h-2 w-2 rounded-full bg-cyan-300" />}
       </div>
-      <div className="text-black/55 text-xs mt-0.5">{desc}</div>
+      <div className="text-white/50 text-xs mt-1 ml-9">{desc}</div>
     </button>
   );
 }
@@ -1124,9 +1285,9 @@ function Card({
   className?: string;
 }) {
   return (
-    <div className={["rounded-3xl border border-black/10 bg-white/60 backdrop-blur-xl shadow-sm p-5", className].join(" ")}>
-      <div className="text-black font-semibold text-[16px] leading-tight">{title}</div>
-      <div className="text-black/60 text-sm mt-1">{subtitle}</div>
+    <div className={["rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-sm p-5", className].join(" ")}>
+      <div className="text-white font-semibold text-[16px] leading-tight">{title}</div>
+      <div className="text-white/60 text-sm mt-1">{subtitle}</div>
       {children}
     </div>
   );
@@ -1134,23 +1295,23 @@ function Card({
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-3xl border border-black/10 bg-white/60 backdrop-blur-xl shadow-sm p-4">
-      <div className="text-black/60 text-xs">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-black leading-tight">{value}</div>
-      <div className="mt-1 text-black/45 text-xs">{sub}</div>
+    <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-sm p-4">
+      <div className="text-white/60 text-xs">{label}</div>
+      <div className="mt-1 text-2xl font-semibold text-white leading-tight">{value}</div>
+      <div className="mt-1 text-white/40 text-xs">{sub}</div>
     </div>
   );
 }
 
 function InfoCard({ label, rows }: { label: string; rows: { k: string; v: string }[] }) {
   return (
-    <div className="rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-4">
-      <div className="text-black/60 text-xs">{label}</div>
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+      <div className="text-white/60 text-xs">{label}</div>
       <div className="mt-3 space-y-2">
         {rows.map((r) => (
           <div key={r.k} className="flex items-center justify-between gap-4">
-            <div className="text-black/60 text-sm">{r.k}</div>
-            <div className="font-semibold text-black text-sm truncate max-w-[62%] text-right">{r.v || "—"}</div>
+            <div className="text-white/60 text-sm">{r.k}</div>
+            <div className="font-semibold text-white text-sm truncate max-w-[62%] text-right">{r.v || "—"}</div>
           </div>
         ))}
       </div>
@@ -1161,20 +1322,20 @@ function InfoCard({ label, rows }: { label: string; rows: { k: string; v: string
 function VerifyCard({ title, ok, detail }: { title: string; ok: boolean | null; detail: string }) {
   const pill =
     ok === null
-      ? "bg-black/5 border-black/10 text-black/70"
+      ? "bg-white/5 border-white/10 text-white/70"
       : ok
-      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700"
-      : "bg-red-500/10 border-red-500/20 text-red-700";
+      ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300"
+      : "bg-red-400/10 border-red-400/20 text-red-300";
 
   const badge = ok === null ? "Pendiente" : ok ? "OK" : "Revisar";
 
   return (
-    <div className="rounded-3xl border border-black/10 bg-white/70 backdrop-blur-xl p-4">
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="font-semibold text-black">{title}</div>
+        <div className="font-semibold text-white">{title}</div>
         <span className={`rounded-full border px-3 py-1 text-[11px] ${pill}`}>{badge}</span>
       </div>
-      <div className="mt-2 text-black/60 text-sm">{detail}</div>
+      <div className="mt-2 text-white/60 text-sm">{detail}</div>
     </div>
   );
 }
@@ -1191,25 +1352,46 @@ function MiniCard({
   hint: string;
 }) {
   return (
-    <div className="rounded-3xl border border-black/10 bg-white/60 backdrop-blur-xl shadow-sm p-4">
-      <div className="text-black/60 text-xs">{subtitle}</div>
-      <div className="mt-1 font-semibold text-black">{title}</div>
-      <div className="mt-2 text-2xl font-semibold text-black leading-tight">{value}</div>
-      <div className="mt-1 text-[11px] text-black/45">{hint}</div>
+    <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-sm p-4">
+      <div className="text-white/55 text-xs">{subtitle}</div>
+      <div className="mt-1 font-semibold text-white">{title}</div>
+      <div className="mt-2 text-2xl font-semibold text-white leading-tight">{value}</div>
+      <div className="mt-1 text-[11px] text-white/35">{hint}</div>
     </div>
   );
 }
 
 function StatusPill({ status }: { status: CreditRequest["status"] }) {
   const map: Record<CreditRequest["status"], { label: string; cls: string }> = {
-    draft: { label: "Borrador", cls: "border-black/10 bg-black/5 text-black/70" },
-    submitted: { label: "Enviado", cls: "border-blue-500/20 bg-blue-500/10 text-blue-700" },
-    authorized: { label: "Autorizado", cls: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700" },
-    funded: { label: "Fondeado", cls: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700" },
-    rejected: { label: "Rechazado", cls: "border-red-500/20 bg-red-500/10 text-red-700" },
+    draft: { label: "Borrador", cls: "border-white/10 bg-white/5 text-white/70" },
+    submitted: { label: "Enviado", cls: "border-blue-400/20 bg-blue-400/10 text-blue-200" },
+    authorized: { label: "Autorizado", cls: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300" },
+    funded: { label: "Fondeado", cls: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300" },
+    rejected: { label: "Rechazado", cls: "border-red-400/20 bg-red-400/10 text-red-300" },
   };
   const x = map[status];
   return <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] ${x.cls}`}>{x.label}</span>;
+}
+
+function ChatBubble({ role, content, ts }: { role: "user" | "assistant"; content: string; ts: string }) {
+  const isUser = role === "user";
+  return (
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div className={`max-w-[82%] ${isUser ? "items-end" : "items-start"} flex flex-col`}>
+        <div
+          className={[
+            "rounded-2xl border px-4 py-3 whitespace-pre-wrap text-sm leading-relaxed",
+            isUser
+              ? "border-blue-400/25 bg-gradient-to-r from-[#1E6BFF]/25 to-cyan-300/10 text-white"
+              : "border-white/10 bg-white/5 text-white/90",
+          ].join(" ")}
+        >
+          {content}
+        </div>
+        <div className="mt-1 text-[10px] text-white/30 px-1">{formatChatTime(ts)}</div>
+      </div>
+    </div>
+  );
 }
 
 /* =========================
@@ -1228,17 +1410,17 @@ function Modal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl rounded-3xl border border-black/10 bg-white shadow-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-black/10">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+      <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-[#0A152C] shadow-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/10">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="font-semibold text-black text-lg truncate">{title}</div>
-              <div className="text-black/60 text-sm mt-1">{subtitle}</div>
+              <div className="font-semibold text-white text-lg truncate">{title}</div>
+              <div className="text-white/60 text-sm mt-1">{subtitle}</div>
             </div>
             <button
               onClick={onClose}
-              className="rounded-2xl border border-black/10 bg-white px-3 py-2 hover:bg-black/5 transition text-sm"
+              className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 hover:bg-white/10 transition text-sm"
             >
               Cerrar
             </button>
@@ -1262,11 +1444,11 @@ function FilePick({
   onPick: (f: File | null) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-3">
-      <div className="text-black/60 text-xs">{label}</div>
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+      <div className="text-white/60 text-xs">{label}</div>
       <div className="mt-1 flex items-center justify-between gap-2">
-        <div className="text-sm text-black truncate">{picked || "Sin archivo"}</div>
-        <label className="cursor-pointer rounded-2xl bg-black text-white font-semibold px-3 py-2 text-xs hover:opacity-95 transition">
+        <div className="text-sm text-white truncate">{picked || "Sin archivo"}</div>
+        <label className="cursor-pointer rounded-2xl bg-white text-[#071226] font-semibold px-3 py-2 text-xs hover:opacity-95 transition">
           Seleccionar
           <input
             type="file"
@@ -1276,7 +1458,7 @@ function FilePick({
           />
         </label>
       </div>
-      <div className="mt-2 text-[11px] text-black/45">*En prod: se sube a Storage y se procesa server-side.</div>
+      <div className="mt-2 text-[11px] text-white/35">*En prod: se sube a Storage y se procesa server-side.</div>
     </div>
   );
 }
@@ -1321,7 +1503,7 @@ function RevenueChartPrint({ data, maxVal }: { data: RevenuePoint[]; maxVal: num
         const y = padT + (innerH - h);
         return (
           <g key={`${p.month}-${idx}`}>
-            <rect x={x} y={y} width={barW} height={Math.max(2, h)} rx="6" fill="#6D28D9" />
+            <rect x={x} y={y} width={barW} height={Math.max(2, h)} rx="6" fill="#1E6BFF" />
             {idx % 2 === 1 && (
               <text x={x + barW / 2} y={padT + innerH + 16} textAnchor="middle" fontSize="10" fill="#666">
                 {p.month}
@@ -1390,16 +1572,16 @@ function Gauge({ score, compact = false }: { score: number; compact?: boolean })
           </linearGradient>
         </defs>
 
-        <path d="M 40 160 A 120 120 0 0 1 280 160" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="18" strokeLinecap="round" />
+        <path d="M 40 160 A 120 120 0 0 1 280 160" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="18" strokeLinecap="round" />
         <path d="M 40 160 A 120 120 0 0 1 280 160" fill="none" stroke="url(#rg)" strokeWidth="14" strokeLinecap="round" />
 
         <g transform={`translate(160 160) rotate(${angle})`}>
-          <line x1="0" y1="0" x2="92" y2="0" stroke="rgba(0,0,0,0.82)" strokeWidth="4" strokeLinecap="round" />
-          <circle cx="0" cy="0" r="8" fill="rgba(0,0,0,0.82)" />
-          <circle cx="0" cy="0" r="14" fill="rgba(0,0,0,0.08)" />
+          <line x1="0" y1="0" x2="92" y2="0" stroke="rgba(255,255,255,0.9)" strokeWidth="4" strokeLinecap="round" />
+          <circle cx="0" cy="0" r="8" fill="rgba(255,255,255,0.9)" />
+          <circle cx="0" cy="0" r="14" fill="rgba(255,255,255,0.08)" />
         </g>
 
-        <text x="160" y="182" textAnchor="middle" fill="rgba(0,0,0,0.55)" fontSize="12">
+        <text x="160" y="182" textAnchor="middle" fill="rgba(255,255,255,0.45)" fontSize="12">
           Score 100–900
         </text>
       </svg>
@@ -1441,6 +1623,15 @@ function formatUTC(iso: string) {
     return `${x.slice(0, 10)} ${x.slice(11, 16)} UTC`;
   } catch {
     return "—";
+  }
+}
+
+function formatChatTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
   }
 }
 
@@ -1490,4 +1681,56 @@ function mask(s: string) {
   if (!x || x === "—") return "—";
   if (x.length <= 6) return "••••";
   return `${x.slice(0, 3)}••••${x.slice(-3)}`;
+}
+
+function buildPlinioReply(
+  prompt: string,
+  ctx: {
+    buroScore: number;
+    creditGrade: string;
+    satConnected: boolean;
+    yoy: number | null;
+    stabilityPct: number;
+    companyName: string;
+  }
+) {
+  const q = prompt.toLowerCase();
+
+  if (q.includes("monto") || q.includes("plazo") || q.includes("suger")) {
+    return [
+      `Recomendación preliminar para ${ctx.companyName}:`,
+      `• Grade: ${ctx.creditGrade} (Buró ${ctx.buroScore})`,
+      `• Estabilidad ingresos: ${ctx.stabilityPct}%`,
+      `• SAT: ${ctx.satConnected ? "conectado" : "pendiente"}`,
+      `• YoY: ${ctx.yoy === null ? "N/D" : `${ctx.yoy >= 0 ? "+" : ""}${ctx.yoy}%`}`,
+      ``,
+      `Propuesta base (preliminar):`,
+      `1) Línea inicial conservadora con incremento por desempeño`,
+      `2) Plazo corto/medio (6–12 meses) si SAT no está conectado`,
+      `3) Mejorar términos al confirmar CFDI + consistencia de flujo`,
+      ``,
+      `Si quieres, te doy una matriz de decisión (monto / plazo / tasa / garantías) según score y SAT.`,
+    ].join("\n");
+  }
+
+  if (q.includes("sat")) {
+    return ctx.satConnected
+      ? "SAT aparece conectado. Siguiente paso sugerido: extraer CFDI, construir serie 24 meses y validar consistencia mensual vs. solicitud."
+      : "SAT aún está pendiente. Te conviene cargar CIEC/e.firma para desbloquear facturación CFDI, validación RFC y mejora de underwriting.";
+  }
+
+  if (q.includes("buro") || q.includes("score")) {
+    return `Buró actual: ${ctx.buroScore} (${ctx.creditGrade}). Esto sirve como señal inicial, pero no reemplaza validación de SAT/CFDI, estabilidad y trazabilidad de ingresos.`;
+  }
+
+  return [
+    `Te ayudo con eso.`,
+    `Puedo responder como copiloto de crédito sobre:`,
+    `• estructura de crédito (monto / plazo / tasa)`,
+    `• lectura de Buró / score`,
+    `• validación SAT / CFDI`,
+    `• checklist de underwriting`,
+    ``,
+    `Tip: pregúntame "hazme recomendación preliminar con este perfil".`,
+  ].join("\n");
 }
