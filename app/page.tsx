@@ -5,32 +5,69 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 export default function Home() {
-  // 3-stage scroll: Intro -> Mid -> Main
+  /**
+   * =========================
+   * SCROLL STATE
+   * =========================
+   * y  = scroll vertical actual
+   * vh = alto de viewport actual
+   *
+   * Usamos vh para que los timings de animación sean "relativos a pantalla"
+   * y no dependan de pixeles fijos.
+   */
   const [y, setY] = useState(0);
   const [vh, setVh] = useState(800);
 
   useEffect(() => {
     const on = () => {
       setY(window.scrollY || 0);
-      setVh(window.innerHeight || 1);
+      setVh(window.innerHeight || 1); // evita divisiones entre 0
     };
-    on();
+
+    on(); // lectura inicial
+
     window.addEventListener("scroll", on, { passive: true });
     window.addEventListener("resize", on, { passive: true });
+
     return () => {
       window.removeEventListener("scroll", on);
       window.removeEventListener("resize", on);
     };
   }, []);
 
-  // Smooth stages (C2 smooth): Intro out -> Mid in/out -> Main in
+  /**
+   * =========================
+   * 3-STAGE SCROLL (Intro -> Mid -> Main)
+   * =========================
+   *
+   * smoother01((y - vh * inicio) / (vh * duracion))
+   *
+   * - "inicio": cuándo arranca la transición
+   * - "duración": cuánto tarda en completarse
+   *
+   * AJUSTE SOLICITADO:
+   * Hicimos que el paso 2 (mid) tarde más en cambiar al 3 (main)
+   * moviendo midOut y mainIn más abajo + haciéndolos más largos.
+   */
   const introOut = smoother01((y - vh * 0.9) / (vh * 0.45));
   const midIn = smoother01((y - vh * 1.12) / (vh * 0.35));
-  const midOut = smoother01((y - vh * 1.78) / (vh * 0.35));
-  const mainIn = smoother01((y - vh * 2.1) / (vh * 0.55));
 
+  // ✅ Más tarde y más lento (antes estaba ~1.78 / 0.35)
+  const midOut = smoother01((y - vh * 2.02) / (vh * 0.52));
+
+  // ✅ Main entra más tarde y más suave (antes estaba ~2.1 / 0.55)
+  const mainIn = smoother01((y - vh * 2.42) / (vh * 0.72));
+
+  /**
+   * =========================
+   * STYLES CALCULADOS POR ETAPA
+   * =========================
+   * Los calculamos con useMemo para claridad y performance.
+   */
+
+  // VIEW 1 (INTRO)
   const introStyle = useMemo(() => {
-    const t = introOut;
+    const t = introOut; // 0 -> 1
     return {
       opacity: 1 - t,
       transform: `translateY(${t * -14}px) scale(${1 - t * 0.015})`,
@@ -39,11 +76,14 @@ export default function Home() {
     };
   }, [introOut]);
 
+  // VIEW 1.5 (MID)
   const midOpacity = midIn * (1 - midOut);
+
   const midStyle = useMemo(() => {
-    const lift = (1 - midIn) * 10;
-    const drop = midOut * 8;
-    const blur = (1 - midIn) * 3 + midOut * 2.5;
+    const lift = (1 - midIn) * 10; // al entrar, viene ligeramente desde abajo
+    const drop = midOut * 8; // al salir, cae un poco
+    const blur = (1 - midIn) * 3 + midOut * 2.5; // blur entrada + salida
+
     return {
       opacity: midOpacity,
       transform: `translateY(${lift + drop}px) scale(${
@@ -54,6 +94,7 @@ export default function Home() {
     };
   }, [midIn, midOut, midOpacity]);
 
+  // VIEW 2 (MAIN)
   const mainStyle = useMemo(() => {
     const t = mainIn;
     return {
@@ -66,7 +107,7 @@ export default function Home() {
 
   return (
     <main className="min-h-[340vh] pliny-bg px-4 py-0">
-      {/* Glow overlays */}
+      {/* Glow overlays de fondo (ambient) */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
         <div className="absolute top-1/3 -right-24 h-80 w-80 rounded-full bg-fuchsia-500/18 blur-3xl" />
@@ -74,7 +115,7 @@ export default function Home() {
       </div>
 
       {/* =========================
-          VIEW 1 — INTRO (FROM MY LAST: FULL BLEED, NO CARD)
+          VIEW 1 — INTRO (full bleed)
          ========================= */}
       <section
         className="sticky top-0 h-[100svh] flex items-center justify-center"
@@ -82,12 +123,10 @@ export default function Home() {
       >
         <div className="relative w-full max-w-5xl px-4">
           <div className="flex flex-col items-center text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-3 py-1 text-[11px] text-white/85 backdrop-blur">
-              <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.9)]" />
-              Private Credit Infrastructure · México
-            </div>
+            {/* Badge superior */}
+            
 
-            {/* LOGO WOW */}
+            {/* Logo hero con anillos neon */}
             <div className="mt-9 relative">
               <div className="ringWrap">
                 <div className="neonBackdrop" aria-hidden />
@@ -112,6 +151,7 @@ export default function Home() {
               <div className="pointer-events-none absolute inset-x-0 -bottom-10 mx-auto h-20 w-[360px] rounded-full bg-violet-300/16 blur-3xl" />
             </div>
 
+            {/* Headline */}
             <h1 className="mt-7 text-3xl md:text-6xl font-semibold text-white leading-tight tracking-tight">
               Plinius{" "}
               <span className="text-cyan-200 drop-shadow-[0_0_14px_rgba(34,211,238,0.55)]">
@@ -119,11 +159,12 @@ export default function Home() {
               </span>
             </h1>
 
+            {/* Subheadline */}
             <p className="mt-3 text-white/75 text-sm md:text-base leading-relaxed max-w-2xl">
-              Origen + underwriting + monitoreo. Señales SAT/CFDI y reportes listos
-              para comité.
+              Utiliza Plinius para administrar, calificar, gestionar cobranza, analisis de riesgo de tu portafolio de creditos.
             </p>
 
+            {/* Chips */}
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               <Chip text="SAT/CFDI" tone="cyan" />
               <Chip text="Tiempos rápidos" tone="lime" />
@@ -131,6 +172,7 @@ export default function Home() {
               <Chip text="API-first" tone="pink" />
             </div>
 
+            {/* CTA buttons */}
             <div className="mt-8 grid w-full max-w-md gap-3 sm:grid-cols-2">
               <Link
                 href="/login"
@@ -146,6 +188,7 @@ export default function Home() {
               </Link>
             </div>
 
+            {/* Scroll hint */}
             <div className="mt-10 flex flex-col items-center gap-2 text-white/55">
               <div className="text-[11px]">Desliza para descubrir</div>
               <div className="scrollPill">
@@ -156,11 +199,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* spacer */}
+      {/* Espacio para dar tiempo de scroll antes del MID */}
       <div className="h-[70vh]" />
 
       {/* =========================
-          VIEW 1.5 — MID (YOUR CODE)
+          VIEW 1.5 — MID (comparativa)
          ========================= */}
       <section
         className="sticky top-0 h-[100svh] flex items-center justify-center"
@@ -168,6 +211,7 @@ export default function Home() {
       >
         <div className="w-full max-w-7xl px-3 sm:px-4">
           <div className="rounded-[28px] border border-white/15 bg-white/6 backdrop-blur-xl shadow-2xl overflow-hidden">
+            {/* Header de la vista mid */}
             <header className="px-5 md:px-8 py-5 border-b border-white/10">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1 text-[11px] text-white/85">
@@ -211,7 +255,9 @@ export default function Home() {
               </p>
             </header>
 
+            {/* Contenido comparativo */}
             <div className="px-4 md:px-8 py-5">
+              {/* Fila de 5 cajas (scroll horizontal en pantallas chicas) */}
               <div className="compareRow">
                 <MiniAssetBox
                   title="Public Equities"
@@ -246,7 +292,9 @@ export default function Home() {
                 />
               </div>
 
+              {/* Grid inferior: chart + beneficios */}
               <div className="mt-4 grid lg:grid-cols-[1fr_420px] gap-4 items-stretch">
+                {/* Chart card */}
                 <div className="rounded-3xl border border-white/15 bg-white/6 p-4">
                   <div className="flex items-end justify-between gap-3">
                     <div>
@@ -266,6 +314,7 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Value card */}
                 <div className="rounded-3xl border border-white/15 bg-white/6 p-4">
                   <div className="text-white font-semibold text-sm">
                     ¿Qué gana tu stack?
@@ -318,15 +367,16 @@ export default function Home() {
         </div>
       </section>
 
-      {/* spacer */}
+      {/* Espacio para dar tiempo de scroll antes del MAIN */}
       <div className="h-[70vh]" />
 
       {/* =========================
-          VIEW 2 — MAIN LANDING (YOUR CODE)
+          VIEW 2 — MAIN LANDING
          ========================= */}
       <section className="pb-10" style={mainStyle}>
         <div className="mx-auto max-w-6xl">
           <div className="rounded-3xl border border-white/15 bg-white/6 backdrop-blur-xl shadow-2xl overflow-hidden">
+            {/* Header de card principal */}
             <header className="px-5 md:px-8 py-4 border-b border-white/10">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -369,7 +419,9 @@ export default function Home() {
               </div>
             </header>
 
+            {/* Layout 2 columnas */}
             <div className="grid lg:grid-cols-[1.05fr_0.95fr]">
+              {/* Columna izquierda: propuesta */}
               <section className="px-5 md:px-8 py-5 md:py-7 border-b lg:border-b-0 lg:border-r border-white/10">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1 text-[11px] text-white/85">
                   <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.9)]" />
@@ -412,10 +464,12 @@ export default function Home() {
                 </div>
 
                 <div className="mt-4 text-[11px] text-white/55">
-                  Selecciona un plan → contacto → onboarding técnico con tu equipo.
+                  Selecciona un plan → contacto → onboarding técnico con tu
+                  equipo.
                 </div>
               </section>
 
+              {/* Columna derecha: planes */}
               <aside className="px-5 md:px-8 py-5 md:py-7">
                 <div className="flex items-center justify-between">
                   <div className="text-white font-semibold">Planes</div>
@@ -427,7 +481,11 @@ export default function Home() {
                     plan="Basic"
                     price="$70"
                     desc="Hasta 10 oportunidades"
-                    bullets={["Dashboard", "Soporte estándar", "Integración guiada"]}
+                    bullets={[
+                      "Dashboard",
+                      "Soporte estándar",
+                      "Integración guiada",
+                    ]}
                     href="/pricing/lead?plan=basic"
                     glow="cyan"
                   />
@@ -457,8 +515,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Global CSS local */}
+      {/* =========================
+          GLOBAL CSS (solo para esta página)
+         ========================= */}
       <style jsx global>{`
+        /* Fondo general de la página */
         .pliny-bg {
           background: radial-gradient(
               1200px 700px at 20% 10%,
@@ -478,13 +539,14 @@ export default function Home() {
             linear-gradient(180deg, rgba(3, 7, 18, 1), rgba(2, 6, 23, 1));
         }
 
-        /* 5 boxes row: always one horizontal line; becomes scrollable on small screens */
+        /* Fila de 5 cajas (desktop una línea / mobile scroll horizontal) */
         .compareRow {
           display: grid;
           grid-template-columns: repeat(5, minmax(180px, 1fr));
           gap: 12px;
           align-items: stretch;
         }
+
         @media (max-width: 1024px) {
           .compareRow {
             grid-template-columns: repeat(5, minmax(200px, 1fr));
@@ -497,7 +559,7 @@ export default function Home() {
           }
         }
 
-        /* intro ring system */
+        /* Sistema del logo hero (anillos y glow) */
         .ringWrap {
           position: relative;
           width: clamp(170px, 24vw, 250px);
@@ -589,7 +651,11 @@ export default function Home() {
             );
           background-size: 22px 22px;
           opacity: 0.14;
-          mask-image: radial-gradient(circle at 50% 50%, #000 35%, transparent 80%);
+          mask-image: radial-gradient(
+            circle at 50% 50%,
+            #000 35%,
+            transparent 80%
+          );
           pointer-events: none;
         }
 
@@ -651,7 +717,7 @@ export default function Home() {
           }
         }
 
-        /* Scroll hint */
+        /* Scroll hint (pill + dot animado) */
         .scrollPill {
           width: 46px;
           height: 26px;
@@ -663,6 +729,7 @@ export default function Home() {
           overflow: hidden;
           position: relative;
         }
+
         .scrollPill .dot {
           width: 6px;
           height: 6px;
@@ -672,6 +739,7 @@ export default function Home() {
             0 0 18px rgba(139, 92, 246, 0.22);
           animation: dot 1.25s ease-in-out infinite;
         }
+
         @keyframes dot {
           0% {
             transform: translateY(-6px);
@@ -687,7 +755,7 @@ export default function Home() {
           }
         }
 
-        /* Benefits pulse */
+        /* Punto verde pulsante */
         @keyframes pulseGreen {
           0% {
             opacity: 0.65;
@@ -710,20 +778,34 @@ export default function Home() {
   );
 }
 
-/* ---------- math / easing ---------- */
+/* =========================================================
+   HELPERS DE MATH / EASING
+   ========================================================= */
 
+/**
+ * Limita un número entre min y max.
+ * Lo usamos para asegurar que los progresos de animación se mantengan en [0,1].
+ */
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-/** clamp to [0,1] then smootherstep: 6t^5 - 15t^4 + 10t^3 (C2 smooth) */
+/**
+ * smootherstep (C2 smooth): muy suave al inicio y al final.
+ * Fórmula: 6t^5 - 15t^4 + 10t^3, con t "clampeado" a [0,1].
+ */
 function smoother01(t: number) {
   const x = clamp(t, 0, 1);
   return x * x * x * (x * (x * 6 - 15) + 10);
 }
 
-/* ---------- UI bits ---------- */
+/* =========================================================
+   UI COMPONENTS REUTILIZABLES
+   ========================================================= */
 
+/**
+ * Chip pequeño reusable para tags/features.
+ */
 function Chip({
   text,
   tone,
@@ -741,6 +823,7 @@ function Chip({
     pink:
       "border-fuchsia-300/35 bg-fuchsia-300/12 text-fuchsia-50 shadow-[0_0_18px_rgba(217,70,239,0.10)]",
   };
+
   return (
     <span className={`rounded-full border px-3 py-1 text-[11px] ${map[tone]}`}>
       {text}
@@ -748,6 +831,9 @@ function Chip({
   );
 }
 
+/**
+ * Card de plan (pricing) reusable.
+ */
 function PlanCard({
   plan,
   price,
@@ -785,6 +871,7 @@ function PlanCard({
           <div className="text-white font-semibold">{plan}</div>
           <div className="text-white/70 text-xs mt-1">{desc}</div>
         </div>
+
         <div className="text-right">
           <div className="text-white font-semibold text-2xl leading-none">
             {price}
@@ -809,6 +896,9 @@ function PlanCard({
   );
 }
 
+/**
+ * Botón/link pequeño auxiliar.
+ */
 function MiniLink({ title, href }: { title: string; href: string }) {
   return (
     <Link
@@ -820,6 +910,10 @@ function MiniLink({ title, href }: { title: string; href: string }) {
   );
 }
 
+/**
+ * Caja para comparación de asset classes (MID view).
+ * Puede mostrar "cons" (rojo) o "pros" (verde pulsante).
+ */
 function MiniAssetBox({
   title,
   tag,
@@ -885,6 +979,7 @@ function MiniAssetBox({
           : "hover:border-white/25 transition",
       ].join(" ")}
     >
+      {/* Fondo sutil gradiente */}
       <div
         className={[
           "absolute inset-0 opacity-70 pointer-events-none",
@@ -893,6 +988,7 @@ function MiniAssetBox({
           "to-transparent",
         ].join(" ")}
       />
+
       <div className="relative">
         <div className="flex items-center justify-between gap-2">
           <div className="text-white font-semibold text-sm leading-tight">
@@ -908,6 +1004,7 @@ function MiniAssetBox({
           </span>
         </div>
 
+        {/* Lista de desventajas (rojo) */}
         {cons?.length ? (
           <ul className="mt-3 space-y-1.5 text-[12px] text-white/80">
             {cons.slice(0, 3).map((x) => (
@@ -919,6 +1016,7 @@ function MiniAssetBox({
           </ul>
         ) : null}
 
+        {/* Lista de ventajas (verde pulsante) */}
         {pros?.length ? (
           <ul className="mt-3 space-y-1.5 text-[12px] text-white/80">
             {pros.slice(0, 3).map((x) => (
@@ -939,6 +1037,9 @@ function MiniAssetBox({
   );
 }
 
+/**
+ * Punto verde pulsante reusable.
+ */
 function PulseDot() {
   return (
     <span className="mt-[6px] inline-flex items-center justify-center">
@@ -950,7 +1051,10 @@ function PulseDot() {
   );
 }
 
-/** Compact inline SVG chart */
+/**
+ * Mini chart SVG inline (sin librerías) para visual rápido.
+ * Todo es ilustrativo; puedes cambiar labels/series fácil.
+ */
 function MiniChartCompact() {
   const labels = ["Y-5", "Y-4", "Y-3", "Y-2", "Y-1", "Hoy"];
   const series = [
@@ -958,21 +1062,24 @@ function MiniChartCompact() {
     { name: "Gov", data: [100, 103, 108, 112, 116, 120], strong: false },
     { name: "PE", data: [100, 96, 101, 114, 122, 130], strong: false },
     { name: "RE", data: [100, 104, 110, 107, 111, 116], strong: false },
-    { name: "PD", data: [100, 106, 113, 121, 130, 140], strong: true },
+    { name: "PD", data: [100, 106, 113, 121, 130, 140], strong: true }, // línea resaltada
   ];
 
   const W = 760;
   const H = 210;
   const pad = 16;
 
+  // Hallamos rango global de datos para escalar Y
   const all = series.flatMap((s) => s.data);
   const min = Math.min(...all);
   const max = Math.max(...all);
 
+  // Escaladores X / Y
   const sx = (i: number) => pad + (i * (W - pad * 2)) / (labels.length - 1);
   const sy = (v: number) =>
     pad + ((max - v) * (H - pad * 2)) / Math.max(1, max - min);
 
+  // Convierte arreglo de puntos en path SVG ("M x y L x y ...")
   const path = (arr: number[]) =>
     arr
       .map(
@@ -983,6 +1090,7 @@ function MiniChartCompact() {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+      {/* Grid horizontal */}
       {[0, 1, 2, 3].map((k) => {
         const yy = pad + (k * (H - pad * 2)) / 3;
         return (
@@ -995,11 +1103,12 @@ function MiniChartCompact() {
             stroke="white"
             strokeWidth="1"
             strokeDasharray="4 6"
-            opacity="0.20"
+            opacity="0.2"
           />
         );
       })}
 
+      {/* Líneas */}
       {series.map((s) => (
         <path
           key={s.name}
@@ -1015,6 +1124,7 @@ function MiniChartCompact() {
         />
       ))}
 
+      {/* Dot final de cada serie */}
       {series.map((s) => {
         const last = s.data[s.data.length - 1];
         return (
@@ -1029,6 +1139,7 @@ function MiniChartCompact() {
         );
       })}
 
+      {/* Labels X */}
       <g fontSize="10" fill="rgba(255,255,255,0.55)">
         {labels.map((l, i) => (
           <text key={l} x={sx(i)} y={H - 6} textAnchor="middle">
