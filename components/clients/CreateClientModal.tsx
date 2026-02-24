@@ -9,6 +9,11 @@ function normalizeRFC(v: string) {
   return v.trim().toUpperCase().replace(/\s+/g, "");
 }
 
+function isUniqueOrDuplicate(msg: string) {
+  const m = msg.toLowerCase();
+  return m.includes("duplicate") || m.includes("unique") || m.includes("23505");
+}
+
 export default function CreateClientModal({
   open,
   onClose,
@@ -31,11 +36,15 @@ export default function CreateClientModal({
   async function handleCreate() {
     setErr(null);
     setLoading(true);
+
+    let createdClientId: string | null = null;
+
     try {
       const { data: authData } = await supabase.auth.getUser();
       const user = authData.user;
       if (!user) throw new Error("No session (haz login)");
 
+      // 1) Insert client (y trae id uuid)
       const payload = {
         owner_user_id: user.id,
         company_name: companyName.trim(),
@@ -43,8 +52,44 @@ export default function CreateClientModal({
         status,
       };
 
-      const { error } = await supabase.from("clients").insert([payload]);
-      if (error) throw error;
+      const { data: client, error: clientErr } = await supabase
+        .from("clients")
+        .insert([payload])
+        .select("id")
+        .single();
+
+      if (clientErr) throw clientErr;
+
+      createdClientId = client?.id ?? null;
+      if (!createdClientId) throw new Error("No se recibió id del cliente");
+
+      // 2) Insert connector row (default)
+      const { error: ccErr } = await supabase.from("client_connectors").insert([
+        {
+          client_id: createdClientId,
+          owner_user_id: user.id,
+          buro_status: "not_connected",
+          sat_status: "not_connected",
+          buro_score: null,
+        },
+      ]);
+      if (ccErr) throw ccErr;
+
+      // 3) Insert profile row (ficha vacía)
+      const { error: profErr } = await supabase.from("client_profiles").insert([
+        {
+          client_id: createdClientId,
+          owner_user_id: user.id,
+          contact_name: null,
+          contact_email: null,
+          contact_phone: null,
+          billing_email: null,
+          website: null,
+          address: null,
+          notes: null,
+        },
+      ]);
+      if (profErr) throw profErr;
 
       // reset
       setCompanyName("");
@@ -55,9 +100,21 @@ export default function CreateClientModal({
       onClose();
     } catch (e: any) {
       const msg = String(e?.message ?? "Error creando cliente");
-      // Unique constraint en Postgres suele caer como “duplicate key value…”
-      if (msg.toLowerCase().includes("duplicate") || msg.toLowerCase().includes("unique")) {
+
+      // rollback (si se creó el client pero falló algo después)
+      if (createdClientId) {
+        // intenta limpiar en orden (hijo -> padre)
+        await supabase.from("client_profiles").delete().eq("client_id", createdClientId);
+        await supabase.from("client_connectors").delete().eq("client_id", createdClientId);
+        await supabase.from("clients").delete().eq("id", createdClientId);
+      }
+
+      if (isUniqueOrDuplicate(msg)) {
         setErr("Ese RFC ya existe (en tus clientes).");
+      } else if (msg.toLowerCase().includes("row level security")) {
+        setErr("RLS bloqueó la operación. Revisa policies (clients / client_connectors / client_profiles).");
+      } else if (msg.toLowerCase().includes("client_profiles")) {
+        setErr("No se pudo crear la ficha (client_profiles). ¿Ya creaste la tabla y sus policies?");
       } else {
         setErr(msg);
       }
