@@ -1,31 +1,40 @@
 // app/api/clients/[id]/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export async function PUT(req: Request, ctx: { params: { id: string } }) {
-  try {
-    const id = ctx.params.id;
-    const body = await req.json();
+type Params = { id: string };
 
-    const name = String(body?.name ?? "").trim();
-    if (!name) {
-      return NextResponse.json({ error: "name es obligatorio" }, { status: 400 });
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<Params> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+
+    // Acepta name o company_name
+    const company_name = String(body?.company_name ?? body?.name ?? "").trim();
+    if (!company_name) {
+      return NextResponse.json({ error: "company_name es obligatorio" }, { status: 400 });
     }
 
-    // Ajusta aquí los campos reales de tu tabla clients
-    const updatePayload: any = {
-      company_name: name,
-    };
-
-    // si tu tabla tiene estos campos, descomenta:
-    // updatePayload.email = body?.email ?? null;
-    // updatePayload.phone = body?.phone ?? null;
+    // Campos opcionales (si existen en tu tabla)
+    const legal_representative = body?.legal_representative ?? null;
+    const contact_phone = body?.contact_phone ?? null;
+    const contact_email = body?.contact_email ?? null;
 
     const { data, error } = await supabaseAdmin
       .from("clients")
-      .update(updatePayload)
+      .update({
+        company_name,
+        legal_representative,
+        contact_phone,
+        contact_email,
+      })
       .eq("id", id)
-      .select("id, company_name, rfc, status, created_at")
+      .select(
+        "id, company_name, rfc, status, created_at, legal_representative, contact_phone, contact_email"
+      )
       .single();
 
     if (error) {
