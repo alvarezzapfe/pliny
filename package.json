@@ -9,7 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@nodecfdi/credentials": "^3.2.0",
+    "@nodecfdi/sat-ws-descarga-masiva": "^2.0.0",
     "@supabase/supabase-js": "^2.97.0",
+    "adm-zip": "^0.5.16",
+    "fast-xml-parser": "^5.3.7",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"

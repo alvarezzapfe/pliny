@@ -6,6 +6,8 @@ import PageShell from "@/components/ui/PageShell";
 import SectionCard from "@/components/ui/SectionCard";
 import { supabase } from "@/lib/supabaseClient";
 
+import SatMetricsCard from "@/components/sat/SatMetricsCard";
+
 type ClientStatus = "Active" | "Onboarding" | "Paused" | "Risk Hold";
 type BuroStatus = "not_connected" | "processing" | "ok" | "error";
 type SatStatus = "not_connected" | "uploaded" | "processing" | "connected" | "error";
@@ -76,7 +78,6 @@ export default function ClientDashboard({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // persisted connector state (client_connectors)
   const [buroStatus, setBuroStatus] = useState<BuroStatus>("not_connected");
   const [buroScore, setBuroScore] = useState<number | undefined>(undefined);
   const [buroLast, setBuroLast] = useState<string | undefined>(undefined);
@@ -104,7 +105,6 @@ export default function ClientDashboard({ clientId }: { clientId: string }) {
         return;
       }
 
-      // 1) client
       const { data: c, error: cErr } = await supabase
         .from("clients")
         .select("id, company_name, rfc, status, created_at")
@@ -114,7 +114,6 @@ export default function ClientDashboard({ clientId }: { clientId: string }) {
       if (cErr) throw cErr;
       setClient(c as ClientRow);
 
-      // 2) connectors
       const { data: cc, error: ccErr } = await supabase
         .from("client_connectors")
         .select("buro_status, buro_score, buro_last_checked, sat_status, sat_last_checked")
@@ -146,16 +145,12 @@ export default function ClientDashboard({ clientId }: { clientId: string }) {
   }, [clientId]);
 
   async function handleBuroCheck() {
-    // optimistic UI + persist processing
     setBuroStatus("processing");
     setBuroMsg(buroMessageFor("processing"));
 
     await supabase
       .from("client_connectors")
-      .update({
-        buro_status: "processing",
-        updated_at: new Date().toISOString(),
-      })
+      .update({ buro_status: "processing", updated_at: new Date().toISOString() })
       .eq("client_id", clientId);
 
     try {
@@ -172,10 +167,7 @@ export default function ClientDashboard({ clientId }: { clientId: string }) {
 
         await supabase
           .from("client_connectors")
-          .update({
-            buro_status: "error",
-            updated_at: new Date().toISOString(),
-          })
+          .update({ buro_status: "error", updated_at: new Date().toISOString() })
           .eq("client_id", clientId);
 
         return;
@@ -203,10 +195,7 @@ export default function ClientDashboard({ clientId }: { clientId: string }) {
 
       await supabase
         .from("client_connectors")
-        .update({
-          buro_status: "error",
-          updated_at: new Date().toISOString(),
-        })
+        .update({ buro_status: "error", updated_at: new Date().toISOString() })
         .eq("client_id", clientId);
     }
   }
@@ -262,7 +251,7 @@ export default function ClientDashboard({ clientId }: { clientId: string }) {
   }
 
   return (
-    <PageShell title={client.company_name} subtitle={`${client.id} · RFC ${client.rfc}`} right={right}>
+    <PageShell title={client.company_name} subtitle={`RFC ${client.rfc}`} right={right}>
       <div className="mb-4 text-[12px] text-slate-500">
         <Link href="/dashboard/clientes" className="font-semibold hover:underline">
           Clientes
@@ -271,72 +260,38 @@ export default function ClientDashboard({ clientId }: { clientId: string }) {
         <span className="text-slate-700 font-semibold">{client.company_name}</span>
       </div>
 
-      {/* ✅ Tabla de información (contacto & profile) - placeholders por ahora */}
-      <SectionCard title="Información del cliente" subtle="perfil & contacto">
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200/70">
-          <table className="w-full text-left text-[12px]">
-            <tbody>
-              <tr className="border-t border-slate-200/70">
-                <td className="w-[220px] bg-slate-50 px-4 py-3 font-semibold text-slate-600">
-                  Razón social
-                </td>
-                <td className="px-4 py-3 text-slate-900">{client.company_name}</td>
-              </tr>
-              <tr className="border-t border-slate-200/70">
-                <td className="bg-slate-50 px-4 py-3 font-semibold text-slate-600">RFC</td>
-                <td className="px-4 py-3 font-mono text-[11px] text-slate-800">{client.rfc}</td>
-              </tr>
-              <tr className="border-t border-slate-200/70">
-                <td className="bg-slate-50 px-4 py-3 font-semibold text-slate-600">Contacto principal</td>
-                <td className="px-4 py-3 text-slate-500">— (pendiente)</td>
-              </tr>
-              <tr className="border-t border-slate-200/70">
-                <td className="bg-slate-50 px-4 py-3 font-semibold text-slate-600">Correo</td>
-                <td className="px-4 py-3 text-slate-500">— (pendiente)</td>
-              </tr>
-              <tr className="border-t border-slate-200/70">
-                <td className="bg-slate-50 px-4 py-3 font-semibold text-slate-600">Teléfono</td>
-                <td className="px-4 py-3 text-slate-500">— (pendiente)</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      {/* ✅ PRO GRID: Datos básicos / Buró / SAT */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Datos básicos */}
+        <SectionCard title="Datos del cliente" subtle="básicos">
+          <div className="rounded-2xl bg-white ring-1 ring-slate-200/70 p-4">
+            <div className="text-[11px] font-semibold tracking-wide text-slate-500">CLIENTE</div>
+            <div className="mt-1 text-[16px] font-semibold text-slate-900">{client.company_name}</div>
+            <div className="mt-2 grid gap-2 text-[12px] text-slate-700">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">RFC</span>
+                <span className="font-mono text-[11px]">{client.rfc}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Estatus</span>
+                <span className="font-semibold">{client.status}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Creado</span>
+                <span className="font-semibold">{String(client.created_at).slice(0, 10)}</span>
+              </div>
 
-        <div className="mt-3 text-[12px] text-slate-500">
-          Siguiente: guardar estos campos en DB (tabla <span className="font-mono">client_profiles</span>) y permitir editar.
-        </div>
-      </SectionCard>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-4">
-        <SectionCard title="Estatus" subtle="cliente">
-          <div className="text-[18px] font-semibold text-slate-900">{client.status}</div>
-          <div className="mt-1 text-[12px] text-slate-500">
-            Creado: {String(client.created_at).slice(0, 10)}
+              <div className="pt-2 border-t border-slate-200/70 text-[11px] text-slate-500">
+                Próximo: agregar Rep legal / cel / correo editable.
+              </div>
+            </div>
           </div>
         </SectionCard>
 
-        <SectionCard title="Solicitudes" subtle="placeholder">
-          <div className="text-[24px] font-semibold tracking-tight text-slate-900">—</div>
-          <div className="mt-1 text-[12px] text-slate-500">En proceso</div>
-        </SectionCard>
-
-        <SectionCard title="KYC" subtle="placeholder">
-          <div className="text-[13px] font-semibold text-slate-900">Pendiente</div>
-          <div className="mt-1 text-[12px] text-slate-500">Aún no iniciado</div>
-        </SectionCard>
-
-        <SectionCard title="Última actividad" subtle="conectores">
-          <div className="text-[13px] font-semibold text-slate-900">
-            {satLast || buroLast || String(client.created_at).slice(0, 10)}
-          </div>
-          <div className="mt-1 text-[12px] text-slate-500">Último evento</div>
-        </SectionCard>
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {/* Buró */}
         <SectionCard
-          title="Buro de crédito"
-          subtle="score & report"
+          title="Buró"
+          subtle="score"
           right={
             <div className="flex items-center gap-2">
               <button
@@ -368,9 +323,7 @@ export default function ClientDashboard({ clientId }: { clientId: string }) {
                 <div className={`mt-0.5 text-[28px] font-semibold ${scoreTone(buroScore)}`}>
                   {buroStatus === "ok" ? buroScore ?? "—" : "—"}
                 </div>
-                <div className="text-[12px] text-slate-500">
-                  Última consulta: {buroLast ?? "—"}
-                </div>
+                <div className="text-[12px] text-slate-500">Última: {buroLast ?? "—"}</div>
               </div>
             </div>
 
@@ -395,14 +348,27 @@ export default function ClientDashboard({ clientId }: { clientId: string }) {
           </div>
         </SectionCard>
 
-        <SectionCard title="SAT" subtle="CFDI & compliance">
-          <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
-            <div className="text-[12px] font-semibold text-slate-500">Estatus</div>
-            <div className="mt-0.5 text-[13px] font-semibold text-slate-900">{satStatus}</div>
-            <div className="mt-1 text-[12px] text-slate-500">Última consulta: {satLast ?? "—"}</div>
-
-            <div className="mt-2 text-[12px] text-slate-500">
-              Siguiente paso: conectar endpoint mock de SAT y persistir métricas.
+        {/* SAT resumen + CTA */}
+        <SectionCard
+          title="SAT"
+          subtle="resultado"
+          right={
+            <Link
+              href={`/dashboard/clientes/${encodeURIComponent(clientId)}/sat`}
+              className="rounded-xl bg-[#071A3A] px-3 py-2 text-[12px] font-semibold text-white hover:opacity-95"
+            >
+              Administrar SAT
+            </Link>
+          }
+        >
+          <div className="grid gap-3">
+            <SatMetricsCard clientId={clientId} />
+            <div className="text-[12px] text-slate-500">
+              Última: <span className="font-semibold">{satLast ?? "—"}</span> · Estatus:{" "}
+              <span className="font-semibold">{satStatus}</span>
+            </div>
+            <div className="text-[11px] text-slate-500">
+              En “Administrar SAT” cargas e.firma y ejecutas descarga con rango rápido (30/90 hábiles).
             </div>
           </div>
         </SectionCard>

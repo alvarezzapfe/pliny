@@ -1,5 +1,8 @@
 import ClientDashboard from "./ClientDashboard";
 
+import SatPullPanel from "@/components/sat/SatPullPanel";
+import SatMetricsCard from "@/components/sat/SatMetricsCard";
+
 export default async function Page({
   params,
 }: {
