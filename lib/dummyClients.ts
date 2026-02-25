@@ -42,4 +42,4 @@ export const DUMMY_CLIENTS: DummyClient[] = Array.from({ length: 150 }).map((_, 
 
 export function getDummyClientById(id: string): DummyClient | null {
   return DUMMY_CLIENTS.find((c) => c.id === id) ?? null;
-}
+}   
