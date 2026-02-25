@@ -16,7 +16,6 @@ const INSTITUTION_TYPES = [
   { value: "other", label: "Otro" },
 ] as const;
 
-// 20 países con “bandera” (emoji) + dial code
 const COUNTRIES = [
   { code: "MX", name: "México", dial: "+52", flag: "🇲🇽" },
   { code: "US", name: "Estados Unidos", dial: "+1", flag: "🇺🇸" },
@@ -53,9 +52,9 @@ type Profile = {
 
   legal_rep_email: string | null;
 
-  legal_rep_phone_country: string | null; // +52
-  legal_rep_phone_national: string | null; // 10 dígitos
-  legal_rep_phone_e164: string | null; // +52 + 10 dígitos
+  legal_rep_phone_country: string | null;
+  legal_rep_phone_national: string | null;
+  legal_rep_phone_e164: string | null;
 };
 
 function onlyDigits(v: string) {
@@ -69,8 +68,26 @@ function normalizeRFC(v: string) {
 function isEmail(v: string) {
   const s = (v || "").trim();
   if (!s) return false;
-  // simple but decent
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+function isProfile(x: any): x is Profile {
+  return (
+    x &&
+    typeof x === "object" &&
+    typeof x.id === "string" &&
+    typeof x.owner_id === "string" &&
+    typeof x.institution_type === "string" &&
+    // institution_name y rfc pueden ser null
+    "institution_name" in x &&
+    "rfc" in x
+  );
+}
+
+function validateRfcLoose(v: string) {
+  const r = normalizeRFC(v);
+  // RFC Persona moral: 12, física: 13. Para MVP aceptamos 10-13 para no bloquear por edgecases.
+  return r.length >= 10 && r.length <= 13;
 }
 
 export default function DatosPage() {
@@ -92,7 +109,7 @@ export default function DatosPage() {
 
   // Tel
   const [countryDial, setCountryDial] = useState("+52");
-  const [phoneNational, setPhoneNational] = useState(""); // digits only, max 10
+  const [phoneNational, setPhoneNational] = useState("");
 
   const phoneE164 = useMemo(() => {
     const d = (countryDial || "").trim();
@@ -101,20 +118,26 @@ export default function DatosPage() {
   }, [countryDial, phoneNational]);
 
   const onboardingComplete = useMemo(() => {
-    const okInstitution = institutionType && institutionName.trim() && normalizeRFC(rfc).length >= 10;
+    const okInstitution =
+      institutionType &&
+      institutionName.trim().length > 1 &&
+      validateRfcLoose(rfc);
+
     const okRep =
-      firstNames.trim() &&
-      lastP.trim() &&
+      firstNames.trim().length > 1 &&
+      lastP.trim().length > 1 &&
       repEmail.trim() &&
       isEmail(repEmail) &&
       onlyDigits(phoneNational).length === 10 &&
       countryDial;
+
     return Boolean(okInstitution && okRep);
   }, [institutionType, institutionName, rfc, firstNames, lastP, repEmail, phoneNational, countryDial]);
 
   async function load() {
     setErr(null);
     setLoading(true);
+
     try {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) {
@@ -147,9 +170,8 @@ export default function DatosPage() {
       if (error) throw error;
 
       if (!data) {
+        // onboarding nuevo
         setProfile(null);
-
-        // defaults razonables
         setInstitutionType("other");
         setInstitutionName("");
         setRfc("");
@@ -161,22 +183,30 @@ export default function DatosPage() {
 
         setCountryDial("+52");
         setPhoneNational("");
-      } else {
-        const p = data as Profile;
-        setProfile(p);
-
-        setInstitutionType(p.institution_type ?? "other");
-        setInstitutionName(p.institution_name ?? "");
-        setRfc(p.rfc ?? "");
-
-        setFirstNames(p.legal_rep_first_names ?? "");
-        setLastP(p.legal_rep_last_name_paternal ?? "");
-        setLastM(p.legal_rep_last_name_maternal ?? "");
-        setRepEmail(p.legal_rep_email ?? "");
-
-        setCountryDial(p.legal_rep_phone_country ?? "+52");
-        setPhoneNational(p.legal_rep_phone_national ?? "");
+        return;
       }
+
+      if (!isProfile(data)) {
+        // si supabase retornó algo raro (no debería), no casteamos
+        setProfile(null);
+        setErr("Formato inesperado al cargar perfil. Revisa la tabla lenders_profile.");
+        return;
+      }
+
+      const p = data;
+      setProfile(p);
+
+      setInstitutionType(p.institution_type ?? "other");
+      setInstitutionName(p.institution_name ?? "");
+      setRfc(p.rfc ?? "");
+
+      setFirstNames(p.legal_rep_first_names ?? "");
+      setLastP(p.legal_rep_last_name_paternal ?? "");
+      setLastM(p.legal_rep_last_name_maternal ?? "");
+      setRepEmail(p.legal_rep_email ?? (auth.user.email ?? ""));
+
+      setCountryDial(p.legal_rep_phone_country ?? "+52");
+      setPhoneNational(p.legal_rep_phone_national ?? "");
     } catch (e: any) {
       setErr(String(e?.message ?? "Error cargando datos"));
     } finally {
@@ -190,8 +220,7 @@ export default function DatosPage() {
 
   function validate(): string | null {
     if (!institutionName.trim()) return "Falta el nombre de la institución.";
-    const r = normalizeRFC(rfc);
-    if (r.length < 10) return "RFC inválido o incompleto (institución).";
+    if (!validateRfcLoose(rfc)) return "RFC inválido o incompleto (institución).";
 
     if (!firstNames.trim()) return "Falta Nombre(s) del representante legal.";
     if (!lastP.trim()) return "Falta Apellido paterno del representante legal.";
@@ -245,6 +274,11 @@ export default function DatosPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // UX: limpiar error al cambiar inputs (para que no “asuste”)
+  function clearErr() {
+    if (err) setErr(null);
   }
 
   return (
@@ -312,7 +346,10 @@ export default function DatosPage() {
                 <div className="mb-1 text-[12px] font-semibold text-slate-700">Tipo de institución</div>
                 <select
                   value={institutionType}
-                  onChange={(e) => setInstitutionType(e.target.value)}
+                  onChange={(e) => {
+                    clearErr();
+                    setInstitutionType(e.target.value);
+                  }}
                   className="h-[40px] w-full rounded-xl border border-slate-200 bg-white px-3 text-[13px] text-slate-900 outline-none focus:ring-2 focus:ring-[#00E599]/30"
                 >
                   {INSTITUTION_TYPES.map((t) => (
@@ -327,7 +364,10 @@ export default function DatosPage() {
                 <div className="mb-1 text-[12px] font-semibold text-slate-700">Nombre de la institución</div>
                 <input
                   value={institutionName}
-                  onChange={(e) => setInstitutionName(e.target.value)}
+                  onChange={(e) => {
+                    clearErr();
+                    setInstitutionName(e.target.value);
+                  }}
                   placeholder="Ej. Fondo ABC, Banco XYZ…"
                   className="h-[40px] w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30"
                 />
@@ -337,7 +377,10 @@ export default function DatosPage() {
                 <div className="mb-1 text-[12px] font-semibold text-slate-700">RFC de la institución</div>
                 <input
                   value={rfc}
-                  onChange={(e) => setRfc(normalizeRFC(e.target.value))}
+                  onChange={(e) => {
+                    clearErr();
+                    setRfc(normalizeRFC(e.target.value));
+                  }}
                   placeholder="Ej. ABC010203XYZ"
                   maxLength={13}
                   className="h-[40px] w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30 font-mono"
@@ -356,7 +399,10 @@ export default function DatosPage() {
                   <div className="mb-1 text-[12px] font-semibold text-slate-700">Nombre(s)</div>
                   <input
                     value={firstNames}
-                    onChange={(e) => setFirstNames(e.target.value)}
+                    onChange={(e) => {
+                      clearErr();
+                      setFirstNames(e.target.value);
+                    }}
                     placeholder="Ej. Luis Armando"
                     className="h-[40px] w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30"
                   />
@@ -366,7 +412,10 @@ export default function DatosPage() {
                   <div className="mb-1 text-[12px] font-semibold text-slate-700">Apellido paterno</div>
                   <input
                     value={lastP}
-                    onChange={(e) => setLastP(e.target.value)}
+                    onChange={(e) => {
+                      clearErr();
+                      setLastP(e.target.value);
+                    }}
                     placeholder="Ej. Álvarez"
                     className="h-[40px] w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30"
                   />
@@ -376,7 +425,10 @@ export default function DatosPage() {
                   <div className="mb-1 text-[12px] font-semibold text-slate-700">Apellido materno</div>
                   <input
                     value={lastM}
-                    onChange={(e) => setLastM(e.target.value)}
+                    onChange={(e) => {
+                      clearErr();
+                      setLastM(e.target.value);
+                    }}
                     placeholder="Ej. Zapfe"
                     className="h-[40px] w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30"
                   />
@@ -387,7 +439,10 @@ export default function DatosPage() {
                 <div className="mb-1 text-[12px] font-semibold text-slate-700">Correo</div>
                 <input
                   value={repEmail}
-                  onChange={(e) => setRepEmail(e.target.value)}
+                  onChange={(e) => {
+                    clearErr();
+                    setRepEmail(e.target.value);
+                  }}
                   placeholder="correo@dominio.com"
                   className="h-[40px] w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30"
                 />
@@ -398,7 +453,10 @@ export default function DatosPage() {
                 <div className="flex items-center gap-2">
                   <select
                     value={countryDial}
-                    onChange={(e) => setCountryDial(e.target.value)}
+                    onChange={(e) => {
+                      clearErr();
+                      setCountryDial(e.target.value);
+                    }}
                     className="h-[40px] w-[180px] rounded-xl border border-slate-200 bg-white px-2 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30"
                   >
                     {COUNTRIES.map((c) => (
@@ -410,7 +468,10 @@ export default function DatosPage() {
 
                   <input
                     value={phoneNational}
-                    onChange={(e) => setPhoneNational(onlyDigits(e.target.value).slice(0, 10))}
+                    onChange={(e) => {
+                      clearErr();
+                      setPhoneNational(onlyDigits(e.target.value).slice(0, 10));
+                    }}
                     inputMode="numeric"
                     pattern="\d*"
                     placeholder="10 dígitos"
@@ -420,25 +481,18 @@ export default function DatosPage() {
 
                 <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
                   <span>Solo números, máximo 10 dígitos.</span>
-                  <span className="font-mono text-slate-700">
-                    {phoneE164 ? `E.164: ${phoneE164}` : "E.164: —"}
-                  </span>
+                  <span className="font-mono text-slate-700">{phoneE164 ? `E.164: ${phoneE164}` : "E.164: —"}</span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-3 text-[11px] text-slate-500">
-              Esto se usa para verificación y contacto operativo.
-            </div>
+            <div className="mt-3 text-[11px] text-slate-500">Esto se usa para verificación y contacto operativo.</div>
           </div>
         </SectionCard>
       </div>
 
       <div className="mt-4 text-[12px] text-slate-500">
-        Estado actual:{" "}
-        <span className="font-semibold text-slate-900">
-          {profile ? "Perfil guardado" : "Sin perfil aún"}
-        </span>
+        Estado actual: <span className="font-semibold text-slate-900">{profile ? "Perfil guardado" : "Sin perfil aún"}</span>
       </div>
     </PageShell>
   );
