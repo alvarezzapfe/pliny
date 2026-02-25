@@ -4,37 +4,25 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { parseCfdiXml } from "@/lib/sat/cfdiParse";
 import { computeMetricsFromCfdi } from "@/lib/sat/metrics";
 
-// ✅ SAT WS
-import { Fiel } from "@nodecfdi/credentials";
-import {
-  HttpsWebClient,
-  FielRequestBuilder,
-  Service,
-  QueryParameters,
-  DateTimePeriod,
-  DownloadType,
-  RequestType,
-} from "@nodecfdi/sat-ws-descarga-masiva";
-
 export const runtime = "nodejs";
 
-type PullArgs = {
-  cer: File;
-  key: File;
-  password: string;
-  fromDate: string;
-  toDate: string;
-  tipo: "emitidos" | "recibidos";
-  rfcSolicitante: string;
-};
+function safeName(name: string) {
+  return (name || "sat.zip").replace(/[^\w.\-]+/g, "_");
+}
 
 export async function POST(req: NextRequest) {
   const supabase = getSupabaseAdmin();
-  let jobId: string | null = null;
 
   try {
     const form = await req.formData();
+
     const clientId = String(form.get("clientId") || "");
+    if (!clientId) return NextResponse.json({ error: "Falta clientId" }, { status: 400 });
+
+    // ✅ compat: ZIP mode
+    const zipFiles = form.getAll("zipFiles").filter(Boolean);
+
+    // ✅ compat: WS mode (lo que ya tenías)
     const fromDate = String(form.get("fromDate") || "");
     const toDate = String(form.get("toDate") || "");
     const tipo = String(form.get("tipo") || "emitidos") as "emitidos" | "recibidos";
@@ -43,57 +31,74 @@ export async function POST(req: NextRequest) {
     const key = form.get("key");
     const password = String(form.get("password") || "");
 
-    if (!clientId || !fromDate || !toDate || !password) {
-      return NextResponse.json({ error: "Faltan campos" }, { status: 400 });
-    }
-    if (!(cer instanceof File) || !(key instanceof File)) {
-      return NextResponse.json({ error: "Faltan archivos .cer/.key" }, { status: 400 });
+    const isZipMode = zipFiles.length > 0;
+    const isWsMode = cer instanceof File && key instanceof File && Boolean(password) && Boolean(fromDate) && Boolean(toDate);
+
+    if (!isZipMode && !isWsMode) {
+      return NextResponse.json(
+        { error: "Faltan datos. Sube ZIP(s) (zipFiles) o usa e.firma (.cer/.key + password + fechas)." },
+        { status: 400 }
+      );
     }
 
-    // 1) crear job
+    // 1) crea job
     const { data: job, error: jobErr } = await supabase
       .from("client_sat_jobs")
       .insert({
         client_id: clientId,
         status: "running",
-        from_date: fromDate,
-        to_date: toDate,
-        tipo,
-        message: "Iniciando descarga SAT…",
+        from_date: isWsMode ? fromDate : null,
+        to_date: isWsMode ? toDate : null,
+        tipo: isWsMode ? tipo : "zip_upload",
       })
       .select("id")
       .single();
 
     if (jobErr) return NextResponse.json({ error: jobErr.message }, { status: 400 });
-    jobId = job.id as string;
+    const jobId = job.id as string;
 
-    // 2) RFC del cliente (para saber emitidos/recibidos correctamente y para auditoría)
-    const { data: client, error: cErr } = await supabase
-      .from("clients")
-      .select("rfc")
-      .eq("id", clientId)
-      .single();
-
+    // 2) RFC del cliente
+    const { data: client, error: cErr } = await supabase.from("clients").select("rfc").eq("id", clientId).single();
     if (cErr) throw new Error(cErr.message);
-    const clientRfc = String(client?.rfc || "");
-    if (!clientRfc) throw new Error("El cliente no tiene RFC en la tabla clients.");
+    const clientRfc = String(client?.rfc || "").trim().toUpperCase();
+    if (!clientRfc) throw new Error("El cliente no tiene RFC en tabla clients.");
 
-    await supabase.from("client_sat_jobs").update({ message: "Solicitando paquetes al SAT…" }).eq("id", jobId);
+    // 3) obtener ZIP buffers
+    let zipBuffers: Buffer[] = [];
+    const storedPaths: string[] = [];
 
-    // 3) Descargar paquetes ZIP via WS
-    const zipBuffers = await downloadSatPackagesViaWS({
-      cer,
-      key,
-      password,
-      fromDate,
-      toDate,
-      tipo,
-      rfcSolicitante: clientRfc,
-    });
+    if (isZipMode) {
+      // ✅ ZIP upload: sube a Storage y parsea buffers locales
+      for (const f of zipFiles) {
+        if (!(f instanceof File)) continue;
+        const buf = Buffer.from(await f.arrayBuffer());
+        const name = safeName(f.name);
+        const path = `${clientId}/${jobId}/${Date.now()}_${name}`;
 
-    await supabase.from("client_sat_jobs").update({ message: `Paquetes descargados: ${zipBuffers.length}. Extrayendo XML…` }).eq("id", jobId);
+        const { error: upErr } = await supabase.storage.from("sat-packages").upload(path, buf, {
+          contentType: "application/zip",
+          upsert: false,
+        });
+        if (upErr) throw new Error(`Storage upload error: ${upErr.message}`);
 
-    // 4) extraer XMLs + parsear
+        storedPaths.push(path);
+        zipBuffers.push(buf);
+      }
+    } else {
+      // ✅ WS mode: aquí conectas descarga masiva real (futuro)
+      // Por ahora NO rompe el endpoint: te da error claro sin tumbar tu app
+      zipBuffers = await downloadSatPackagesViaWS({
+        cer: cer as File,
+        key: key as File,
+        password,
+        fromDate,
+        toDate,
+        tipo,
+        rfcSolicitante: clientRfc,
+      });
+    }
+
+    // 4) extraer XMLs
     const parsedRows: Array<{
       uuid: string;
       fecha: string;
@@ -101,32 +106,50 @@ export async function POST(req: NextRequest) {
       rfcReceptor: string;
       total: number;
       moneda: string | null;
+      direction: "income" | "expense" | null;
+      sourcePath: string | null;
     }> = [];
 
-    for (const buf of zipBuffers) {
+    let xmlCount = 0;
+
+    // si es ZIP mode con múltiples zips, asociamos el sourcePath por zip
+    const zipIndexToPath = (idx: number) => (storedPaths[idx] ? storedPaths[idx] : null);
+
+    for (let i = 0; i < zipBuffers.length; i++) {
+      const buf = zipBuffers[i];
       const zip = new AdmZip(buf);
       const entries = zip.getEntries();
+      const sourcePath = isZipMode ? zipIndexToPath(i) : null;
 
       for (const e of entries) {
         if (!e.entryName.toLowerCase().endsWith(".xml")) continue;
         const xml = e.getData().toString("utf8");
+        xmlCount++;
+
         const p = parseCfdiXml(xml);
         if (!p) continue;
+
+        const emisor = String(p.rfcEmisor || "").trim().toUpperCase();
+        const receptor = String(p.rfcReceptor || "").trim().toUpperCase();
+
+        let direction: "income" | "expense" | null = null;
+        if (emisor === clientRfc) direction = "income";
+        else if (receptor === clientRfc) direction = "expense";
 
         parsedRows.push({
           uuid: p.uuid,
           fecha: p.fecha,
-          rfcEmisor: p.rfcEmisor,
-          rfcReceptor: p.rfcReceptor,
+          rfcEmisor: emisor,
+          rfcReceptor: receptor,
           total: p.total,
           moneda: p.moneda,
+          direction,
+          sourcePath,
         });
       }
     }
 
-    await supabase.from("client_sat_jobs").update({ message: `XML extraídos: ${parsedRows.length}. Guardando…` }).eq("id", jobId);
-
-    // 5) upsert CFDI (evita duplicados)
+    // 5) upsert CFDI
     if (parsedRows.length) {
       const payload = parsedRows.map((p) => ({
         client_id: clientId,
@@ -136,16 +159,16 @@ export async function POST(req: NextRequest) {
         rfc_receptor: p.rfcReceptor,
         total: p.total,
         moneda: p.moneda,
+        direction: p.direction,
+        source_job_id: jobId,
+        source_file_path: p.sourcePath,
       }));
 
-      const { error: upErr } = await supabase
-        .from("client_sat_cfdi")
-        .upsert(payload, { onConflict: "client_id,uuid" });
-
+      const { error: upErr } = await supabase.from("client_sat_cfdi").upsert(payload, { onConflict: "client_id,uuid" });
       if (upErr) throw new Error(upErr.message);
     }
 
-    // 6) métricas + score
+    // 6) métricas
     const metrics = computeMetricsFromCfdi({
       clientRfc,
       cfdi: parsedRows.map((p) => ({
@@ -156,124 +179,48 @@ export async function POST(req: NextRequest) {
       })),
     });
 
+    // Si tu tabla no tiene job_id, quítalo
     const { error: mErr } = await supabase.from("client_sat_metrics").insert({
       client_id: clientId,
+      job_id: jobId,
       ...metrics,
     });
-
     if (mErr) throw new Error(mErr.message);
 
-    // 7) job done
-    await supabase
-      .from("client_sat_jobs")
-      .update({ status: "done", message: `OK · CFDI parseados: ${parsedRows.length}` })
-      .eq("id", jobId);
+    // 7) job done + connectors
+    const iso = new Date().toISOString();
+    await supabase.from("client_sat_jobs").update({ status: "done", message: `XML: ${xmlCount} · CFDI: ${parsedRows.length}` }).eq("id", jobId);
+    await supabase.from("client_connectors").update({ sat_status: "connected", sat_last_checked: iso, updated_at: iso }).eq("client_id", clientId);
 
     return NextResponse.json(
-      { ok: true, jobId, inserted: parsedRows.length, metrics },
+      {
+        ok: true,
+        mode: isZipMode ? "zip" : "ws",
+        jobId,
+        xmlCount,
+        inserted: parsedRows.length,
+        metrics,
+        storedPaths,
+      },
       { status: 200 }
     );
   } catch (e: any) {
-    const msg = String(e?.message ?? "Error");
-    if (jobId) {
-      await getSupabaseAdmin()
-        .from("client_sat_jobs")
-        .update({ status: "error", message: msg })
-        .eq("id", jobId);
-    }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }
 
-// -------------------------
-// SAT WS implementation
-// -------------------------
-
-function toDerBinaryString(file: File): Promise<string> {
-  // NodeCfdi examples usan 'binary' string
-  return file.arrayBuffer().then((ab) => Buffer.from(ab).toString("binary"));
-}
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function dtStart(date: string) {
-  return `${date} 00:00:00`;
-}
-function dtEnd(date: string) {
-  return `${date} 23:59:59`;
-}
-
-async function downloadSatPackagesViaWS(args: PullArgs): Promise<Buffer[]> {
-  const cerDer = await toDerBinaryString(args.cer);
-  const keyDer = await toDerBinaryString(args.key);
-
-  const fiel = Fiel.create(cerDer, keyDer, args.password);
-  if (!fiel.isValid()) {
-    throw new Error("e.firma inválida/vencida o contraseña incorrecta.");
-  }
-
-  const webClient = new HttpsWebClient();
-  const requestBuilder = new FielRequestBuilder(fiel);
-  const service = new Service(requestBuilder, webClient);
-
-  const period = DateTimePeriod.createFromValues(dtStart(args.fromDate), dtEnd(args.toDate));
-  const downloadType = args.tipo === "emitidos" ? DownloadType.issued() : DownloadType.received();
-
-  const queryParams = QueryParameters.create(period)
-    .withDownloadType(downloadType)
-    .withRequestType(RequestType.xml());
-
-  const query = await service.query(queryParams);
-
-  if (!query.getStatus().isAccepted()) {
-    throw new Error(`SAT query rechazado: ${query.getStatus().getMessage()}`);
-  }
-
-  const requestId = query.getRequestId();
-
-  // Poll razonable para serverless (MVP: rangos pequeños)
-  let packageIds: string[] = [];
-  const maxAttempts = 10;
-
-  for (let i = 0; i < maxAttempts; i++) {
-    const verify = await service.verify(requestId);
-
-    if (!verify.getStatus().isAccepted()) {
-      throw new Error(`SAT verify falló: ${verify.getStatus().getMessage()}`);
-    }
-
-    const sr = verify.getStatusRequest();
-
-    if (sr.isTypeOf("Expired") || sr.isTypeOf("Failure") || sr.isTypeOf("Rejected")) {
-      throw new Error(`SAT solicitud no completable (${sr.value()}): ${sr.message()}`);
-    }
-
-    if (sr.isTypeOf("Finished")) {
-      packageIds = Array.from(verify.getPackageIds());
-      break;
-    }
-
-    await sleep(2000);
-  }
-
-  if (!packageIds.length) {
-    throw new Error("SAT aún procesando. Usa un rango menor (30–90 días) o reintenta.");
-  }
-
-  const zipBuffers: Buffer[] = [];
-
-  for (const packageId of packageIds) {
-    const download = await service.download(packageId);
-    if (!download.getStatus().isAccepted()) continue;
-
-    zipBuffers.push(Buffer.from(download.getPackageContent(), "base64"));
-  }
-
-  if (!zipBuffers.length) {
-    throw new Error("No se pudo descargar ningún paquete del SAT.");
-  }
-
-  return zipBuffers;
+/**
+ * FUTURO: conexión a Descarga Masiva (WS) usando e.firma.
+ * No se implementa en MVP ZIP, pero dejamos el contrato.
+ */
+async function downloadSatPackagesViaWS(_args: {
+  cer: File;
+  key: File;
+  password: string;
+  fromDate: string;
+  toDate: string;
+  tipo: "emitidos" | "recibidos";
+  rfcSolicitante: string;
+}): Promise<Buffer[]> {
+  throw new Error("WS SAT no implementado aún. MVP usa ZIP upload.");
 }

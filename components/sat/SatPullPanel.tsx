@@ -1,241 +1,119 @@
 "use client";
-import * as React from "react";
 
-type Tipo = "emitidos" | "recibidos";
-
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-function toISODate(d: Date) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-function isBusinessDay(d: Date) {
-  const day = d.getDay(); // 0=Sun,6=Sat
-  return day !== 0 && day !== 6;
-}
-function subtractBusinessDays(from: Date, businessDays: number) {
-  const d = new Date(from);
-  let left = businessDays;
-  while (left > 0) {
-    d.setDate(d.getDate() - 1);
-    if (isBusinessDay(d)) left--;
-  }
-  return d;
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="mb-1 text-[12px] font-semibold text-slate-700">{label}</div>
-      {children}
-    </div>
-  );
-}
+import React, { useMemo, useState } from "react";
 
 export default function SatPullPanel({
   clientId,
-  onDone,
   onStart,
+  onDone,
 }: {
   clientId: string;
-  onDone?: () => void;
-  onStart?: () => void;
+  onStart?: () => void | Promise<void>;
+  onDone?: () => void | Promise<void>;
 }) {
-  const [cer, setCer] = React.useState<File | null>(null);
-  const [key, setKey] = React.useState<File | null>(null);
-  const [password, setPassword] = React.useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  const [tipo, setTipo] = React.useState<Tipo>("emitidos");
-  const [fromDate, setFromDate] = React.useState("");
-  const [toDate, setToDate] = React.useState("");
+  const fileLabel = useMemo(() => {
+    if (!files.length) return "Ningún ZIP seleccionado";
+    if (files.length === 1) return files[0].name;
+    return `${files.length} ZIPs seleccionados`;
+  }, [files]);
 
-  const [loading, setLoading] = React.useState(false);
-  const [msg, setMsg] = React.useState<{ kind: "ok" | "err" | "info"; text: string } | null>(null);
-
-  React.useEffect(() => {
-    // default: últimos 30 hábiles
-    const today = new Date();
-    const end = today;
-    const start = subtractBusinessDays(today, 30);
-    setFromDate(toISODate(start));
-    setToDate(toISODate(end));
-  }, []);
-
-  function quickRange(businessDays: number) {
-    const today = new Date();
-    const start = subtractBusinessDays(today, businessDays);
-    setFromDate(toISODate(start));
-    setToDate(toISODate(today));
-    setMsg({ kind: "info", text: `Rango listo: últimos ${businessDays} días hábiles.` });
-  }
-
-  async function start() {
+  async function submit() {
     setMsg(null);
-
-    if (!cer || !key || !password || !fromDate || !toDate) {
-      setMsg({ kind: "err", text: "Faltan archivos o contraseña. (Fechas ya vienen por default)" });
-      return;
-    }
+    if (!clientId) return setMsg("Falta clientId.");
+    if (!files.length) return setMsg("Selecciona al menos 1 ZIP del SAT.");
 
     setLoading(true);
-    onStart?.();
-
     try {
+      await onStart?.();
+
       const fd = new FormData();
-      fd.append("clientId", clientId);
-      fd.append("cer", cer);
-      fd.append("key", key);
-      fd.append("password", password);
-      fd.append("fromDate", fromDate);
-      fd.append("toDate", toDate);
-      fd.append("tipo", tipo);
+      fd.set("clientId", clientId);
+      for (const f of files) fd.append("zipFiles", f);
 
       const res = await fetch("/api/sat/pull", { method: "POST", body: fd });
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) throw new Error(data?.error || "Error");
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Error procesando ZIP");
+      }
 
-      setMsg({
-        kind: "ok",
-        text: `Listo. CFDI procesados: ${data.inserted ?? "—"}. Score: ${data.metrics?.score ?? "—"}`,
-      });
+      setMsg(
+        `Listo: ZIPs ${data.zipCount} · XML ${data.xmlCount} · CFDI ${data.inserted}`
+      );
 
-      onDone?.();
+      await onDone?.();
     } catch (e: any) {
-      setMsg({ kind: "err", text: e?.message || "Error" });
+      setMsg(String(e?.message ?? "Error"));
     } finally {
       setLoading(false);
-      setPassword(""); // no persistir
     }
   }
 
-  const banner =
-    msg?.kind === "ok"
-      ? "bg-emerald-50 text-emerald-900 ring-emerald-100"
-      : msg?.kind === "err"
-        ? "bg-rose-50 text-rose-900 ring-rose-100"
-        : "bg-slate-50 text-slate-700 ring-slate-200/70";
-
   return (
-    <div className="rounded-2xl bg-white ring-1 ring-slate-200/70 overflow-hidden">
-      {/* Header */}
-      <div className="flex flex-col gap-3 px-4 py-4 bg-slate-50/60 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="text-[11px] font-semibold tracking-wide text-slate-500">SAT ENGINE</div>
-          <div className="mt-1 text-[13px] font-semibold text-slate-900">
-            Descarga masiva → XML → métricas
+    <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200/70">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[12px] font-semibold text-slate-900">SAT · Importar ZIP(s)</div>
+          <div className="mt-1 text-[12px] text-slate-500">
+            Sube ZIP(s) del SAT (Descarga Masiva). Se guardan en Storage y se procesan a CFDI.
           </div>
-          <div className="mt-1 text-[12px] text-slate-600">
-            UX: botones rápidos para rango (días hábiles). La contraseña no se guarda.
+        </div>
+
+        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200/70">
+          <span className="h-2 w-2 rounded-full bg-[#00E599]" />
+          ZIP mode
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200/70">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="text-[12px] font-semibold text-slate-800">{fileLabel}</div>
+
+            <div className="flex items-center gap-2">
+              <label className="cursor-pointer rounded-xl bg-slate-900 px-3 py-2 text-[12px] font-semibold text-white hover:opacity-95">
+                Seleccionar ZIP(s)
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".zip,application/zip"
+                  multiple
+                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                />
+              </label>
+
+              <button
+                onClick={() => setFiles([])}
+                className="rounded-xl bg-slate-100 px-3 py-2 text-[12px] font-semibold text-slate-800 hover:bg-slate-200"
+                type="button"
+              >
+                Limpiar
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-2 text-[11px] text-slate-500">
+            Tip: puedes subir varios ZIPs (p. ej. por mes).
           </div>
         </div>
 
         <button
-          onClick={start}
+          onClick={submit}
           disabled={loading}
-          className={[
-            "shrink-0 rounded-xl px-3 py-2 text-[12px] font-semibold",
-            "bg-[#071A3A] text-white hover:opacity-95",
-            "disabled:opacity-60",
-          ].join(" ")}
+          className="rounded-xl bg-[#071A3A] px-3 py-2 text-[12px] font-semibold text-white hover:opacity-95 disabled:opacity-60"
         >
-          {loading ? "Procesando…" : "Procesar SAT"}
+          {loading ? "Procesando…" : "Importar y calcular"}
         </button>
-      </div>
 
-      <div className="p-4">
         {msg ? (
-          <div className={["mb-3 rounded-2xl px-3 py-2 text-[12px] font-semibold ring-1", banner].join(" ")}>
-            {msg.text}
+          <div className="rounded-2xl bg-slate-50 px-3 py-2 text-[12px] text-slate-700 ring-1 ring-slate-200/70">
+            {msg}
           </div>
         ) : null}
-
-        {/* Quick ranges */}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => quickRange(30)}
-            className="rounded-xl bg-slate-100 px-3 py-2 text-[12px] font-semibold text-slate-800 hover:bg-slate-200"
-          >
-            Últimos 30 hábiles
-          </button>
-          <button
-            type="button"
-            onClick={() => quickRange(90)}
-            className="rounded-xl bg-slate-100 px-3 py-2 text-[12px] font-semibold text-slate-800 hover:bg-slate-200"
-          >
-            Últimos 90 hábiles
-          </button>
-
-          <div className="ml-auto text-[11px] text-slate-500">
-            Rango: <span className="font-semibold">{fromDate}</span> →{" "}
-            <span className="font-semibold">{toDate}</span>
-          </div>
-        </div>
-
-        <div className="grid gap-3 lg:grid-cols-2">
-          <Field label="e.firma (.cer)">
-            <input
-              type="file"
-              accept=".cer"
-              onChange={(e) => setCer(e.target.files?.[0] ?? null)}
-              className="block w-full text-[12px]"
-            />
-          </Field>
-
-          <Field label="e.firma (.key)">
-            <input
-              type="file"
-              accept=".key"
-              onChange={(e) => setKey(e.target.files?.[0] ?? null)}
-              className="block w-full text-[12px]"
-            />
-          </Field>
-
-          <Field label="Password (.key)">
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30"
-              placeholder="No se guarda"
-            />
-          </Field>
-
-          <Field label="Tipo de CFDI">
-            <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value as Tipo)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30"
-            >
-              <option value="emitidos">Emitidos (ingresos)</option>
-              <option value="recibidos">Recibidos (egresos)</option>
-            </select>
-          </Field>
-
-          {/* Fechas quedan pero ya no “obligas” al user */}
-          <Field label="Desde (opcional)">
-            <input
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              type="date"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30"
-            />
-          </Field>
-
-          <Field label="Hasta (opcional)">
-            <input
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              type="date"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#00E599]/30"
-            />
-          </Field>
-        </div>
-
-        <div className="mt-3 text-[11px] text-slate-500">
-          Recomendación MVP: usa 30–90 hábiles para que el SAT responda rápido.
-        </div>
       </div>
     </div>
   );
