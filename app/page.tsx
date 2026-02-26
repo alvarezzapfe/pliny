@@ -5,69 +5,32 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 export default function Home() {
-  /**
-   * =========================
-   * SCROLL STATE
-   * =========================
-   * y  = scroll vertical actual
-   * vh = alto de viewport actual
-   *
-   * Usamos vh para que los timings de animación sean "relativos a pantalla"
-   * y no dependan de pixeles fijos.
-   */
   const [y, setY] = useState(0);
   const [vh, setVh] = useState(800);
 
   useEffect(() => {
     const on = () => {
       setY(window.scrollY || 0);
-      setVh(window.innerHeight || 1); // evita divisiones entre 0
+      setVh(window.innerHeight || 1);
     };
-
-    on(); // lectura inicial
-
+    on();
     window.addEventListener("scroll", on, { passive: true });
     window.addEventListener("resize", on, { passive: true });
-
     return () => {
       window.removeEventListener("scroll", on);
       window.removeEventListener("resize", on);
     };
   }, []);
 
-  /**
-   * =========================
-   * 3-STAGE SCROLL (Intro -> Mid -> Main)
-   * =========================
-   *
-   * smoother01((y - vh * inicio) / (vh * duracion))
-   *
-   * - "inicio": cuándo arranca la transición
-   * - "duración": cuánto tarda en completarse
-   *
-   * AJUSTE SOLICITADO:
-   * Hicimos que el paso 2 (mid) tarde más en cambiar al 3 (main)
-   * moviendo midOut y mainIn más abajo + haciéndolos más largos.
-   */
+  // 3-stage scroll
   const introOut = smoother01((y - vh * 0.9) / (vh * 0.45));
   const midIn = smoother01((y - vh * 1.12) / (vh * 0.35));
-
-  // ✅ Más tarde y más lento (antes estaba ~1.78 / 0.35)
   const midOut = smoother01((y - vh * 2.02) / (vh * 0.52));
-
-  // ✅ Main entra más tarde y más suave (antes estaba ~2.1 / 0.55)
   const mainIn = smoother01((y - vh * 2.42) / (vh * 0.72));
-
-  /**
-   * =========================
-   * STYLES CALCULADOS POR ETAPA
-   * =========================
-   * Los calculamos con useMemo para claridad y performance.
-   */
 
   // VIEW 1 (INTRO)
   const introStyle = useMemo(() => {
-    const t = introOut; // 0 -> 1
+    const t = introOut;
     return {
       opacity: 1 - t,
       transform: `translateY(${t * -14}px) scale(${1 - t * 0.015})`,
@@ -78,12 +41,10 @@ export default function Home() {
 
   // VIEW 1.5 (MID)
   const midOpacity = midIn * (1 - midOut);
-
   const midStyle = useMemo(() => {
-    const lift = (1 - midIn) * 10; // al entrar, viene ligeramente desde abajo
-    const drop = midOut * 8; // al salir, cae un poco
-    const blur = (1 - midIn) * 3 + midOut * 2.5; // blur entrada + salida
-
+    const lift = (1 - midIn) * 10;
+    const drop = midOut * 8;
+    const blur = (1 - midIn) * 3 + midOut * 2.5;
     return {
       opacity: midOpacity,
       transform: `translateY(${lift + drop}px) scale(${
@@ -107,7 +68,7 @@ export default function Home() {
 
   return (
     <main className="min-h-[340vh] pliny-bg px-4 py-0">
-      {/* Glow overlays de fondo (ambient) */}
+      {/* Ambient background glows */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
         <div className="absolute top-1/3 -right-24 h-80 w-80 rounded-full bg-fuchsia-500/18 blur-3xl" />
@@ -115,7 +76,7 @@ export default function Home() {
       </div>
 
       {/* =========================
-          VIEW 1 — INTRO (full bleed)
+          VIEW 1 — INTRO
          ========================= */}
       <section
         className="sticky top-0 h-[100svh] flex items-center justify-center"
@@ -123,10 +84,6 @@ export default function Home() {
       >
         <div className="relative w-full max-w-5xl px-4">
           <div className="flex flex-col items-center text-center">
-            {/* Badge superior */}
-            
-
-            {/* Logo hero con anillos neon */}
             <div className="mt-9 relative">
               <div className="ringWrap">
                 <div className="neonBackdrop" aria-hidden />
@@ -151,28 +108,27 @@ export default function Home() {
               <div className="pointer-events-none absolute inset-x-0 -bottom-10 mx-auto h-20 w-[360px] rounded-full bg-violet-300/16 blur-3xl" />
             </div>
 
-            {/* Headline */}
             <h1 className="mt-7 text-3xl md:text-6xl font-semibold text-white leading-tight tracking-tight">
               Plinius{" "}
               <span className="text-cyan-200 drop-shadow-[0_0_14px_rgba(34,211,238,0.55)]">
-                Crédito Privado
+                Private Credit OS
               </span>
             </h1>
 
-            {/* Subheadline */}
             <p className="mt-3 text-white/75 text-sm md:text-base leading-relaxed max-w-2xl">
-              Utiliza Plinius para administrar, calificar, gestionar cobranza, analisis de riesgo de tu portafolio de creditos.
+              Infraestructura para{" "}
+              <span className="text-white font-semibold">originar</span> y{" "}
+              <span className="text-white font-semibold">administrar</span>{" "}
+              créditos: señales de riesgo, monitoreo y reportes ejecutivos.
             </p>
 
-            {/* Chips */}
             <div className="mt-6 flex flex-wrap justify-center gap-2">
-              <Chip text="SAT/CFDI" tone="cyan" />
-              <Chip text="Tiempos rápidos" tone="lime" />
-              <Chip text="Scoring + PDF" tone="violet" />
-              <Chip text="API-first" tone="pink" />
+              <Chip text="Underwriting" tone="cyan" />
+              <Chip text="Portafolio" tone="lime" />
+              <Chip text="Risk signals" tone="violet" />
+              <Chip text="Reporte PDF" tone="pink" />
             </div>
 
-            {/* CTA buttons */}
             <div className="mt-8 grid w-full max-w-md gap-3 sm:grid-cols-2">
               <Link
                 href="/login"
@@ -188,7 +144,6 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Scroll hint */}
             <div className="mt-10 flex flex-col items-center gap-2 text-white/55">
               <div className="text-[11px]">Desliza para descubrir</div>
               <div className="scrollPill">
@@ -199,11 +154,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Espacio para dar tiempo de scroll antes del MID */}
       <div className="h-[70vh]" />
 
       {/* =========================
-          VIEW 1.5 — MID (comparativa)
+          VIEW 1.5 — MID (3-step system)
          ========================= */}
       <section
         className="sticky top-0 h-[100svh] flex items-center justify-center"
@@ -211,31 +165,27 @@ export default function Home() {
       >
         <div className="w-full max-w-7xl px-3 sm:px-4">
           <div className="rounded-[28px] border border-white/15 bg-white/6 backdrop-blur-xl shadow-2xl overflow-hidden">
-            {/* Header de la vista mid */}
-            <header className="px-5 md:px-8 py-5 border-b border-white/10">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1 text-[11px] text-white/85">
-                  <span className="h-2 w-2 rounded-full bg-lime-300 shadow-[0_0_18px_rgba(163,230,53,0.85)]" />
-                  Asset classes · México
-                </div>
-                <div className="text-[11px] text-white/55"></div>
+            <header className="px-5 md:px-8 py-6 border-b border-white/10">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1 text-[11px] text-white/85">
+                <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.85)]" />
+                Workflow
               </div>
 
               <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-                <h2 className="text-[20px] sm:text-[24px] md:text-[32px] font-semibold text-white leading-tight">
-                  ¿Por qué{" "}
+                <h2 className="text-[20px] sm:text-[26px] md:text-[34px] font-semibold text-white leading-tight">
+                  Plinius convierte datos en{" "}
                   <span className="text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.55)]">
-                    Crédito Privado
-                  </span>{" "}
-                  en México?
+                    decisiones de crédito
+                  </span>
+                  .
                 </h2>
 
                 <div className="flex items-center gap-2">
                   <Link
                     href="/pricing/lead?plan=pro"
-                    className="hidden sm:inline-flex items-center justify-center rounded-2xl border border-lime-300/30 bg-lime-300/10 text-lime-50 font-semibold py-2.5 px-4 hover:bg-lime-300/15 transition shadow-[0_0_0_1px_rgba(163,230,53,0.10),0_10px_30px_rgba(163,230,53,0.10)]"
+                    className="hidden sm:inline-flex items-center justify-center rounded-2xl border border-white/18 bg-white/6 text-white font-semibold py-2.5 px-4 hover:bg-white/10 transition"
                   >
-                    Solicitar integración
+                    Hablar con ventas
                   </Link>
                   <Link
                     href="/login"
@@ -247,127 +197,58 @@ export default function Home() {
               </div>
 
               <p className="mt-2 text-white/70 text-sm max-w-4xl">
-                Para muchos portafolios, el crédito privado puede ocupar el
-                “espacio medio”: mayor carry que deuda pública, menor volatilidad
-                que acciones, y un perfil de riesgos más controlable que activos
-                altamente cíclicos — con la advertencia clave de ilíquidez y
-                riesgo de crédito.
+                Una herramienta para{" "}
+                <span className="text-white font-semibold">originar</span> y{" "}
+                <span className="text-white font-semibold">administrar</span>{" "}
+                crédito: onboarding, analítica y automatización operativa.
               </p>
             </header>
 
-            {/* Contenido comparativo */}
-            <div className="px-4 md:px-8 py-5">
-              {/* Fila de 5 cajas (scroll horizontal en pantallas chicas) */}
-              <div className="compareRow">
-                <MiniAssetBox
-                  title="Public Equities"
-                  tag="MX"
-                  color="cyan"
-                  cons={["Volatilidad", "Concentración", "Drawdowns"]}
+            <div className="px-4 md:px-8 py-6">
+              {/* 3 boxes + connector */}
+              <div className="midFlow">
+                <FlowCard
+                  title="Registro"
+                  desc="Crea tu institución, usuarios y permisos."
+                  icon={<IconRegister />}
+                  tone="cyan"
                 />
-                <MiniAssetBox
-                  title="Deuda Pública"
-                  tag="Cetes"
-                  color="violet"
-                  cons={["Retorno real", "Reinversión", "Duración/curva"]}
+                <FlowConnector />
+                <FlowCard
+                  title="Análisis"
+                  desc="Señales de riesgo, monitoreo y score."
+                  icon={<IconAnalyze />}
+                  tone="violet"
                 />
-                <MiniAssetBox
-                  title="Private Equity"
-                  tag="PE"
-                  color="pink"
-                  cons={["J-curve", "Fees altos", "Dispersión"]}
-                />
-                <MiniAssetBox
-                  title="Inmobiliario"
-                  tag="RE"
-                  color="amber"
-                  cons={["Vacancia", "CapEx", "Ilíquido"]}
-                />
-                <MiniAssetBox
-                  title="Deuda Privada"
-                  tag="Plinius"
-                  color="lime"
-                  pros={["Carry", "Covenants", "Monitoreo SAT/CFDI"]}
+                <FlowConnector />
+                <FlowCard
+                  title="Decisiones & Tech"
+                  desc="Reportes, reglas y operación del portafolio."
+                  icon={<IconDecision />}
+                  tone="lime"
                   highlight
                 />
               </div>
 
-              {/* Grid inferior: chart + beneficios */}
-              <div className="mt-4 grid lg:grid-cols-[1fr_420px] gap-4 items-stretch">
-                {/* Chart card */}
-                <div className="rounded-3xl border border-white/15 bg-white/6 p-4">
-                  <div className="flex items-end justify-between gap-3">
-                    <div>
-                      <div className="text-white font-semibold text-sm">
-                        Performance (5Y) · normalizado
-                      </div>
-                      <div className="text-white/55 text-[11px] mt-0.5">
-                        Ilustrativo. Cambia por benchmarks reales cuando quieras.
-                      </div>
-                    </div>
-                    <span className="hidden sm:inline-flex rounded-full border border-white/15 bg-white/6 px-2.5 py-1 text-[10px] text-white/75">
-                      5Y
-                    </span>
-                  </div>
-                  <div className="mt-3">
-                    <MiniChartCompact />
-                  </div>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[11px] text-white/55">
+                  Menos fricción · más control · listo para integrarse.
                 </div>
-
-                {/* Value card */}
-                <div className="rounded-3xl border border-white/15 bg-white/6 p-4">
-                  <div className="text-white font-semibold text-sm">
-                    ¿Qué gana tu stack?
-                  </div>
-                  <ul className="mt-3 space-y-2 text-sm text-white/80">
-                    <li className="flex gap-2">
-                      <PulseDot />
-                      <span>Scoring + reporte PDF</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <PulseDot />
-                      <span>Alertas / señales</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <PulseDot />
-                      <span>Integración API-first</span>
-                    </li>
-                  </ul>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <Link
-                      href="/pricing/lead?plan=pro"
-                      className="inline-flex items-center justify-center rounded-2xl border border-cyan-300/25 bg-cyan-300/10 text-cyan-50 font-semibold py-2.5 px-3 hover:bg-cyan-300/15 transition"
-                    >
-                      Integración
-                    </Link>
-                    <Link
-                      href="/admin/login"
-                      className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/6 text-white font-semibold py-2.5 px-3 hover:bg-white/10 transition"
-                    >
-                      Admin
-                    </Link>
-                  </div>
-
-                  <div className="mt-3 text-[11px] text-white/55">
-                    Riesgos: default + ilíquidez. Mitigación: underwriting,
-                    covenants, monitoreo.
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1 text-[11px] text-white/75">
+                    <span className="h-2 w-2 rounded-full bg-lime-300 shadow-[0_0_16px_rgba(163,230,53,0.8)]" />
+                    Risk-ready
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1 text-[11px] text-white/75">
+                    API-first
+                  </span>
                 </div>
-              </div>
-
-              <div className="mt-4 text-[11px] text-white/55 flex flex-wrap items-center justify-between gap-2">
-                <span>Rojo = desventajas · Verde pulsante = beneficios</span>
-                <span className="hidden sm:inline">
-                  © {new Date().getFullYear()} Plinius
-                </span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Espacio para dar tiempo de scroll antes del MAIN */}
       <div className="h-[70vh]" />
 
       {/* =========================
@@ -376,7 +257,6 @@ export default function Home() {
       <section className="pb-10" style={mainStyle}>
         <div className="mx-auto max-w-6xl">
           <div className="rounded-3xl border border-white/15 bg-white/6 backdrop-blur-xl shadow-2xl overflow-hidden">
-            {/* Header de card principal */}
             <header className="px-5 md:px-8 py-4 border-b border-white/10">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -386,13 +266,9 @@ export default function Home() {
                     className="h-12 md:h-14 w-auto"
                   />
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="text-white font-semibold leading-tight truncate"></div>
-                      <span className="hidden sm:inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] text-white/75">
-                        API / SaaS para Private Credit
-                      </span>
-                    </div>
-                    <div className="text-white/70 text-xs md:text-sm truncate"></div>
+                    <span className="hidden sm:inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] text-white/75">
+                      Credit OS · API / SaaS
+                    </span>
                   </div>
                 </div>
 
@@ -411,40 +287,32 @@ export default function Home() {
                   </Link>
                 </div>
               </div>
-
-              <div className="mt-3 sm:hidden">
-                <span className="inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] text-white/75">
-                  API / SaaS para Private Credit
-                </span>
-              </div>
             </header>
 
-            {/* Layout 2 columnas */}
             <div className="grid lg:grid-cols-[1.05fr_0.95fr]">
-              {/* Columna izquierda: propuesta */}
               <section className="px-5 md:px-8 py-5 md:py-7 border-b lg:border-b-0 lg:border-r border-white/10">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1 text-[11px] text-white/85">
                   <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.9)]" />
-                  Conectividad & underwriting
+                  Infraestructura para otorgantes
                 </div>
 
                 <h2 className="mt-3 text-2xl md:text-3xl font-semibold text-white leading-tight">
-                  Infraestructura de datos para originar y monitorear{" "}
+                  Originación y administración de crédito{" "}
                   <span className="text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.6)]">
-                    Private Credit
+                    en un solo sistema
                   </span>
                   .
                 </h2>
 
                 <p className="mt-2 text-white/75 text-sm leading-relaxed">
-                  Integra y accede a oportunidades de Credito Privado.
+                  Portafolio, señales, reportes ejecutivos y conectividad.
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Chip text="24 meses de facturación" tone="cyan" />
-                  <Chip text="Alertas & señales" tone="lime" />
-                  <Chip text="Reporte PDF ejecutivo" tone="violet" />
-                  <Chip text="Integración API" tone="pink" />
+                  <Chip text="Portafolio" tone="cyan" />
+                  <Chip text="Señales & alertas" tone="lime" />
+                  <Chip text="PDF ejecutivo" tone="violet" />
+                  <Chip text="Integración" tone="pink" />
                 </div>
 
                 <div className="mt-5 grid sm:grid-cols-2 gap-3">
@@ -464,12 +332,10 @@ export default function Home() {
                 </div>
 
                 <div className="mt-4 text-[11px] text-white/55">
-                  Selecciona un plan → contacto → onboarding técnico con tu
-                  equipo.
+                  Plan → onboarding técnico → producción.
                 </div>
               </section>
 
-              {/* Columna derecha: planes */}
               <aside className="px-5 md:px-8 py-5 md:py-7">
                 <div className="flex items-center justify-between">
                   <div className="text-white font-semibold">Planes</div>
@@ -481,11 +347,7 @@ export default function Home() {
                     plan="Basic"
                     price="$70"
                     desc="Hasta 10 oportunidades"
-                    bullets={[
-                      "Dashboard",
-                      "Soporte estándar",
-                      "Integración guiada",
-                    ]}
+                    bullets={["Dashboard", "Soporte estándar", "Integración guiada"]}
                     href="/pricing/lead?plan=basic"
                     glow="cyan"
                   />
@@ -516,10 +378,9 @@ export default function Home() {
       </section>
 
       {/* =========================
-          GLOBAL CSS (solo para esta página)
+          GLOBAL CSS
          ========================= */}
       <style jsx global>{`
-        /* Fondo general de la página */
         .pliny-bg {
           background: radial-gradient(
               1200px 700px at 20% 10%,
@@ -539,27 +400,147 @@ export default function Home() {
             linear-gradient(180deg, rgba(3, 7, 18, 1), rgba(2, 6, 23, 1));
         }
 
-        /* Fila de 5 cajas (desktop una línea / mobile scroll horizontal) */
-        .compareRow {
+        /* ===== MID FLOW (3 cards + connectors) ===== */
+        .midFlow {
           display: grid;
-          grid-template-columns: repeat(5, minmax(180px, 1fr));
+          grid-template-columns: 1fr auto 1fr auto 1fr;
           gap: 12px;
           align-items: stretch;
         }
-
         @media (max-width: 1024px) {
-          .compareRow {
-            grid-template-columns: repeat(5, minmax(200px, 1fr));
-            overflow-x: auto;
-            padding-bottom: 6px;
-            scroll-snap-type: x mandatory;
+          .midFlow {
+            grid-template-columns: 1fr;
+            gap: 10px;
           }
-          .compareRow > * {
-            scroll-snap-align: start;
+          .midConn {
+            display: none;
           }
         }
 
-        /* Sistema del logo hero (anillos y glow) */
+        .midCard {
+          position: relative;
+          border-radius: 26px;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background: rgba(255, 255, 255, 0.06);
+          backdrop-filter: blur(18px);
+          box-shadow: 0 22px 70px rgba(0, 0, 0, 0.34);
+          overflow: hidden;
+          padding: 16px;
+          min-height: 140px;
+        }
+        .midCard::before {
+          content: "";
+          position: absolute;
+          inset: -40px;
+          border-radius: 999px;
+          filter: blur(22px);
+          opacity: 0.85;
+          pointer-events: none;
+        }
+        .tone-cyan::before {
+          background: radial-gradient(
+            circle at 30% 30%,
+            rgba(34, 211, 238, 0.28),
+            transparent 60%
+          );
+        }
+        .tone-violet::before {
+          background: radial-gradient(
+            circle at 30% 30%,
+            rgba(139, 92, 246, 0.26),
+            transparent 60%
+          );
+        }
+        .tone-lime::before {
+          background: radial-gradient(
+            circle at 30% 30%,
+            rgba(163, 230, 53, 0.25),
+            transparent 62%
+          );
+        }
+
+        .midIcon {
+          height: 42px;
+          width: 42px;
+          border-radius: 16px;
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background: rgba(255, 255, 255, 0.06);
+          box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+        }
+        .midTitle {
+          margin-top: 10px;
+          color: rgba(255, 255, 255, 0.92);
+          font-weight: 900;
+          font-size: 14px;
+          letter-spacing: 0.1px;
+        }
+        .midDesc {
+          margin-top: 6px;
+          color: rgba(255, 255, 255, 0.68);
+          font-size: 12px;
+          line-height: 1.45;
+          max-width: 52ch;
+        }
+        .midTag {
+          margin-top: 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border-radius: 999px;
+          padding: 8px 10px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.05);
+          color: rgba(255, 255, 255, 0.78);
+          font-size: 11px;
+          font-weight: 700;
+          width: fit-content;
+        }
+        .midTag .dot {
+          height: 8px;
+          width: 8px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.7);
+        }
+        .midTag.good .dot {
+          background: rgba(163, 230, 53, 0.95);
+          box-shadow: 0 0 18px rgba(163, 230, 53, 0.45);
+        }
+
+        .midConn {
+          display: grid;
+          place-items: center;
+          width: 54px;
+        }
+        .midConnLine {
+          height: 2px;
+          width: 54px;
+          background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.08),
+            rgba(34, 211, 238, 0.35),
+            rgba(255, 255, 255, 0.08)
+          );
+          border-radius: 999px;
+          position: relative;
+          box-shadow: 0 0 28px rgba(34, 211, 238, 0.14);
+        }
+        .midConnLine::after {
+          content: "";
+          position: absolute;
+          right: -2px;
+          top: 50%;
+          transform: translateY(-50%);
+          height: 10px;
+          width: 10px;
+          border-radius: 999px;
+          background: rgba(34, 211, 238, 0.92);
+          box-shadow: 0 0 20px rgba(34, 211, 238, 0.42);
+          opacity: 0.9;
+        }
+
+        /* ===== INTRO hero ring system (tu CSS original) ===== */
         .ringWrap {
           position: relative;
           width: clamp(170px, 24vw, 250px);
@@ -569,7 +550,6 @@ export default function Home() {
           margin-inline: auto;
           isolation: isolate;
         }
-
         .neonBackdrop {
           position: absolute;
           inset: -32px;
@@ -594,21 +574,18 @@ export default function Home() {
           animation: drift 7.5s ease-in-out infinite;
           z-index: 0;
         }
-
         .neon2 {
           inset: -44px;
           opacity: 0.55;
           filter: blur(20px);
           animation-duration: 10.5s;
         }
-
         .neon3 {
           inset: -60px;
           opacity: 0.3;
           filter: blur(28px);
           animation-duration: 13.5s;
         }
-
         @keyframes drift {
           0% {
             transform: translate3d(-4px, 2px, 0) rotate(-2deg);
@@ -620,7 +597,6 @@ export default function Home() {
             transform: translate3d(-4px, 2px, 0) rotate(-2deg);
           }
         }
-
         .logoPlate {
           position: relative;
           width: 80%;
@@ -635,7 +611,6 @@ export default function Home() {
           overflow: hidden;
           z-index: 2;
         }
-
         .gridLines {
           position: absolute;
           inset: 0;
@@ -658,7 +633,6 @@ export default function Home() {
           );
           pointer-events: none;
         }
-
         .logoImg {
           width: 76%;
           height: auto;
@@ -667,7 +641,6 @@ export default function Home() {
           user-select: none;
           z-index: 3;
         }
-
         .ring {
           position: absolute;
           inset: -12px;
@@ -694,7 +667,6 @@ export default function Home() {
             0 0 54px rgba(139, 92, 246, 0.1);
           z-index: 1;
         }
-
         .ring2 {
           inset: -22px;
           opacity: 0.55;
@@ -702,7 +674,6 @@ export default function Home() {
           filter: blur(0.6px);
           z-index: 1;
         }
-
         .ring3 {
           inset: -34px;
           opacity: 0.28;
@@ -710,14 +681,13 @@ export default function Home() {
           filter: blur(1.2px);
           z-index: 1;
         }
-
         @keyframes spin {
           to {
             transform: rotate(360deg);
           }
         }
 
-        /* Scroll hint (pill + dot animado) */
+        /* Scroll hint */
         .scrollPill {
           width: 46px;
           height: 26px;
@@ -729,7 +699,6 @@ export default function Home() {
           overflow: hidden;
           position: relative;
         }
-
         .scrollPill .dot {
           width: 6px;
           height: 6px;
@@ -739,7 +708,6 @@ export default function Home() {
             0 0 18px rgba(139, 92, 246, 0.22);
           animation: dot 1.25s ease-in-out infinite;
         }
-
         @keyframes dot {
           0% {
             transform: translateY(-6px);
@@ -754,58 +722,25 @@ export default function Home() {
             opacity: 0;
           }
         }
-
-        /* Punto verde pulsante */
-        @keyframes pulseGreen {
-          0% {
-            opacity: 0.65;
-            transform: scale(0.95);
-            filter: drop-shadow(0 0 0 rgba(163, 230, 53, 0));
-          }
-          55% {
-            opacity: 1;
-            transform: scale(1);
-            filter: drop-shadow(0 0 10px rgba(163, 230, 53, 0.55));
-          }
-          100% {
-            opacity: 0.65;
-            transform: scale(0.95);
-            filter: drop-shadow(0 0 0 rgba(163, 230, 53, 0));
-          }
-        }
       `}</style>
     </main>
   );
 }
 
-/* =========================================================
-   HELPERS DE MATH / EASING
-   ========================================================= */
-
-/**
- * Limita un número entre min y max.
- * Lo usamos para asegurar que los progresos de animación se mantengan en [0,1].
- */
+/* =========================
+   HELPERS
+   ========================= */
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
-
-/**
- * smootherstep (C2 smooth): muy suave al inicio y al final.
- * Fórmula: 6t^5 - 15t^4 + 10t^3, con t "clampeado" a [0,1].
- */
 function smoother01(t: number) {
   const x = clamp(t, 0, 1);
   return x * x * x * (x * (x * 6 - 15) + 10);
 }
 
-/* =========================================================
-   UI COMPONENTS REUTILIZABLES
-   ========================================================= */
-
-/**
- * Chip pequeño reusable para tags/features.
- */
+/* =========================
+   UI REUSE
+   ========================= */
 function Chip({
   text,
   tone,
@@ -831,9 +766,6 @@ function Chip({
   );
 }
 
-/**
- * Card de plan (pricing) reusable.
- */
 function PlanCard({
   plan,
   price,
@@ -896,9 +828,6 @@ function PlanCard({
   );
 }
 
-/**
- * Botón/link pequeño auxiliar.
- */
 function MiniLink({ title, href }: { title: string; href: string }) {
   return (
     <Link
@@ -910,243 +839,94 @@ function MiniLink({ title, href }: { title: string; href: string }) {
   );
 }
 
-/**
- * Caja para comparación de asset classes (MID view).
- * Puede mostrar "cons" (rojo) o "pros" (verde pulsante).
- */
-function MiniAssetBox({
+/* ===== MID FLOW COMPONENTS ===== */
+function FlowCard({
   title,
-  tag,
-  cons,
-  pros,
-  color,
+  desc,
+  icon,
+  tone,
   highlight,
 }: {
   title: string;
-  tag: string;
-  cons?: string[];
-  pros?: string[];
-  color: "cyan" | "violet" | "pink" | "amber" | "lime";
+  desc: string;
+  icon: React.ReactNode;
+  tone: "cyan" | "violet" | "lime";
   highlight?: boolean;
 }) {
-  const colorMap: Record<
-    string,
-    { border: string; glow: string; pill: string; bg: string }
-  > = {
-    cyan: {
-      border: "border-cyan-300/25",
-      glow: "before:bg-cyan-400/18",
-      pill: "border-cyan-300/25 bg-cyan-300/10 text-cyan-50",
-      bg: "from-cyan-500/10",
-    },
-    violet: {
-      border: "border-violet-300/25",
-      glow: "before:bg-violet-400/18",
-      pill: "border-violet-300/25 bg-violet-300/10 text-violet-50",
-      bg: "from-violet-500/10",
-    },
-    pink: {
-      border: "border-fuchsia-300/25",
-      glow: "before:bg-fuchsia-400/18",
-      pill: "border-fuchsia-300/25 bg-fuchsia-300/10 text-fuchsia-50",
-      bg: "from-fuchsia-500/10",
-    },
-    amber: {
-      border: "border-amber-300/25",
-      glow: "before:bg-amber-400/16",
-      pill: "border-amber-300/25 bg-amber-300/10 text-amber-50",
-      bg: "from-amber-500/10",
-    },
-    lime: {
-      border: "border-lime-300/28",
-      glow: "before:bg-lime-400/22",
-      pill: "border-lime-300/28 bg-lime-300/12 text-lime-50",
-      bg: "from-lime-500/12",
-    },
-  };
-
-  const c = colorMap[color];
-
   return (
-    <div
-      className={[
-        "relative rounded-3xl border bg-white/6 p-4 overflow-hidden",
-        c.border,
-        "before:content-[''] before:absolute before:-top-10 before:-right-10 before:h-40 before:w-40 before:rounded-full before:blur-3xl",
-        c.glow,
-        highlight
-          ? "shadow-[0_0_0_1px_rgba(163,230,53,0.10),0_22px_70px_rgba(0,0,0,0.28)]"
-          : "hover:border-white/25 transition",
-      ].join(" ")}
-    >
-      {/* Fondo sutil gradiente */}
-      <div
-        className={[
-          "absolute inset-0 opacity-70 pointer-events-none",
-          "bg-gradient-to-br",
-          c.bg,
-          "to-transparent",
-        ].join(" ")}
-      />
-
+    <div className={`midCard tone-${tone} ${highlight ? "midHi" : ""}`}>
       <div className="relative">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-white font-semibold text-sm leading-tight">
-            {title}
-          </div>
-          <span
-            className={[
-              "shrink-0 inline-flex rounded-full border px-2 py-0.5 text-[10px]",
-              c.pill,
-            ].join(" ")}
-          >
-            {tag}
-          </span>
+        <div className="midIcon">{icon}</div>
+        <div className="midTitle">{title}</div>
+        <div className="midDesc">{desc}</div>
+
+        <div className={`midTag ${tone === "lime" ? "good" : ""}`}>
+          <span className="dot" />
+          {tone === "cyan"
+            ? "Onboarding"
+            : tone === "violet"
+            ? "Risk analytics"
+            : "Execution"}
         </div>
-
-        {/* Lista de desventajas (rojo) */}
-        {cons?.length ? (
-          <ul className="mt-3 space-y-1.5 text-[12px] text-white/80">
-            {cons.slice(0, 3).map((x) => (
-              <li key={x} className="flex gap-2 items-start">
-                <span className="mt-[6px] h-2 w-2 rounded-full bg-red-400 shadow-[0_0_12px_rgba(248,113,113,0.35)]" />
-                <span className="leading-snug">{x}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        {/* Lista de ventajas (verde pulsante) */}
-        {pros?.length ? (
-          <ul className="mt-3 space-y-1.5 text-[12px] text-white/80">
-            {pros.slice(0, 3).map((x) => (
-              <li key={x} className="flex gap-2 items-start">
-                <span className="mt-[5px] inline-flex items-center justify-center">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full bg-lime-300"
-                    style={{ animation: "pulseGreen 1.35s ease-in-out infinite" }}
-                  />
-                </span>
-                <span className="leading-snug">{x}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
       </div>
+
+      <style jsx global>{`
+        .midHi {
+          box-shadow: 0 0 0 1px rgba(163, 230, 53, 0.12),
+            0 26px 90px rgba(0, 0, 0, 0.42);
+          border-color: rgba(163, 230, 53, 0.28);
+        }
+      `}</style>
     </div>
   );
 }
 
-/**
- * Punto verde pulsante reusable.
- */
-function PulseDot() {
+function FlowConnector() {
   return (
-    <span className="mt-[6px] inline-flex items-center justify-center">
-      <span
-        className="h-2.5 w-2.5 rounded-full bg-lime-300"
-        style={{ animation: "pulseGreen 1.25s ease-in-out infinite" }}
-      />
-    </span>
+    <div className="midConn" aria-hidden>
+      <div className="midConnLine" />
+    </div>
   );
 }
 
-/**
- * Mini chart SVG inline (sin librerías) para visual rápido.
- * Todo es ilustrativo; puedes cambiar labels/series fácil.
- */
-function MiniChartCompact() {
-  const labels = ["Y-5", "Y-4", "Y-3", "Y-2", "Y-1", "Hoy"];
-  const series = [
-    { name: "Eq", data: [100, 108, 95, 112, 109, 118], strong: false },
-    { name: "Gov", data: [100, 103, 108, 112, 116, 120], strong: false },
-    { name: "PE", data: [100, 96, 101, 114, 122, 130], strong: false },
-    { name: "RE", data: [100, 104, 110, 107, 111, 116], strong: false },
-    { name: "PD", data: [100, 106, 113, 121, 130, 140], strong: true }, // línea resaltada
-  ];
-
-  const W = 760;
-  const H = 210;
-  const pad = 16;
-
-  // Hallamos rango global de datos para escalar Y
-  const all = series.flatMap((s) => s.data);
-  const min = Math.min(...all);
-  const max = Math.max(...all);
-
-  // Escaladores X / Y
-  const sx = (i: number) => pad + (i * (W - pad * 2)) / (labels.length - 1);
-  const sy = (v: number) =>
-    pad + ((max - v) * (H - pad * 2)) / Math.max(1, max - min);
-
-  // Convierte arreglo de puntos en path SVG ("M x y L x y ...")
-  const path = (arr: number[]) =>
-    arr
-      .map(
-        (v, i) =>
-          `${i === 0 ? "M" : "L"} ${sx(i).toFixed(2)} ${sy(v).toFixed(2)}`
-      )
-      .join(" ");
-
+/* ===== ICONS (inline SVG) ===== */
+function IconRegister() {
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-      {/* Grid horizontal */}
-      {[0, 1, 2, 3].map((k) => {
-        const yy = pad + (k * (H - pad * 2)) / 3;
-        return (
-          <line
-            key={k}
-            x1={pad}
-            y1={yy}
-            x2={W - pad}
-            y2={yy}
-            stroke="white"
-            strokeWidth="1"
-            strokeDasharray="4 6"
-            opacity="0.2"
-          />
-        );
-      })}
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+      <path
+        d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm7 10a7 7 0 0 0-14 0"
+        stroke="rgba(255,255,255,0.88)"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
-      {/* Líneas */}
-      {series.map((s) => (
-        <path
-          key={s.name}
-          d={path(s.data)}
-          fill="none"
-          stroke={
-            s.strong ? "rgba(163,230,53,0.95)" : "rgba(255,255,255,0.50)"
-          }
-          strokeWidth={s.strong ? 2.5 : 1.5}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          opacity={s.strong ? 0.95 : 0.55}
-        />
-      ))}
+function IconAnalyze() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+      <path
+        d="M4 19V5M4 19h16M8 16v-5M12 16V8M16 16v-3"
+        stroke="rgba(255,255,255,0.88)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
-      {/* Dot final de cada serie */}
-      {series.map((s) => {
-        const last = s.data[s.data.length - 1];
-        return (
-          <circle
-            key={s.name + "-dot"}
-            cx={sx(labels.length - 1)}
-            cy={sy(last)}
-            r={s.strong ? 3.2 : 2.5}
-            fill={s.strong ? "rgba(163,230,53,1)" : "rgba(255,255,255,0.70)"}
-            opacity={s.strong ? 1 : 0.7}
-          />
-        );
-      })}
-
-      {/* Labels X */}
-      <g fontSize="10" fill="rgba(255,255,255,0.55)">
-        {labels.map((l, i) => (
-          <text key={l} x={sx(i)} y={H - 6} textAnchor="middle">
-            {l}
-          </text>
-        ))}
-      </g>
+function IconDecision() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+      <path
+        d="M20 7 10 17l-5-5"
+        stroke="rgba(255,255,255,0.88)"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
