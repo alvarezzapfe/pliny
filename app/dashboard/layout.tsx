@@ -1,19 +1,196 @@
-import React from "react";
-import Sidebar from "@/components/sidebar/Sidebar";
+"use client";
+
+import React, { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+function Icon({ d, size = 15 }: { d: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
+      stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d}/>
+    </svg>
+  );
+}
+
+const NAV = [
+  { href: "/dashboard",             label: "Dashboard",   icon: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z" },
+  { href: "/dashboard/solicitudes", label: "Solicitudes", icon: "M8 2v12M2 8h12" },
+  { href: "/dashboard/clientes",    label: "Clientes",    icon: "M5.5 7.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM1 14s.5-4 4.5-4M11 10l2 2 2-2" },
+  { href: "/dashboard/portafolio",  label: "Portafolio",  icon: "M2 12L6 7l3 3 3-4 2 2" },
+  { href: "/dashboard/reportes",    label: "Reportes",    icon: "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2" },
+  { href: "/dashboard/datos",       label: "Datos",       icon: "M8 2a6 6 0 100 12M8 6v2.5M8 11h.01" },
+];
+
+const BOTTOM = [
+  { href: "/dashboard/config", label: "Configuración", icon: "M8 5a3 3 0 100 6M2.5 8h1M12.5 8h1M8 2.5v1M8 12.5v1M4.2 4.2l.7.7M11.1 11.1l.7.7M4.2 11.8l.7-.7M11.1 4.9l.7-.7" },
+  { href: "/login",            label: "Salir",         icon: "M10 8H3M6 5l-3 3 3 3M13 2v12" },
+];
+
+const W_OPEN  = 240;
+const W_CLOSE = 64;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-slate-100">
-      <Sidebar />
+  const pathname  = usePathname();
+  const [open, setOpen] = useState(true);
+  const W = open ? W_OPEN : W_CLOSE;
 
-      <div className="pl-[260px]">
-        <div className="mx-auto max-w-[1480px] px-6 py-6">
-          {/* wrapper sin “encerrar todo” demasiado */}
-          <main className="min-h-[calc(100vh-48px)]">
-            {children}
-          </main>
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+
+        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+        .sb {
+          position: fixed;
+          top: 0; left: 0; bottom: 0;
+          background: radial-gradient(ellipse 160% 110% at 20% 0%, #1B3F8A 0%, #0C1E4A 55%, #091530 100%);
+          border-right: 1px solid rgba(255,255,255,.07);
+          display: flex; flex-direction: column;
+          overflow: hidden;
+          z-index: 40;
+          transition: width .25s cubic-bezier(.16,1,.3,1);
+        }
+        .sb-grid {
+          position: absolute; inset: 0; pointer-events: none; opacity: .28;
+          background-image:
+            linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+          background-size: 40px 40px;
+        }
+        .nl {
+          display: flex; align-items: center; gap: 11px;
+          padding: 8px 11px; border-radius: 9px;
+          font-family: 'Geist', sans-serif;
+          font-size: 13px; font-weight: 500;
+          color: rgba(238,242,255,.58);
+          text-decoration: none;
+          white-space: nowrap; overflow: hidden;
+          transition: background .14s, color .14s;
+          cursor: pointer; border: none; background: none;
+          width: 100%; text-align: left;
+        }
+        .nl:hover { background: rgba(255,255,255,.07); color: #EEF2FF; }
+        .nl.on    { background: rgba(91,141,239,.20); color: #fff; font-weight: 600; }
+        .nl .ico  { flex-shrink: 0; }
+        .cb {
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(255,255,255,.07); border: none;
+          border-radius: 7px; padding: 5px; cursor: pointer;
+          color: rgba(238,242,255,.35); flex-shrink: 0;
+          transition: background .14s, color .14s;
+        }
+        .cb:hover { background: rgba(255,255,255,.13); color: #EEF2FF; }
+      `}</style>
+
+      {/* ── SIDEBAR ─────────────────────────────── */}
+      <aside className="sb" style={{ width: W }}>
+        <div className="sb-grid"/>
+
+        {/* Logo */}
+        <div style={{
+          padding: "16px 14px",
+          borderBottom: "1px solid rgba(255,255,255,.07)",
+          display: "flex", alignItems: "center",
+          justifyContent: open ? "space-between" : "center",
+          position: "relative", zIndex: 1, gap: 8, flexShrink: 0,
+        }}>
+          {open && (
+            <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, overflow: "hidden" }}>
+              <img src="/plinius.png" alt="Plinius"
+                style={{ height: 22, width: "auto", filter: "brightness(0) invert(1)", opacity: .9, flexShrink: 0 }}
+                onError={e => (e.currentTarget.style.display = "none")}
+              />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#EEF2FF", letterSpacing: "-.03em", lineHeight: 1 }}>Plinius</div>
+                <div style={{ fontSize: 9, fontFamily: "'Geist Mono',monospace", color: "#00E5A0", letterSpacing: ".10em", marginTop: 2 }}>CREDIT OS</div>
+              </div>
+            </div>
+          )}
+          <button className="cb" onClick={() => setOpen(v => !v)}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"
+              stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              {open
+                ? <path d="M9 6.5H4M6.5 4l-2.5 2.5 2.5 2.5"/>
+                : <path d="M4 6.5h5M6.5 4l2.5 2.5-2.5 2.5"/>}
+            </svg>
+          </button>
+        </div>
+
+        {/* Nav links */}
+        <nav style={{
+          flex: 1, padding: "10px 8px",
+          display: "flex", flexDirection: "column", gap: 1,
+          overflowY: "auto", position: "relative", zIndex: 1,
+        }}>
+          {NAV.map(n => {
+            const active = n.href === "/dashboard"
+              ? pathname === n.href
+              : pathname?.startsWith(n.href);
+            return (
+              <Link key={n.href} href={n.href}
+                className={`nl${active ? " on" : ""}`}
+                title={!open ? n.label : undefined}
+                style={{ justifyContent: open ? "flex-start" : "center" }}>
+                <span className="ico"><Icon d={n.icon}/></span>
+                {open && n.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Bottom */}
+        <div style={{
+          padding: "8px 8px 14px",
+          borderTop: "1px solid rgba(255,255,255,.07)",
+          display: "flex", flexDirection: "column", gap: 1,
+          position: "relative", zIndex: 1, flexShrink: 0,
+        }}>
+          {BOTTOM.map(n => (
+            <Link key={n.href} href={n.href}
+              className="nl"
+              title={!open ? n.label : undefined}
+              style={{ justifyContent: open ? "flex-start" : "center" }}>
+              <span className="ico"><Icon d={n.icon}/></span>
+              {open && n.label}
+            </Link>
+          ))}
+          {open && (
+            <div style={{
+              marginTop: 8, padding: "9px 11px",
+              background: "rgba(0,229,160,.08)",
+              border: "1px solid rgba(0,229,160,.18)",
+              borderRadius: 9,
+              display: "flex", alignItems: "center", gap: 7,
+            }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: "#00E5A0", display: "inline-block",
+                animation: "blink 2.5s ease-in-out infinite",
+              }}/>
+              <span style={{ fontSize: 10, fontFamily: "'Geist Mono',monospace", color: "#00E5A0", letterSpacing: ".06em" }}>
+                Sistema activo
+              </span>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* ── CONTENT — pushed by marginLeft ──────── */}
+      <div style={{
+        marginLeft: W,
+        minHeight: "100vh",
+        background: "#F4F6FB",
+        fontFamily: "'Geist', sans-serif",
+        transition: "margin-left .25s cubic-bezier(.16,1,.3,1)",
+      }}>
+        <div style={{ maxWidth: 1400, padding: "36px 40px 56px" }}>
+          {children}
         </div>
       </div>
-    </div>
+    </>
   );
 }
