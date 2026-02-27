@@ -21,59 +21,83 @@ const TIPO_COLORS: Record<string, { bg: string; color: string }> = {
 };
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; border: string; dot: string; label: string }> = {
-  "pendiente":  { bg:"#FFFBEB", color:"#92400E", border:"#FDE68A", dot:"#F59E0B", label:"Pendiente" },
-  "aprobada":   { bg:"#F0FDF9", color:"#065F46", border:"#D1FAE5", dot:"#00E5A0", label:"Aprobada"  },
-  "rechazada":  { bg:"#FFF1F2", color:"#881337", border:"#FECDD3", dot:"#F43F5E", label:"Rechazada" },
+  "pendiente": { bg:"#FFFBEB", color:"#92400E", border:"#FDE68A", dot:"#F59E0B", label:"Pendiente" },
+  "aprobada":  { bg:"#F0FDF9", color:"#065F46", border:"#D1FAE5", dot:"#00E5A0", label:"Aprobada"  },
+  "rechazada": { bg:"#FFF1F2", color:"#881337", border:"#FECDD3", dot:"#F43F5E", label:"Rechazada" },
 };
 
 const FILTERS = ["Todas", "pendiente", "aprobada", "rechazada"];
 const FILTER_LABELS: Record<string, string> = {
-  "Todas": "Todas", "pendiente": "Pendiente", "aprobada": "Aprobada", "rechazada": "Rechazada"
+  "Todas":"Todas", "pendiente":"Pendiente", "aprobada":"Aprobada", "rechazada":"Rechazada"
 };
 
 export default function SolicitudesPage() {
   const [filter, setFilter] = useState("Todas");
   const [search, setSearch] = useState("");
-  const [solicitudes, setSolicitudes] = useState<any[]>([]);
+  const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const { data } = await supabase
+
+      // 1. Traer solicitudes
+      const { data: sols } = await supabase
         .from("solicitudes")
-        .select("*, clients(company_name, rfc)")
+        .select("id, status, payload, created_at")
         .order("created_at", { ascending: false });
 
-      if (data) setSolicitudes(data);
+      if (!sols) { setLoading(false); return; }
+
+      // 2. Traer nombres de clientes por los client_id que están en payload
+      const clientIds = [...new Set(sols.map(s => s.payload?.client_id).filter(Boolean))];
+      let clientMap: Record<string, { company_name: string; rfc: string }> = {};
+
+      if (clientIds.length > 0) {
+        const { data: clients } = await supabase
+          .from("clients")
+          .select("id, company_name, rfc")
+          .in("id", clientIds);
+        if (clients) {
+          clients.forEach(c => { clientMap[c.id] = c; });
+        }
+      }
+
+      // 3. Armar rows planos
+      const mapped = sols.map(s => {
+        const client = clientMap[s.payload?.client_id] || null;
+        return {
+          id:       s.id,
+          shortId:  s.id?.slice(0, 8).toUpperCase(),
+          empresa:  client?.company_name || s.payload?.empresa_nombre || "—",
+          rfc:      client?.rfc          || s.payload?.empresa_rfc    || "—",
+          tipo:     s.payload?.tipo      || "—",
+          monto:    s.payload?.monto     ? `$${Number(s.payload.monto).toLocaleString("es-MX")}` : "—",
+          plazo:    s.payload?.plazo_valor ? `${s.payload.plazo_valor} ${s.payload.plazo_unidad}` : "—",
+          status:   s.status,
+        };
+      });
+
+      setRows(mapped);
       setLoading(false);
     }
     load();
   }, []);
 
-  // Normaliza cada row para tener campos planos
-  const rows = solicitudes.map(s => ({
-    id:     s.id,
-    shortId: s.id?.slice(0,8).toUpperCase(),
-    empresa: s.clients?.company_name || s.payload?.empresa_nombre || "—",
-    rfc:     s.clients?.rfc          || s.payload?.empresa_rfc    || "—",
-    tipo:    s.payload?.tipo         || "—",
-    monto:   s.payload?.monto        ? `$${Number(s.payload.monto).toLocaleString("es-MX")}` : "—",
-    plazo:   s.payload?.plazo_valor  ? `${s.payload.plazo_valor} ${s.payload.plazo_unidad}` : "—",
-    status:  s.status,
-    created_at: s.created_at,
-  }));
-
   const filtered = rows.filter(s =>
     (filter === "Todas" || s.status === filter) &&
-    (search === "" || s.empresa.toLowerCase().includes(search.toLowerCase()) || s.rfc.toLowerCase().includes(search.toLowerCase()))
+    (search === "" ||
+      s.empresa.toLowerCase().includes(search.toLowerCase()) ||
+      s.rfc.toLowerCase().includes(search.toLowerCase()))
   );
 
-  // KPIs
-  const total     = rows.length;
+  const total      = rows.length;
   const pendientes = rows.filter(s => s.status === "pendiente").length;
   const aprobadas  = rows.filter(s => s.status === "aprobada").length;
-  const montoTotal = solicitudes.reduce((acc, s) => acc + (s.payload?.monto || 0), 0);
+  const montoTotal = rows.reduce((acc, s) => {
+    const raw = s.monto.replace(/[$,]/g, "");
+    return acc + (Number(raw) || 0);
+  }, 0);
 
   return (
     <div style={{ fontFamily: "'Geist',sans-serif", color: "#0F172A" }}>
@@ -95,9 +119,9 @@ export default function SolicitudesPage() {
         .btn-new{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#0C1E4A,#1B3F8A);color:#fff;border:none;border-radius:10px;font-family:'Geist',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;cursor:pointer;text-decoration:none;box-shadow:0 2px 12px rgba(12,30,74,.22);transition:opacity .15s,transform .15s;letter-spacing:-.01em;}
         .btn-new:hover{opacity:.9;transform:translateY(-1px);}
         .mono{font-family:'Geist Mono',monospace;}
-        .tbl-head{display:grid;grid-template-columns:80px 1fr 160px 110px 110px 100px 44px;padding:8px 16px;background:#FAFBFF;border-bottom:1px solid #E8EDF5;}
+        .tbl-head{display:grid;grid-template-columns:80px 1fr 160px 120px 110px 100px 44px;padding:8px 16px;background:#FAFBFF;border-bottom:1px solid #E8EDF5;}
         .tbl-head span{font-family:'Geist Mono',monospace;font-size:10px;color:#94A3B8;letter-spacing:.07em;text-transform:uppercase;}
-        .tbl-row{display:grid;grid-template-columns:80px 1fr 160px 110px 110px 100px 44px;padding:11px 16px;align-items:center;border-bottom:1px solid #F1F5F9;transition:background .12s;}
+        .tbl-row{display:grid;grid-template-columns:80px 1fr 160px 120px 110px 100px 44px;padding:11px 16px;align-items:center;border-bottom:1px solid #F1F5F9;transition:background .12s;}
         .tbl-row:last-child{border-bottom:none;}
         .tbl-row:hover{background:#FAFBFF;}
         .tipo-pill{display:inline-flex;align-items:center;border-radius:6px;padding:3px 8px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.03em;}
@@ -123,10 +147,10 @@ export default function SolicitudesPage() {
       {/* KPIs */}
       <div className="fade d1" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         {[
-          { label:"Total",        val: String(total),     sub:"solicitudes",         color:"#5B8DEF", pct: total > 0 ? 100 : 0 },
-          { label:"Pendientes",   val: String(pendientes), sub:"en revisión",         color:"#F5A623", pct: total > 0 ? (pendientes/total)*100 : 0 },
-          { label:"Aprobadas",    val: String(aprobadas),  sub:"este mes",            color:"#00E5A0", pct: total > 0 ? (aprobadas/total)*100 : 0 },
-          { label:"Monto total",  val: `$${(montoTotal/1000000).toFixed(1)}M`, sub:"en evaluación", color:"#0C1E4A", pct: montoTotal > 0 ? 60 : 0 },
+          { label:"Total",      val:String(total),      sub:"solicitudes",   color:"#5B8DEF", pct: total > 0 ? 100 : 0 },
+          { label:"Pendientes", val:String(pendientes), sub:"en revisión",   color:"#F5A623", pct: total > 0 ? (pendientes/total)*100 : 0 },
+          { label:"Aprobadas",  val:String(aprobadas),  sub:"completadas",   color:"#00E5A0", pct: total > 0 ? (aprobadas/total)*100 : 0 },
+          { label:"Monto total",val:`$${(montoTotal/1000000).toFixed(1)}M`,  sub:"en evaluación", color:"#0C1E4A", pct: montoTotal > 0 ? 65 : 0 },
         ].map(k => (
           <div key={k.label} className="card" style={{ padding:"16px 18px" }}>
             <div className="mono" style={{ fontSize:10, color:"#94A3B8", letterSpacing:".09em", textTransform:"uppercase", marginBottom:8 }}>{k.label}</div>
@@ -185,7 +209,7 @@ export default function SolicitudesPage() {
                 {filter === "Todas" ? "Sin solicitudes todavía" : `Sin solicitudes ${FILTER_LABELS[filter].toLowerCase()}s`}
               </div>
               <div style={{ fontSize:13, color:"#94A3B8", maxWidth:"38ch", lineHeight:1.6 }}>
-                Crea tu primera solicitud de financiamiento. El sistema guiará el proceso en 3 pasos.
+                Crea tu primera solicitud. El sistema guiará el proceso en 3 pasos.
               </div>
             </div>
             <Link href="/dashboard/solicitudes/nueva" className="btn-new" style={{ marginTop:4 }}>
@@ -196,7 +220,7 @@ export default function SolicitudesPage() {
         )}
 
         {/* Rows */}
-        {!loading && filtered.map((s) => {
+        {!loading && filtered.map(s => {
           const tipo = TIPO_COLORS[s.tipo] || { bg:"#F8FAFC", color:"#475569" };
           const st   = STATUS_STYLES[s.status] || STATUS_STYLES["pendiente"];
           return (
