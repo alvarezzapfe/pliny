@@ -17,7 +17,7 @@ const NAV = [
   { href: "/dashboard",             label: "Dashboard",   icon: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z" },
   { href: "/dashboard/solicitudes", label: "Solicitudes", icon: "M8 2v12M2 8h12" },
   { href: "/dashboard/clientes",    label: "Clientes",    icon: "M5.5 7.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM1 14s.5-4 4.5-4M11 10l2 2 2-2" },
-  { href: "/dashboard/portafolio",  label: "Portafolio",  icon: "M2 12L6 7l3 3 3-4 2 2" },
+  { href: "/dashboard/cartera",  label: "Cartera",  icon: "M2 12L6 7l3 3 3-4 2 2" },
   { href: "/dashboard/reportes",    label: "Reportes",    icon: "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2" },
   { href: "/dashboard/datos",       label: "Datos",       icon: "M8 2a6 6 0 100 12M8 6v2.5M8 11h.01" },
 ];

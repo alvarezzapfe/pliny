@@ -294,10 +294,10 @@ export default function DashboardPage() {
           <div className="track"><div className="fill" style={{ "--w":"60%",width:"60%",background:"var(--green)" } as any}/></div>
         </div>
 
-        {/* Portafolio chart */}
+        {/* Cartera chart */}
         <div className="card">
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6 }}>
-            <div className="label">Portafolio · 12M</div>
+            <div className="label">Cartera · 12M</div>
             <span className="pill p-green">+18.4%</span>
           </div>
           <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display:"block",marginBottom:6 }}>
@@ -405,11 +405,11 @@ export default function DashboardPage() {
             </div>
             Empresas / Clientes
           </Link>
-          <Link href="/dashboard/portafolio" className="qa">
+          <Link href="/dashboard/cartera" className="qa">
             <div className="qa-ico" style={{ background:"#F0FDF9" }}>
               <Ic d="M2 12L6 7l3 3 3-4 2 2" c="#00E5A0" s={12}/>
             </div>
-            Portafolio
+            Cartera
           </Link>
           <Link href="/dashboard/reportes" className="qa">
             <div className="qa-ico" style={{ background:"#FFFBEB" }}>

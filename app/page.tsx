@@ -444,7 +444,7 @@ export default function Home() {
 
           <div className="mount mount-3" style={{ textAlign: "center", marginBottom: 32 }}>
             <p style={{ fontSize: 17, color: "var(--fg-2)", lineHeight: 1.65, maxWidth: "54ch", margin: "0 auto" }}>
-              Portafolio, señales de riesgo y reportes ejecutivos en un solo lugar. Diseñado para bancos, sofomes, fondos y fintechs.
+              Cartera, señales de riesgo y reportes ejecutivos en un solo lugar. Diseñado para bancos, sofomes, fondos y fintechs.
             </p>
           </div>
 
@@ -464,7 +464,7 @@ export default function Home() {
               <div className="db-dot" style={{ background: "#FFBD2E" }} />
               <div className="db-dot" style={{ background: "#28C840" }} />
               <div style={{ flex: 1, display: "flex", gap: 6, marginLeft: 12, flexWrap: "wrap" }}>
-                {["Portafolio", "Risk signals", "Reportes", "Config"].map((t, i) => (
+                {["Cartera", "Risk signals", "Reportes", "Config"].map((t, i) => (
                   <div key={t} className={`db-tab${i === 0 ? " active" : ""}`}>
                     {t}
                   </div>
@@ -476,7 +476,7 @@ export default function Home() {
             <div style={{ padding: "20px 16px 0" }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
                 {[
-                  { label: "Portafolio total", val: "$14.3M", delta: "+2.1%", up: true },
+                  { label: "Cartera total", val: "$14.3M", delta: "+2.1%", up: true },
                   { label: "Créditos activos", val: "38", delta: "+3", up: true },
                   { label: "Mora > 90 días", val: "2.4%", delta: "+0.3%", up: false },
                   { label: "Cobertura", val: "1.42x", delta: "estable", up: true },
@@ -516,7 +516,7 @@ export default function Home() {
               >
                 <div style={{ flex: 1, minWidth: 260 }}>
                   <div className="mono-label" style={{ marginBottom: 8 }}>
-                    Evolución · Portafolio 12M
+                    Evolución · Cartera 12M
                   </div>
                   <svg width="100%" height="40" viewBox="0 0 600 40" preserveAspectRatio="none" fill="none">
                     <defs>
@@ -662,8 +662,8 @@ export default function Home() {
             {[
               { n: "01", t: "Onboarding digital", d: "Expediente, KYC y validación SAT desde el primer día. Sin papelería, sin fricciones." },
               { n: "02", t: "Analítica de riesgo", d: "Señales automáticas, scoring configurable y alertas por covenants o cambios en el acreditado." },
-              { n: "03", t: "Reporte ejecutivo", d: "PDF listo para comité en menos de 3 minutos. Benchmarks y evolución del portafolio." },
-              { n: "04", t: "Monitor de portafolio", d: "Vista agregada de cartera, segmentada por etapa, riesgo, vencimiento y sector." },
+              { n: "03", t: "Reporte ejecutivo", d: "PDF listo para comité en menos de 3 minutos. Benchmarks y evolución del cartera." },
+              { n: "04", t: "Monitor de cartera", d: "Vista agregada de cartera, segmentada por etapa, riesgo, vencimiento y sector." },
               { n: "05", t: "API-first", d: "Conecta tu originación o ERP cuando estés listo. Diseñado para crecer contigo." },
               { n: "06", t: "Multi-usuario · Roles", d: "Analistas, directivos y auditores con vistas y permisos diferenciados." },
             ].map((f, i) => (
@@ -708,7 +708,7 @@ export default function Home() {
                 price: "$70",
                 per: "/mes USD",
                 desc: "Para validar tu modelo de crédito y arrancar operaciones.",
-                features: ["Dashboard y portafolio base", "Expediente de acreditados", "Reporte ejecutivo estándar", "1 usuario"],
+                features: ["Dashboard y cartera base", "Expediente de acreditados", "Reporte ejecutivo estándar", "1 usuario"],
                 cta: "Solicitar Basic",
                 href: "/pricing/lead?plan=basic",
                 highlight: false,
@@ -823,7 +823,7 @@ export default function Home() {
 
               <div>
                 {[
-                  { n: "01", t: "Setup en minutos", d: "Sin integraciones largas. Empieza con un ZIP del SAT y un portafolio en horas." },
+                  { n: "01", t: "Setup en minutos", d: "Sin integraciones largas. Empieza con un ZIP del SAT y un cartera en horas." },
                   { n: "02", t: "Estándares institucionales", d: "UX y procesos de nivel PE/VC disponibles para cualquier otorgante desde $70/mes." },
                   { n: "03", t: "API cuando la necesites", d: "Empieza manual. Integra cuando escales. El stack crece contigo." },
                 ].map((a, i) => (

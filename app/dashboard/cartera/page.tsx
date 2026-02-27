@@ -50,7 +50,7 @@ export default function CarteraPage() {
   async function load() {
     setLoading(true);
     const { data: creds } = await supabase
-      .from("creditos")
+      .from("credits")
       .select("*, clients(company_name, rfc)")
       .order("created_at", { ascending: false });
 
@@ -112,7 +112,7 @@ export default function CarteraPage() {
         const clientId = rfcMap[r.rfc] || null;
         if (!clientId) { errors++; continue; }
 
-        const { error } = await supabase.from("creditos").insert({
+        const { error } = await supabase.from("credits").insert({
           client_id:        clientId,
           created_by:       user.id,
           tipo:             r.tipo_credito || "Crédito simple",
@@ -149,7 +149,7 @@ export default function CarteraPage() {
     if (!user) return;
     const p = sol.payload;
 
-    const { error: e1 } = await supabase.from("creditos").insert({
+    const { error: e1 } = await supabase.from("credits").insert({
       solicitud_id:     sol.id,
       client_id:        p.client_id,
       created_by:       user.id,

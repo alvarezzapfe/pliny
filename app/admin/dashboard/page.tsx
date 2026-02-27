@@ -158,7 +158,7 @@ export default function AdminDashboardPage() {
             <SideNav
               active={tab === "portfolio"}
               title="Originación"
-              desc="Portafolio y créditos"
+              desc="Cartera y créditos"
               onClick={() => setTab("portfolio")}
               icon={<IconGrid />}
             />
@@ -240,7 +240,7 @@ export default function AdminDashboardPage() {
 
           <div className="plx-tabs">
             <TabChip active={tab === "portfolio"} onClick={() => setTab("portfolio")}>
-              Portafolio
+              Cartera
             </TabChip>
             <TabChip active={tab === "status"} onClick={() => setTab("status")}>
               Estatus
@@ -263,7 +263,7 @@ export default function AdminDashboardPage() {
             <KpiCard label="Atraso" value={pct(summary.latePct)} sub="DPD & alertas" tone="cyan" />
           </section>
 
-          {/* Portafolio: tabla ocupa TODO el ancho */}
+          {/* Cartera: tabla ocupa TODO el ancho */}
           {tab === "portfolio" && (
             <section className="plx-card plx-pad">
               <div className="plx-headRow">
@@ -1480,7 +1480,7 @@ function GlobalStyles() {
    HELPERS
 ========================= */
 function tabTitle(tab: TabKey) {
-  if (tab === "portfolio") return "Originación & Portafolio";
+  if (tab === "portfolio") return "Originación & Cartera";
   if (tab === "status") return "Estatus de Cartera";
   if (tab === "kyc") return "KYC Empresas";
   return "Garantías (RUG / fuente de pago)";

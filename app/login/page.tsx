@@ -481,7 +481,7 @@ export default function LoginPage() {
               marginBottom: 28,
             }}
           >
-            Consola para otorgantes: portafolio, señales de riesgo y reportes
+            Consola para otorgantes: cartera, señales de riesgo y reportes
             ejecutivos en minutos.
           </p>
 
