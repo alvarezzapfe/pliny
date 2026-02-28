@@ -222,7 +222,7 @@ export default function Sidebar() {
                         )}
                       >
                         <span>★</span>
-                        <span>Pendiente</span>
+                        
                       </span>
                     ) : null}
                   </Link>
