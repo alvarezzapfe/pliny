@@ -59,24 +59,24 @@ export default function SolicitanteDashboard() {
         { data: recientes },
       ] = await Promise.all([
         supabase.from("solicitudes")
-          .select("*", { count:"exact", head:true })
-          .eq("solicitante_id", auth.user.id),
+  .select("*", { count:"exact", head:true })
+  .eq("borrower_id", auth.user.id),
 
-        supabase.from("solicitudes")
-          .select("*", { count:"exact", head:true })
-          .eq("solicitante_id", auth.user.id)
-          .in("status", ["enviada","en_revision","ofertada"]),
+supabase.from("solicitudes")
+  .select("*", { count:"exact", head:true })
+  .eq("borrower_id", auth.user.id)
+  .in("status", ["enviada","en_revision","ofertada"]),
 
-        supabase.from("creditos")
-          .select("*", { count:"exact", head:true })
-          .eq("solicitante_id", auth.user.id)
-          .eq("status", "activo"),
+supabase.from("credits")
+  .select("*", { count:"exact", head:true })
+  .eq("created_by", auth.user.id)
+  .eq("estatus", "activo"),
 
-        supabase.from("solicitudes")
-          .select("id,monto,plazo_meses,destino,status,created_at")
-          .eq("solicitante_id", auth.user.id)
-          .order("created_at", { ascending: false })
-          .limit(5),
+supabase.from("solicitudes")
+  .select("id,monto,plazo_meses,destino,status,created_at")
+  .eq("borrower_id", auth.user.id)
+  .order("created_at", { ascending: false })
+  .limit(5),
       ]);
 
       setKpis({

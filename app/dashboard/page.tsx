@@ -60,10 +60,10 @@ export default function DashboardOtorgante() {
           .eq("otorgante_id", auth.user.id)
           .in("status", ["enviada","en_revision","ofertada"]),
 
-        supabase.from("creditos")
-          .select("id,monto_original,saldo_insoluto,status,created_at,solicitante_id")
-          .eq("otorgante_id", auth.user.id)
-          .eq("status", "activo"),
+        supabase.from("credits")
+  .select("id,monto_original,saldo_actual,estatus,created_at,created_by")
+  .eq("created_by", auth.user.id)
+  .eq("estatus", "activo"),
 
         supabase.from("solicitudes")
           .select("id,monto,plazo_meses,destino,status,created_at,solicitante_id")
@@ -73,7 +73,7 @@ export default function DashboardOtorgante() {
           .limit(5),
       ]);
 
-      const montoCartera = (credData ?? []).reduce((s: number, c: any) => s + (c.saldo_insoluto ?? 0), 0);
+      const montoCartera = (credData ?? []).reduce((s: number, c: any) => s + (c.saldo_actual ?? 0), 0);
 
       setKpis({
         solicitudesActivas: solActivas ?? 0,
