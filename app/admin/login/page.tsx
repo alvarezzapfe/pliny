@@ -124,12 +124,11 @@ export default function SuperAdminLoginPage() {
 
       // ── Guardar sesión local ───────────────────────────────────────
       setSession({
-        role: "admin",
-        email: cleanEmail,
-        createdAt: new Date().toISOString(),
-        superAdmin: true,
-        ip: ip ?? undefined,
-      });
+  role: "super_admin",           // 👈 aquí
+  email: cleanEmail,
+  createdAt: new Date().toISOString(),
+  ip: ip ?? undefined,
+});
 
       setLoading(false);
       router.push("/admin/dashboard");
