@@ -59,29 +59,29 @@ export default function SolicitanteDashboard() {
         { data: recientes },
       ] = await Promise.all([
         supabase.from("solicitudes")
-  .select("*", { count:"exact", head:true })
-  .eq("borrower_id", auth.user.id),
+          .select("*", { count:"exact", head:true })
+          .eq("borrower_id", auth.user.id),
 
-supabase.from("solicitudes")
-  .select("*", { count:"exact", head:true })
-  .eq("borrower_id", auth.user.id)
-  .in("status", ["enviada","en_revision","ofertada"]),
+        supabase.from("solicitudes")
+          .select("*", { count:"exact", head:true })
+          .eq("borrower_id", auth.user.id)
+          .in("status", ["enviada","en_revision","ofertada"]),
 
-supabase.from("credits")
-  .select("*", { count:"exact", head:true })
-  .eq("created_by", auth.user.id)
-  .eq("estatus", "activo"),
+        supabase.from("credits")
+          .select("*", { count:"exact", head:true })
+          .eq("created_by", auth.user.id)
+          .eq("estatus", "activo"),
 
-supabase.from("solicitudes")
-  .select("id,monto,plazo_meses,destino,status,created_at")
-  .eq("borrower_id", auth.user.id)
-  .order("created_at", { ascending: false })
-  .limit(5),
+        supabase.from("solicitudes")
+          .select("id,monto,plazo_meses,destino,status,created_at")
+          .eq("borrower_id", auth.user.id)
+          .order("created_at", { ascending: false })
+          .limit(5),
       ]);
 
       setKpis({
-        totalSolicitudes:  total  ?? 0,
-        enRevision:        enRev  ?? 0,
+        totalSolicitudes:  total     ?? 0,
+        enRevision:        enRev     ?? 0,
         creditosAprobados: aprobadas ?? 0,
         recientes:         recientes ?? [],
       });
@@ -126,7 +126,7 @@ supabase.from("solicitudes")
         .spinner{animation:spin .7s linear infinite;}
       `}</style>
 
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <div className="fade" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20 }}>
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:3 }}>
@@ -140,11 +140,11 @@ supabase.from("solicitudes")
             <span style={{ width:5,height:5,borderRadius:"50%",background:"currentColor",display:"inline-block" }}/>
             {profileOk ? "Perfil completo" : "Perfil incompleto"}
           </span>
-          <Link href="/dashboard/solicitante/solicitudes" className="btn-sol">+ Nueva solicitud</Link>
+          <Link href="/solicitante/solicitudes" className="btn-sol">+ Nueva solicitud</Link>
         </div>
       </div>
 
-      {/* ── PERFIL CARD ── */}
+      {/* PERFIL CARD */}
       <div className="fade d1" style={{ marginBottom:14 }}>
         <div className="card" style={{ padding:22 }}>
           {loading ? (
@@ -177,14 +177,14 @@ supabase.from("solicitudes")
                   </div>
                 )}
                 {(profile?.rep_email || userEmail) && <div style={{ fontSize:11,color:"#94A3B8" }}>{profile?.rep_email ?? userEmail}</div>}
-                <Link href="/dashboard/datos" className="btn-g" style={{ marginTop:4,fontSize:11,padding:"5px 12px" }}>Editar datos →</Link>
+                <Link href="/solicitante/datos" className="btn-g" style={{ marginTop:4,fontSize:11,padding:"5px 12px" }}>Editar datos →</Link>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── KPIs ── */}
+      {/* KPIs */}
       <div className="fade d2" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:14 }}>
         {[
           { label:"Solicitudes enviadas", val:kpis.totalSolicitudes,  sub:"Total histórico",     color:"#059669", icon:"M4 2h8v12H4zM6 6h4M6 9h4" },
@@ -210,7 +210,7 @@ supabase.from("solicitudes")
         ))}
       </div>
 
-      {/* ── LOWER GRID ── */}
+      {/* LOWER GRID */}
       <div className="fade d3" style={{ display:"grid", gridTemplateColumns:"1fr 260px", gap:12 }}>
 
         {/* Solicitudes recientes */}
@@ -220,7 +220,7 @@ supabase.from("solicitudes")
               <div style={{ fontSize:13,fontWeight:700 }}>Mis solicitudes</div>
               <div style={{ fontSize:11,color:"#94A3B8",marginTop:1 }}>Historial reciente</div>
             </div>
-            <Link href="/dashboard/solicitante/solicitudes" className="btn-g" style={{ fontSize:11,padding:"6px 12px" }}>Ver todas →</Link>
+            <Link href="/solicitante/solicitudes" className="btn-g" style={{ fontSize:11,padding:"6px 12px" }}>Ver todas →</Link>
           </div>
 
           {loading ? (
@@ -235,7 +235,7 @@ supabase.from("solicitudes")
               </div>
               <div style={{ fontSize:13,fontWeight:600,color:"#475569" }}>Sin solicitudes aún</div>
               <div style={{ fontSize:12,color:"#94A3B8" }}>Crea tu primera solicitud de crédito.</div>
-              <Link href="/dashboard/solicitante/solicitudes" className="btn-sol" style={{ marginTop:4 }}>Crear solicitud</Link>
+              <Link href="/solicitante/solicitudes" className="btn-sol" style={{ marginTop:4 }}>Crear solicitud</Link>
             </div>
           ) : (
             <>
@@ -264,19 +264,19 @@ supabase.from("solicitudes")
         {/* Acciones */}
         <div className="card" style={{ display:"flex",flexDirection:"column",gap:6 }}>
           <div style={{ fontSize:13,fontWeight:700,marginBottom:6 }}>Acciones rápidas</div>
-          <Link href="/dashboard/solicitante/solicitudes" className="qa prim">
+          <Link href="/solicitante/solicitudes" className="qa prim">
             <div className="qa-ico" style={{ background:"rgba(255,255,255,.12)" }}><Ic d="M8 2v12M2 8h12" c="#fff" s={12}/></div>
             Nueva solicitud
           </Link>
-          <Link href="/dashboard/solicitante/solicitudes" className="qa">
+          <Link href="/solicitante/solicitudes" className="qa">
             <div className="qa-ico" style={{ background:"#ECFDF5" }}><Ic d="M4 2h8v12H4zM6 6h4M6 9h4M6 12h2" c="#059669" s={12}/></div>
             Mis solicitudes
           </Link>
-          <Link href="/dashboard/solicitante/creditos" className="qa">
+          <Link href="/solicitante/creditos" className="qa">
             <div className="qa-ico" style={{ background:"#F0FDF9" }}><Ic d="M2 12L6 7l3 3 3-4 2 2" c="#10B981" s={12}/></div>
             Créditos activos
           </Link>
-          <Link href="/dashboard/datos" className="qa">
+          <Link href="/solicitante/datos" className="qa">
             <div className="qa-ico" style={{ background:"#F8FAFC" }}><Ic d="M8 2a4 4 0 100 8A4 4 0 008 2zM2 14c0-2.2 2.7-4 6-4s6 1.8 6 4" c="#94A3B8" s={12}/></div>
             Mis datos
           </Link>

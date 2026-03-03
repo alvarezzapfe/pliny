@@ -79,7 +79,7 @@ export default function LoginPage() {
 
         setLoading(false);
         if (borrower?.onboarding_done) {
-          router.push("/dashboard/solicitante");
+          router.push("/solicitante");
         } else {
           router.push("/onboarding/solicitante");
         }
