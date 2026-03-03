@@ -8,56 +8,67 @@ import { clearSession } from "@/lib/auth";
 
 function Icon({ d, size = 15 }: { d: string; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
-      stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d={d}/>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={d} />
     </svg>
   );
 }
 
 const NAV = [
   {
-    href:  "/dashboard/solicitante",
+    href: "/dashboard/solicitante",
     label: "Dashboard",
     match: "exact",
-    icon:  "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z",
+    icon: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z",
   },
   {
-    href:  "/dashboard/solicitante/solicitudes",
+    href: "/dashboard/solicitante/solicitudes",
     label: "Solicitudes",
     match: "prefix",
-    icon:  "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2",
+    icon: "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2",
   },
   {
-    href:  "/dashboard/solicitante/creditos",
+    href: "/dashboard/solicitante/creditos",
     label: "Créditos",
     match: "prefix",
-    icon:  "M2 12L6 7l3 3 3-4 2 2",
+    icon: "M2 12L6 7l3 3 3-4 2 2",
   },
   {
-    href:  "/dashboard/datos",
+    href: "/dashboard/datos",
     label: "Mis datos",
     match: "prefix",
-    icon:  "M8 2a4 4 0 100 8A4 4 0 008 2zM2 14c0-2.2 2.7-4 6-4s6 1.8 6 4",
+    icon: "M8 2a4 4 0 100 8A4 4 0 008 2zM2 14c0-2.2 2.7-4 6-4s6 1.8 6 4",
   },
 ];
 
-const W_OPEN  = 232;
+const W_OPEN = 232;
 const W_CLOSE = 60;
 
 export default function SolicitanteLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router   = useRouter();
-  const [open,        setOpen]        = useState(true);
+  const router = useRouter();
+  const [open, setOpen] = useState(true);
   const [companyName, setCompanyName] = useState<string | null>(null);
-  const [userEmail,   setUserEmail]   = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const W = open ? W_OPEN : W_CLOSE;
 
   useEffect(() => {
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) { router.push("/login"); return; }
+      if (!auth.user) {
+        router.push("/login");
+        return;
+      }
 
       setUserEmail(auth.user.email ?? null);
 
