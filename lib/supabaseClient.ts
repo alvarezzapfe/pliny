@@ -10,4 +10,18 @@ if (!supabaseAnonKey) {
   throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing. Check .env.local at project root.");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});
+
+if (typeof window !== "undefined") {
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT") {
+      window.location.href = "/login";
+    }
+  });
+}

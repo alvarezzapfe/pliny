@@ -105,7 +105,7 @@ export default function SolicitanteDashboard() {
           <h1 style={S.title}>Bienvenido, {profile?.rep_first_names ?? "—"}</h1>
           <p style={S.subtitle}>{companyName} · Solicitante de crédito</p>
         </div>
-        <Link href="/dashboard/solicitante/solicitudes/nueva" style={S.actionBtn(true)}>
+        <Link href="/solicitante/solicitudes/nueva" style={S.actionBtn(true)}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
           Nueva solicitud
         </Link>
@@ -134,7 +134,7 @@ export default function SolicitanteDashboard() {
         <div style={S.card}>
           <div style={S.cardHeader}>
             <span style={S.cardTitle}>Mis solicitudes</span>
-            <Link href="/dashboard/solicitante/solicitudes" style={{ fontSize:12, fontWeight:600, color:"#5B8DEF", textDecoration:"none" }}>Ver todas →</Link>
+            <Link href="/solicitante/solicitudes" style={{ fontSize:12, fontWeight:600, color:"#5B8DEF", textDecoration:"none" }}>Ver todas →</Link>
           </div>
           <div style={S.cardBody}>
             {solicitudes.length === 0 ? (
@@ -146,7 +146,7 @@ export default function SolicitanteDashboard() {
                   <p style={{ fontSize:13, fontWeight:600, color:"#475569", marginBottom:4 }}>No tienes solicitudes aún</p>
                   <p style={{ fontSize:12, color:"#94A3B8" }}>Crea tu primera solicitud de crédito para comenzar.</p>
                 </div>
-                <Link href="/dashboard/solicitante/solicitudes/nueva" style={S.actionBtn(true)}>
+                <Link href="/solicitante/solicitudes/nueva" style={S.actionBtn(true)}>
                   <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 2v9M2 6.5h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                   Crear solicitud
                 </Link>
@@ -176,7 +176,7 @@ export default function SolicitanteDashboard() {
           <div style={S.card}>
             <div style={S.cardHeader}>
               <span style={S.cardTitle}>Mi empresa</span>
-              <Link href="/dashboard/solicitante/empresa" style={{ fontSize:11, color:"#5B8DEF", fontWeight:600, textDecoration:"none" }}>Editar</Link>
+              <Link href="/solicitante/empresa" style={{ fontSize:11, color:"#5B8DEF", fontWeight:600, textDecoration:"none" }}>Editar</Link>
             </div>
             <div style={S.cardBody}>
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
@@ -203,9 +203,9 @@ export default function SolicitanteDashboard() {
             </div>
             <div style={{ ...S.cardBody, display:"flex", flexDirection:"column", gap:8 }}>
               {[
-                { label:"Subir documentos",    href:"/dashboard/solicitante/documentos", icon:"📄" },
+                { label:"Subir documentos",    href:"/solicitante/documentos", icon:"📄" },
                 { label:"Ver ofertas de crédito", href:"/market", icon:"🏦" },
-                { label:"Configuración",        href:"/dashboard/solicitante/ajustes",    icon:"⚙️" },
+                { label:"Configuración",        href:"/solicitante/ajustes",    icon:"⚙️" },
               ].map(a => (
                 <Link key={a.label} href={a.href} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:9, border:"1px solid #E2E8F0", textDecoration:"none", fontSize:13, fontWeight:500, color:"#475569", transition:"all 0.14s", background:"#fff" }}>
                   <span style={{ fontSize:16 }}>{a.icon}</span>
