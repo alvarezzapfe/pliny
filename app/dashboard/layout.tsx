@@ -23,7 +23,7 @@ const NAV = [
 ];
 
 const BOTTOM = [
-  { href: "/dashboard/config", label: "Configuración", icon: "M8 5a3 3 0 100 6M2.5 8h1M12.5 8h1M8 2.5v1M8 12.5v1M4.2 4.2l.7.7M11.1 11.1l.7.7M4.2 11.8l.7-.7M11.1 4.9l.7-.7" },
+  { href: "/dashboard/ajustes", label: "Configuración", icon: "M8 5a3 3 0 100 6M2.5 8h1M12.5 8h1M8 2.5v1M8 12.5v1M4.2 4.2l.7.7M11.1 11.1l.7.7M4.2 11.8l.7-.7M11.1 4.9l.7-.7" },
   { href: "/login",            label: "Salir",         icon: "M10 8H3M6 5l-3 3 3 3M13 2v12" },
 ];
 

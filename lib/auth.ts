@@ -1,13 +1,14 @@
-export type Role = "admin" | "client";
+export type Role = "admin" | "client" | "otorgante" | "solicitante";
 
 export type Session = {
   role: Role;
   email: string;
   customerId?: string;
   createdAt: string;
-  demo?: boolean; // ✅ agrega esto
+  demo?: boolean;
+  userRole?: "otorgante" | "solicitante"; // rol de negocio
+  onboardingDone?: boolean;
 };
-
 
 const KEY = "bcl_session";
 
@@ -51,4 +52,9 @@ export function requireAdminSession(): Session | null {
   const s = getSession();
   if (!s || s.role !== "admin") return null;
   return s;
+}
+
+export function getUserRole(): "otorgante" | "solicitante" | null {
+  const s = getSession();
+  return s?.userRole ?? null;
 }
