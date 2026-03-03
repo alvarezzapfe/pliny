@@ -1,24 +1,45 @@
-export type Role = "admin" | "client" | "otorgante" | "solicitante";
+export type Role = "admin" | "super_admin" | "client" | "otorgante" | "solicitante";
 
 export type Session = {
   role: Role;
   email: string;
   customerId?: string;
   createdAt: string;
+
   demo?: boolean;
-  userRole?: "otorgante" | "solicitante"; // rol de negocio
+
+  // rol de negocio (para cliente)
+  userRole?: "otorgante" | "solicitante";
   onboardingDone?: boolean;
+
+  // opcional si luego quieres trackearla (no es seguridad real)
+  ip?: string;
 };
 
 const KEY = "bcl_session";
 
+/** Admin “normal” (consola admin) */
 export const ADMIN_EMAILS = new Set([
   "jero@crowdlink.mx",
   "luis@crowdlink.mx",
 ]);
 
+/** Super admin (root) */
+export const SUPER_ADMIN_EMAILS = new Set([
+  "luis@crowdlink.mx",
+  // agrega los que quieras
+]);
+
+export function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
 export function isAdminEmail(email: string) {
-  return ADMIN_EMAILS.has(email.trim().toLowerCase());
+  return ADMIN_EMAILS.has(normalizeEmail(email));
+}
+
+export function isSuperAdminEmail(email: string) {
+  return SUPER_ADMIN_EMAILS.has(normalizeEmail(email));
 }
 
 export function setSession(session: Session) {
@@ -42,15 +63,29 @@ export function clearSession() {
   localStorage.removeItem(KEY);
 }
 
+/** Cliente (usuario normal) */
 export function requireClientSession(): Session | null {
   const s = getSession();
   if (!s || s.role !== "client") return null;
   return s;
 }
 
+/**
+ * Admin console:
+ * - Si quieres que super_admin también pueda entrar a /admin → deja como está.
+ * - Si NO quieres eso, cambia a: (s.role !== "admin")
+ */
 export function requireAdminSession(): Session | null {
   const s = getSession();
-  if (!s || s.role !== "admin") return null;
+  if (!s) return null;
+  if (s.role !== "admin" && s.role !== "super_admin") return null;
+  return s;
+}
+
+/** Super admin (root) */
+export function requireSuperAdminSession(): Session | null {
+  const s = getSession();
+  if (!s || s.role !== "super_admin") return null;
   return s;
 }
 
