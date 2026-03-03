@@ -152,7 +152,7 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
         {open && (
           <div style={{ margin:"12px 10px 0", padding:"10px 12px", background:"rgba(0,229,160,0.08)", border:"1px solid rgba(0,229,160,0.18)", borderRadius:10, position:"relative", zIndex:1 }}>
             <div style={{ fontSize:10, fontWeight:700, color:"rgba(236,253,245,0.45)", letterSpacing:"0.08em", fontFamily:"'Geist Mono',monospace", marginBottom:3 }}>SOLICITANTE</div>
-            <div style={{ fontSize:12, fontWeight:700, color:"#00E5A0", truncate:true }}>
+            <div style={{ fontSize:12, fontWeight:700, color:"#00E5A0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
               {profile?.company_name ?? "Mi empresa"}
             </div>
             <div style={{ marginTop:4, display:"flex", alignItems:"center", gap:5 }}>
@@ -170,7 +170,7 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
             return (
               <Link key={n.href} href={n.href} className={`sol-nl${active ? " on" : ""}`} title={!open ? n.label : undefined} style={{ justifyContent: open ? "flex-start" : "center" }}>
                 <span style={{ flexShrink:0 }}>{n.icon}</span>
-                {open && <span style={{ truncate:true }}>{n.label}</span>}
+                {open && <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.label}</span>}
               </Link>
             );
           })}
