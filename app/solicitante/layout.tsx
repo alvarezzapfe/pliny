@@ -12,30 +12,11 @@ type BorrowerProfile = {
 };
 
 const NAV = [
-  {
-    href: "/solicitante",
-    label: "Inicio",
-    match: "exact",
-    icon: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z",
-  },
-  {
-    href: "/solicitante/solicitudes",
-    label: "Solicitudes",
-    match: "prefix",
-    icon: "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2",
-  },
-  {
-    href: "/solicitante/creditos",
-    label: "Créditos",
-    match: "prefix",
-    icon: "M2 12L6 7l3 3 3-4 2 2",
-  },
-  {
-    href: "/solicitante/datos",
-    label: "Mis datos",
-    match: "prefix",
-    icon: "M8 2a4 4 0 100 8A4 4 0 008 2zM2 14c0-2.2 2.7-4 6-4s6 1.8 6 4",
-  },
+  { href: "/solicitante", label: "Inicio", match: "exact", icon: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z" },
+  { href: "/solicitante/solicitudes", label: "Solicitudes", match: "prefix", icon: "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2" },
+  { href: "/solicitante/ofertas", label: "Ofertas", match: "prefix", icon: "M2 2h12v8H2zM5 14h6M8 10v4" },
+  { href: "/solicitante/creditos", label: "Créditos", match: "prefix", icon: "M2 12L6 7l3 3 3-4 2 2" },
+  { href: "/solicitante/datos", label: "Mis datos", match: "prefix", icon: "M8 2a4 4 0 100 8A4 4 0 008 2zM2 14c0-2.2 2.7-4 6-4s6 1.8 6 4" },
 ];
 
 const W_OPEN  = 240;
@@ -44,9 +25,10 @@ const W_CLOSE = 64;
 export default function SolicitanteLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router   = useRouter();
-  const [open,      setOpen]      = useState(true);
-  const [profile,   setProfile]   = useState<BorrowerProfile | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [open,       setOpen]       = useState(true);
+  const [profile,    setProfile]    = useState<BorrowerProfile | null>(null);
+  const [userEmail,  setUserEmail]  = useState<string | null>(null);
+  const [pendientes, setPendientes] = useState(0);
 
   const W = open ? W_OPEN : W_CLOSE;
 
@@ -63,9 +45,18 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
         .maybeSingle();
 
       if (data) setProfile(data);
+      if (data && !data.onboarding_done) router.push("/onboarding/solicitante");
 
-      if (data && !data.onboarding_done) {
-        router.push("/onboarding/solicitante");
+      // Badge: ofertas pendientes
+      const { data: sols } = await supabase
+        .from("solicitudes").select("id").eq("borrower_id", auth.user.id);
+      if (sols && sols.length > 0) {
+        const { count } = await supabase
+          .from("ofertas")
+          .select("id", { count: "exact", head: true })
+          .in("solicitud_id", sols.map(s => s.id))
+          .eq("status", "pendiente");
+        setPendientes(count ?? 0);
       }
     })();
   }, [router]);
@@ -80,21 +71,19 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; }
-        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
-
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;700&display=swap');
+        *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
         .sol-sb {
-          position: fixed; top: 0; left: 0; bottom: 0;
-          background: radial-gradient(ellipse 160% 110% at 20% 0%, #064E3B 0%, #065F46 40%, #047857 100%);
-          border-right: 1px solid rgba(255,255,255,0.08);
+          position: fixed; top: 0; left: 0; height: 100vh;
+          background: linear-gradient(160deg,#0A2518 0%,#051A10 100%);
           display: flex; flex-direction: column;
-          overflow: hidden; z-index: 40;
           transition: width .25s cubic-bezier(.16,1,.3,1);
+          z-index: 100; overflow: hidden;
+          border-right: 1px solid rgba(255,255,255,0.07);
         }
         .sol-grid {
-          position: absolute; inset: 0; pointer-events: none; opacity: .20;
+          position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
           background-image: linear-gradient(rgba(255,255,255,0.06) 1px,transparent 1px), linear-gradient(90deg,rgba(255,255,255,0.06) 1px,transparent 1px);
           background-size: 40px 40px;
         }
@@ -165,17 +154,26 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
             const active = n.match === "exact"
               ? pathname === n.href
               : pathname === n.href || pathname?.startsWith(n.href + "/");
+            const isOfertas = n.href === "/solicitante/ofertas";
             return (
               <Link key={n.href} href={n.href}
                 className={`sol-nl${active ? " on" : ""}`}
                 title={!open ? n.label : undefined}
                 style={{ justifyContent: open ? "flex-start" : "center" }}>
-                <span style={{ flexShrink:0 }}>
+                <span style={{ flexShrink:0, position:"relative" }}>
                   <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                     <path d={n.icon}/>
                   </svg>
+                  {isOfertas && pendientes > 0 && !open && (
+                    <span style={{ position:"absolute", top:-4, right:-4, width:8, height:8, borderRadius:"50%", background:"#F59E0B", border:"1.5px solid #0A2518" }}/>
+                  )}
                 </span>
-                {open && <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.label}</span>}
+                {open && <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{n.label}</span>}
+                {open && isOfertas && pendientes > 0 && (
+                  <span style={{ flexShrink:0, minWidth:18, height:18, borderRadius:999, background:"#F59E0B", color:"#fff", fontSize:10, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Geist Mono',monospace" }}>
+                    {pendientes}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -183,12 +181,7 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
 
         {/* Bottom */}
         <div style={{ padding:"8px 8px 14px", borderTop:"1px solid rgba(255,255,255,0.08)", display:"flex", flexDirection:"column", gap:2, position:"relative", zIndex:1, flexShrink:0 }}>
-          <button
-            onClick={handleLogout}
-            className="sol-nl"
-            title={!open ? "Cerrar sesión" : undefined}
-            style={{ justifyContent: open ? "flex-start" : "center" }}
-          >
+          <button onClick={handleLogout} className="sol-nl" title={!open ? "Cerrar sesión" : undefined} style={{ justifyContent: open ? "flex-start" : "center" }}>
             <span style={{ flexShrink:0 }}>
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M10 8H3M6 5l-3 3 3 3M13 2v12"/>
