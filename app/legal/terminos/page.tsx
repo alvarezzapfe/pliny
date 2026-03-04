@@ -135,8 +135,8 @@ export default function TerminosPage() {
     .prose p:last-child { margin-bottom:0; }
     .prose strong { color:var(--fg); font-weight:600; }
     .prose ul { list-style:none; display:flex; flex-direction:column; gap:8px; margin:16px 0; }
-    .prose ul li { display:block; padding-left:18px; position:relative; line-height:1.85; }
-    .prose ul li::before { content:''; width:4px; height:4px; border-radius:50%; background:var(--accent-2); position:absolute; left:2px; top:10px; }
+    .prose ul li { display:flex; align-items:flex-start; gap:10px; }
+    .prose ul li::before { content:''; width:4px; height:4px; border-radius:50%; background:var(--accent-2); flex-shrink:0; margin-top:9px; }
     .prose ol { list-style:none; counter-reset:item; display:flex; flex-direction:column; gap:10px; margin:16px 0; }
     .prose ol li { display:flex; gap:12px; counter-increment:item; }
     .prose ol li::before { content:counter(item)"."; font-family:var(--font-mono); font-size:11px; color:var(--accent); flex-shrink:0; padding-top:2px; min-width:20px; }
