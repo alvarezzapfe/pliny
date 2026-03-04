@@ -30,7 +30,6 @@ const EMPTY_FORM: SolicitudForm = {
   facturacion_anual: "", antiguedad_anos: "", sector: "", num_empleados: "",
 };
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 function fmt(n: number) {
   if (n >= 1_000_000) return `$${(n/1_000_000).toFixed(1)}M`;
   if (n >= 1_000)     return `$${(n/1_000).toFixed(0)}K`;
@@ -40,6 +39,18 @@ function fmt(n: number) {
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("es-MX", { day:"numeric", month:"short", year:"numeric" });
 }
+
+function parseMonto(s: string): number {
+  return parseInt(s.replace(/,/g, "") || "0");
+}
+
+function fmtMonto(n: number): string {
+  if (n >= 1_000_000) return `$${(n/1_000_000).toFixed(2)}M MXN`;
+  if (n >= 1_000)     return `$${(n/1_000).toFixed(0)}K MXN`;
+  return `$${n.toLocaleString("es-MX")} MXN`;
+}
+
+const MAX_MONTO = 250_000_000;
 
 const STATUS_META: Record<string, { label:string; bg:string; color:string; border:string }> = {
   borrador:    { label:"Borrador",    bg:"#F8FAFC", color:"#475569", border:"#E2E8F0" },
@@ -51,21 +62,19 @@ const STATUS_META: Record<string, { label:string; bg:string; color:string; borde
   cancelada:   { label:"Cancelada",   bg:"#F8FAFC", color:"#94A3B8", border:"#E2E8F0" },
 };
 
-// ── Icons ──────────────────────────────────────────────────────────────────
 function Ic({ d, s=16, c="currentColor" }: { d:string; s?:number; c?:string }) {
   return <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>;
 }
 
-// ── Option Card ────────────────────────────────────────────────────────────
 function OptionCard({ label, desc, value, selected, onClick, icon }: {
-  label: string; desc?: string; value: string; selected: boolean; onClick: () => void; icon?: string;
+  label:string; desc?:string; value:string; selected:boolean; onClick:()=>void; icon?:string;
 }) {
   return (
     <div onClick={onClick} style={{
-      border: `2px solid ${selected ? "#059669" : "#E2E8F0"}`,
-      borderRadius: 12, padding: "14px 16px", cursor: "pointer",
+      border:`2px solid ${selected ? "#059669" : "#E2E8F0"}`,
+      borderRadius:12, padding:"14px 16px", cursor:"pointer",
       background: selected ? "#ECFDF5" : "#fff",
-      transition: "all .15s", display: "flex", alignItems: "center", gap: 12,
+      transition:"all .15s", display:"flex", alignItems:"center", gap:12,
     }}>
       {icon && (
         <div style={{ width:36, height:36, borderRadius:9, background: selected ? "rgba(5,150,105,.15)" : "#F8FAFC", display:"grid", placeItems:"center", flexShrink:0 }}>
@@ -78,7 +87,7 @@ function OptionCard({ label, desc, value, selected, onClick, icon }: {
       </div>
       <div style={{
         width:18, height:18, borderRadius:"50%",
-        border: `2px solid ${selected ? "#059669" : "#CBD5E1"}`,
+        border:`2px solid ${selected ? "#059669" : "#CBD5E1"}`,
         background: selected ? "#059669" : "transparent",
         display:"grid", placeItems:"center", flexShrink:0,
       }}>
@@ -88,8 +97,7 @@ function OptionCard({ label, desc, value, selected, onClick, icon }: {
   );
 }
 
-// ── Input ──────────────────────────────────────────────────────────────────
-function Field({ label, hint, children, col }: { label:string; hint?:string; children:React.ReactNode; col?:boolean }) {
+function Field({ label, hint, children }: { label:string; hint?:string; children:React.ReactNode }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
       <label style={{ fontSize:12, fontWeight:600, color:"#374151" }}>{label}</label>
@@ -99,15 +107,6 @@ function Field({ label, hint, children, col }: { label:string; hint?:string; chi
   );
 }
 
-const INP_STYLE: React.CSSProperties = {
-  height:44, borderRadius:10, border:"1.5px solid #DDE5F7",
-  background:"#F8FAFF", padding:"0 14px", fontSize:13, color:"#0F172A",
-  fontFamily:"'Geist',sans-serif", outline:"none", width:"100%",
-};
-
-const SEL_STYLE: React.CSSProperties = { ...INP_STYLE, cursor:"pointer", appearance:"none" as any };
-
-// ── Step indicators ────────────────────────────────────────────────────────
 const STEPS = [
   { n:1, label:"Tipo y monto" },
   { n:2, label:"Destino" },
@@ -135,8 +134,7 @@ function Stepper({ step }: { step: Step }) {
               }}>
                 {state==="done"
                   ? <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 5.5l2.5 2.5L9 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  : s.n
-                }
+                  : s.n}
               </div>
               <span style={{ fontSize:9, fontWeight:600, fontFamily:"'Geist Mono',monospace", letterSpacing:".04em", color: state==="idle" ? "#CBD5E1" : state==="active" ? "#059669" : "#064E3B", whiteSpace:"nowrap" }}>
                 {s.label.toUpperCase()}
@@ -152,29 +150,26 @@ function Stepper({ step }: { step: Step }) {
   );
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────
 export default function SolicitudesPage() {
   const router = useRouter();
-  const [view, setView] = useState<"list" | "wizard">("list");
-  const [step, setStep] = useState<Step>(1);
-  const [form, setForm] = useState<SolicitudForm>(EMPTY_FORM);
+  const [view, setView]           = useState<"list"|"wizard">("list");
+  const [step, setStep]           = useState<Step>(1);
+  const [form, setForm]           = useState<SolicitudForm>(EMPTY_FORM);
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
+  const [userId, setUserId]       = useState<string|null>(null);
 
   useEffect(() => {
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) { router.push("/login"); return; }
       setUserId(auth.user.id);
-
       const { data } = await supabase
         .from("solicitudes")
         .select("*")
         .eq("borrower_id", auth.user.id)
         .order("created_at", { ascending: false });
-
       setSolicitudes(data ?? []);
       setLoading(false);
     })();
@@ -184,20 +179,25 @@ export default function SolicitudesPage() {
     setForm(f => ({ ...f, [k]: v }));
   }
 
+  function handleMontoChange(raw: string) {
+    const digits = raw.replace(/[^0-9]/g, "");
+    if (!digits) { upd("monto", ""); return; }
+    const num = Math.min(parseInt(digits), MAX_MONTO);
+    upd("monto", num.toLocaleString("es-MX"));
+  }
+
   async function saveDraft() {
     if (!userId) return;
     setSaving(true);
     await supabase.from("solicitudes").insert({
-      borrower_id: userId,
-      tipo: "subasta",
+      borrower_id: userId, tipo:"subasta",
       monto: parseFloat(form.monto.replace(/,/g, "")) || 0,
       plazo_meses: parseInt(form.plazo_meses) || 12,
       tasa_solicitada: parseFloat(form.tasa_solicitada) || null,
-      destino: form.destino,
-      descripcion: form.descripcion,
+      destino: form.destino, descripcion: form.descripcion,
       garantia_tipo: form.garantia_tipo || null,
       garantia_detalle: form.garantia_detalle || null,
-      status: "borrador",
+      status:"borrador",
     });
     setSaving(false);
   }
@@ -206,27 +206,20 @@ export default function SolicitudesPage() {
     if (!userId) return;
     setSaving(true);
     const { error } = await supabase.from("solicitudes").insert({
-      borrower_id: userId,
-      tipo: "subasta",
+      borrower_id: userId, tipo:"subasta",
       monto: parseFloat(form.monto.replace(/,/g, "")) || 0,
       plazo_meses: parseInt(form.plazo_meses) || 12,
       tasa_solicitada: parseFloat(form.tasa_solicitada) || null,
-      destino: form.destino,
-      descripcion: form.descripcion,
+      destino: form.destino, descripcion: form.descripcion,
       garantia_tipo: form.garantia_tipo || null,
       garantia_detalle: form.garantia_detalle || null,
-      status: "enviada",
+      status:"enviada",
     });
     setSaving(false);
     if (!error) {
-      setView("list");
-      setForm(EMPTY_FORM);
-      setStep(1);
-      // Refresh list
-      const { data } = await supabase
-        .from("solicitudes").select("*")
-        .eq("borrower_id", userId)
-        .order("created_at", { ascending: false });
+      setView("list"); setForm(EMPTY_FORM); setStep(1);
+      const { data } = await supabase.from("solicitudes").select("*")
+        .eq("borrower_id", userId).order("created_at", { ascending: false });
       setSolicitudes(data ?? []);
     }
   }
@@ -255,12 +248,10 @@ export default function SolicitudesPage() {
     textarea.inp{height:auto;padding:12px 14px;resize:vertical;}
   `;
 
-  // ── LIST VIEW ────────────────────────────────────────────────────────────
+  // ── LIST ─────────────────────────────────────────────────────────────────
   if (view === "list") return (
     <div style={{ fontFamily:"'Geist',sans-serif", color:"#0F172A" }}>
       <style>{CSS}</style>
-
-      {/* Header */}
       <div className="fade" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20 }}>
         <div>
           <div style={{ fontSize:19, fontWeight:800, letterSpacing:"-0.04em", marginBottom:3 }}>Mis solicitudes</div>
@@ -271,13 +262,12 @@ export default function SolicitudesPage() {
         </button>
       </div>
 
-      {/* Stats */}
       <div className="fade" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:16 }}>
         {[
-          { label:"Total", val: solicitudes.length, color:"#059669" },
+          { label:"Total",      val: solicitudes.length,                                                                    color:"#059669" },
           { label:"En proceso", val: solicitudes.filter(s=>["enviada","en_revision","ofertada"].includes(s.status)).length, color:"#F5A623" },
-          { label:"Aprobadas", val: solicitudes.filter(s=>s.status==="aprobada").length, color:"#10B981" },
-          { label:"Rechazadas", val: solicitudes.filter(s=>s.status==="rechazada").length, color:"#F43F5E" },
+          { label:"Aprobadas",  val: solicitudes.filter(s=>s.status==="aprobada").length,                                   color:"#10B981" },
+          { label:"Rechazadas", val: solicitudes.filter(s=>s.status==="rechazada").length,                                  color:"#F43F5E" },
         ].map(k => (
           <div key={k.label} className="card" style={{ padding:"14px 16px" }}>
             <div className="mono" style={{ fontSize:10, color:"#94A3B8", letterSpacing:".08em", marginBottom:6 }}>{k.label.toUpperCase()}</div>
@@ -289,12 +279,10 @@ export default function SolicitudesPage() {
         ))}
       </div>
 
-      {/* Table */}
       <div className="card fade" style={{ overflow:"hidden" }}>
-        <div style={{ padding:"14px 16px", borderBottom:"1px solid #E8EDF5", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <div style={{ padding:"14px 16px", borderBottom:"1px solid #E8EDF5" }}>
           <div style={{ fontSize:13, fontWeight:700 }}>Solicitudes</div>
         </div>
-
         {loading ? (
           <div style={{ padding:40, display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
             <svg className="spinner" width={18} height={18} viewBox="0 0 16 16" fill="none" stroke="#059669" strokeWidth="2"><path d="M8 2a6 6 0 016 6"/></svg>
@@ -307,13 +295,11 @@ export default function SolicitudesPage() {
             </div>
             <div style={{ fontSize:14, fontWeight:700, color:"#475569" }}>Sin solicitudes aún</div>
             <div style={{ fontSize:12, color:"#94A3B8", maxWidth:"28ch" }}>Crea tu primera solicitud y accede a múltiples otorgantes.</div>
-            <button className="btn-sol" style={{ marginTop:4 }} onClick={() => { setView("wizard"); setStep(1); }}>
-              Crear solicitud
-            </button>
+            <button className="btn-sol" style={{ marginTop:4 }} onClick={() => { setView("wizard"); setStep(1); }}>Crear solicitud</button>
           </div>
         ) : (
           <>
-            <div className="tr" style={{ gridTemplateColumns:"1fr 110px 80px 100px 110px", background:"#FAFBFF" }}>
+            <div className="tr" style={{ gridTemplateColumns:"1fr 110px 80px 110px 110px", background:"#FAFBFF" }}>
               {["Destino","Monto","Plazo","Estado","Fecha"].map(h => (
                 <div key={h} className="mono" style={{ fontSize:10, color:"#94A3B8", letterSpacing:".06em" }}>{h}</div>
               ))}
@@ -321,7 +307,7 @@ export default function SolicitudesPage() {
             {solicitudes.map((s: any) => {
               const pill = STATUS_META[s.status] ?? STATUS_META.borrador;
               return (
-                <div key={s.id} className="tr" style={{ gridTemplateColumns:"1fr 110px 80px 100px 110px" }}>
+                <div key={s.id} className="tr" style={{ gridTemplateColumns:"1fr 110px 80px 110px 110px" }}>
                   <div style={{ fontSize:13, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.destino || "—"}</div>
                   <div className="mono" style={{ fontSize:12 }}>{s.monto ? fmt(s.monto) : "—"}</div>
                   <div style={{ fontSize:12, color:"#64748B" }}>{s.plazo_meses ? `${s.plazo_meses}m` : "—"}</div>
@@ -338,12 +324,12 @@ export default function SolicitudesPage() {
     </div>
   );
 
-  // ── WIZARD VIEW ──────────────────────────────────────────────────────────
+  // ── WIZARD ───────────────────────────────────────────────────────────────
+  const montoNum = parseMonto(form.monto);
+
   return (
     <div style={{ fontFamily:"'Geist',sans-serif", color:"#0F172A" }}>
       <style>{CSS}</style>
-
-      {/* Header */}
       <div className="fade" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
         <div>
           <div style={{ fontSize:19, fontWeight:800, letterSpacing:"-0.04em", marginBottom:2 }}>Nueva solicitud</div>
@@ -354,11 +340,10 @@ export default function SolicitudesPage() {
         </button>
       </div>
 
-      {/* Wizard card */}
       <div className="card fade" style={{ padding:32, maxWidth:680 }}>
         <Stepper step={step} />
 
-        {/* ── STEP 1: Tipo y monto ── */}
+        {/* STEP 1 */}
         {step === 1 && (
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
             <div>
@@ -367,25 +352,46 @@ export default function SolicitudesPage() {
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               {[
-                { value:"simple",       label:"Crédito simple",     desc:"Préstamo a plazo fijo con pagos periódicos",              icon:"M4 2h8v12H4zM6 6h4M6 9h4" },
-                { value:"revolvente",   label:"Línea revolvente",   desc:"Crédito que se puede usar, pagar y volver a usar",        icon:"M2 8a6 6 0 1012 0M8 5v3l2 2" },
-                { value:"factoraje",    label:"Factoraje",          desc:"Adelanto de cuentas por cobrar / facturas",               icon:"M2 4h12v8H2zM5 8h6" },
-                { value:"arrendamiento",label:"Arrendamiento",      desc:"Financiamiento para adquirir activos o equipo",           icon:"M3 3h10v10H3zM6 6h4M6 9h2" },
+                { value:"simple",        label:"Crédito simple",   desc:"Préstamo a plazo fijo con pagos periódicos",       icon:"M4 2h8v12H4zM6 6h4M6 9h4" },
+                { value:"revolvente",    label:"Línea revolvente", desc:"Crédito que se puede usar, pagar y volver a usar", icon:"M2 8a6 6 0 1012 0M8 5v3l2 2" },
+                { value:"factoraje",     label:"Factoraje",        desc:"Adelanto de cuentas por cobrar / facturas",        icon:"M2 4h12v8H2zM5 8h6" },
+                { value:"arrendamiento", label:"Arrendamiento",    desc:"Financiamiento para adquirir activos o equipo",    icon:"M3 3h10v10H3zM6 6h4M6 9h2" },
               ].map(opt => (
                 <OptionCard key={opt.value} {...opt} selected={form.tipo_credito===opt.value} onClick={() => upd("tipo_credito", opt.value)}/>
               ))}
             </div>
-            <Field label="Monto solicitado (MXN)" hint="Ingresa el monto que necesitas en pesos mexicanos">
+            <Field label="Monto solicitado (MXN)" hint="Máximo $250,000,000 MXN">
               <div style={{ position:"relative" }}>
-                <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", fontSize:13, color:"#94A3B8", fontWeight:600 }}>$</span>
-                <input className="inp" style={{ paddingLeft:28 }} placeholder="1,000,000" value={form.monto}
-                  onChange={e => upd("monto", e.target.value)} type="text"/>
+                <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", fontSize:13, color:"#94A3B8", fontWeight:600, pointerEvents:"none" }}>$</span>
+                <input
+                  className="inp"
+                  style={{ paddingLeft:28 }}
+                  placeholder="1,000,000"
+                  value={form.monto}
+                  onChange={e => handleMontoChange(e.target.value)}
+                  inputMode="numeric"
+                />
               </div>
+              {montoNum > 0 && (
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:"#059669", fontFamily:"'Geist Mono',monospace" }}>
+                    {fmtMonto(montoNum)}
+                  </span>
+                  {montoNum >= MAX_MONTO && (
+                    <span style={{ fontSize:11, color:"#F59E0B", fontWeight:600 }}>Monto máximo alcanzado</span>
+                  )}
+                </div>
+              )}
+              {montoNum > 0 && (
+                <div style={{ marginTop:8, height:4, background:"#F1F5F9", borderRadius:999, overflow:"hidden" }}>
+                  <div style={{ width:`${Math.min((montoNum/MAX_MONTO)*100, 100)}%`, height:"100%", background: montoNum >= MAX_MONTO ? "#F59E0B" : "#059669", borderRadius:999, transition:"width .3s" }}/>
+                </div>
+              )}
             </Field>
           </div>
         )}
 
-        {/* ── STEP 2: Destino ── */}
+        {/* STEP 2 */}
         {step === 2 && (
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
             <div>
@@ -406,13 +412,18 @@ export default function SolicitudesPage() {
                 <option value="Otro">Otro</option>
               </select>
             </Field>
-            <Field label="Descripción del proyecto" hint="Cuéntanos más sobre tu negocio y el uso que le darás al crédito (mín. 50 caracteres)">
-              <textarea className="inp" rows={5} placeholder="Describe brevemente tu empresa, en qué etapa se encuentra, cómo vas a usar el crédito y cuál es tu plan de pago..." value={form.descripcion} onChange={e => upd("descripcion", e.target.value)}/>
+            <Field label="Descripción del proyecto" hint="Cuéntanos sobre tu negocio y cómo usarás el crédito (mín. 50 caracteres)">
+              <textarea className="inp" rows={5}
+                placeholder="Describe brevemente tu empresa, en qué etapa se encuentra, cómo vas a usar el crédito y cuál es tu plan de pago..."
+                value={form.descripcion} onChange={e => upd("descripcion", e.target.value)}/>
+              <div style={{ textAlign:"right", fontSize:11, color: form.descripcion.length >= 50 ? "#059669" : "#94A3B8", marginTop:4 }}>
+                {form.descripcion.length} / 50 mín.
+              </div>
             </Field>
           </div>
         )}
 
-        {/* ── STEP 3: Plazo y condiciones ── */}
+        {/* STEP 3 */}
         {step === 3 && (
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
             <div>
@@ -427,10 +438,12 @@ export default function SolicitudesPage() {
                 ))}
               </select>
             </Field>
-            <Field label="Tasa anual máxima (%)" hint="Opcional — la tasa que estás dispuesto a pagar como máximo">
+            <Field label="Tasa anual máxima (%)" hint="Opcional — la tasa máxima que estás dispuesto a pagar">
               <div style={{ position:"relative" }}>
-                <input className="inp" style={{ paddingRight:32 }} placeholder="ej. 18" value={form.tasa_solicitada} onChange={e => upd("tasa_solicitada", e.target.value)} type="number" min="0" max="100" step="0.5"/>
-                <span style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", fontSize:13, color:"#94A3B8", fontWeight:600 }}>%</span>
+                <input className="inp" style={{ paddingRight:32 }} placeholder="ej. 18"
+                  value={form.tasa_solicitada} onChange={e => upd("tasa_solicitada", e.target.value)}
+                  type="number" min="0" max="100" step="0.5"/>
+                <span style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", fontSize:13, color:"#94A3B8", fontWeight:600, pointerEvents:"none" }}>%</span>
               </div>
             </Field>
             <Field label="Tipo de amortización">
@@ -445,7 +458,7 @@ export default function SolicitudesPage() {
           </div>
         )}
 
-        {/* ── STEP 4: Garantía ── */}
+        {/* STEP 4 */}
         {step === 4 && (
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
             <div>
@@ -454,23 +467,25 @@ export default function SolicitudesPage() {
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               {[
-                { value:"hipotecaria",  label:"Hipotecaria",       desc:"Bien inmueble como garantía",                icon:"M2 7l6-5 6 5v7H2V7z" },
-                { value:"prendaria",    label:"Prendaria",         desc:"Bienes muebles, equipo o inventario",        icon:"M3 3h10v10H3z" },
-                { value:"aval",         label:"Aval personal",     desc:"Persona física como garante",                icon:"M8 2a3 3 0 100 6M2 14c0-3 2.7-5 6-5s6 2 6 5" },
-                { value:"sin_garantia", label:"Sin garantía",      desc:"Crédito basado en flujo y scoring",          icon:"M8 2v12M2 8h12" },
+                { value:"hipotecaria",  label:"Hipotecaria",   desc:"Bien inmueble como garantía",                 icon:"M2 7l6-5 6 5v7H2V7z" },
+                { value:"prendaria",    label:"Prendaria",     desc:"Bienes muebles, equipo o inventario",         icon:"M3 3h10v10H3z" },
+                { value:"aval",         label:"Aval personal", desc:"Persona física como garante",                 icon:"M8 2a3 3 0 100 6M2 14c0-3 2.7-5 6-5s6 2 6 5" },
+                { value:"sin_garantia", label:"Sin garantía",  desc:"Crédito basado en flujo de caja y scoring",   icon:"M8 2v12M2 8h12" },
               ].map(opt => (
                 <OptionCard key={opt.value} {...opt} selected={form.garantia_tipo===opt.value} onClick={() => upd("garantia_tipo", opt.value)}/>
               ))}
             </div>
             {form.garantia_tipo && form.garantia_tipo !== "sin_garantia" && (
               <Field label="Detalle de la garantía" hint="Describe el bien o aval que ofreces">
-                <textarea className="inp" rows={3} placeholder="Ej: Inmueble ubicado en CDMX con valor catastral de $3M MXN..." value={form.garantia_detalle} onChange={e => upd("garantia_detalle", e.target.value)}/>
+                <textarea className="inp" rows={3}
+                  placeholder="Ej: Inmueble ubicado en CDMX con valor catastral de $3M MXN..."
+                  value={form.garantia_detalle} onChange={e => upd("garantia_detalle", e.target.value)}/>
               </Field>
             )}
           </div>
         )}
 
-        {/* ── STEP 5: Empresa / KFI ── */}
+        {/* STEP 5 */}
         {step === 5 && (
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
             <div>
@@ -526,31 +541,30 @@ export default function SolicitudesPage() {
               </Field>
             </div>
             <div style={{ padding:"14px 16px", background:"#F0FDF9", border:"1px solid #A7F3D0", borderRadius:12, fontSize:12, color:"#065F46", lineHeight:1.7 }}>
-              <strong>¿Por qué pedimos esto?</strong> Los otorgantes usan esta información para evaluar el riesgo y calcular la mejor tasa para tu empresa. A mayor información, mejores ofertas recibirás.
+              <strong>¿Por qué pedimos esto?</strong> Los otorgantes usan esta información para evaluar el riesgo y calcular la mejor tasa. A mayor información, mejores ofertas recibirás.
             </div>
           </div>
         )}
 
-        {/* ── STEP 6: Resumen ── */}
+        {/* STEP 6 */}
         {step === 6 && (
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
             <div>
               <div style={{ fontSize:16, fontWeight:700, marginBottom:4 }}>Resumen de tu solicitud</div>
               <div style={{ fontSize:13, color:"#64748B" }}>Revisa antes de enviar a subasta</div>
             </div>
-
-            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               {[
-                { label:"Tipo de crédito", val: form.tipo_credito || "—" },
-                { label:"Monto solicitado", val: form.monto ? `$${parseFloat(form.monto.replace(/,/g,"")).toLocaleString("es-MX")} MXN` : "—" },
-                { label:"Destino", val: form.destino || "—" },
-                { label:"Plazo", val: form.plazo_meses ? `${form.plazo_meses} meses` : "—" },
-                { label:"Tasa máxima", val: form.tasa_solicitada ? `${form.tasa_solicitada}% anual` : "Sin preferencia" },
-                { label:"Amortización", val: form.amortizacion || "—" },
-                { label:"Garantía", val: form.garantia_tipo || "—" },
+                { label:"Tipo de crédito",   val: form.tipo_credito || "—" },
+                { label:"Monto solicitado",  val: montoNum > 0 ? fmtMonto(montoNum) : "—" },
+                { label:"Destino",           val: form.destino || "—" },
+                { label:"Plazo",             val: form.plazo_meses ? `${form.plazo_meses} meses` : "—" },
+                { label:"Tasa máxima",       val: form.tasa_solicitada ? `${form.tasa_solicitada}% anual` : "Sin preferencia" },
+                { label:"Amortización",      val: form.amortizacion || "—" },
+                { label:"Garantía",          val: form.garantia_tipo || "—" },
                 { label:"Facturación anual", val: form.facturacion_anual || "—" },
-                { label:"Antigüedad", val: form.antiguedad_anos || "—" },
-                { label:"Sector", val: form.sector || "—" },
+                { label:"Antigüedad",        val: form.antiguedad_anos || "—" },
+                { label:"Sector",            val: form.sector || "—" },
               ].map(row => (
                 <div key={row.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"#F8FAFC", borderRadius:9, border:"1px solid #E8EDF5" }}>
                   <span style={{ fontSize:12, color:"#64748B", fontWeight:500 }}>{row.label}</span>
@@ -558,7 +572,6 @@ export default function SolicitudesPage() {
                 </div>
               ))}
             </div>
-
             <div style={{ padding:"14px 16px", background:"#ECFDF5", border:"1px solid #A7F3D0", borderRadius:12 }}>
               <div style={{ fontSize:12, fontWeight:700, color:"#065F46", marginBottom:4 }}>🔔 Subasta abierta</div>
               <div style={{ fontSize:12, color:"#065F46", lineHeight:1.7 }}>
@@ -575,8 +588,8 @@ export default function SolicitudesPage() {
           </button>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             {step < 6 && (
-              <button className="btn-g" onClick={async () => { await saveDraft(); }}>
-                Guardar borrador
+              <button className="btn-g" disabled={saving} onClick={saveDraft}>
+                {saving ? "Guardando..." : "Guardar borrador"}
               </button>
             )}
             {step < 6 ? (
