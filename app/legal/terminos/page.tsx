@@ -497,7 +497,7 @@ export default function TerminosPage() {
       {/* FOOTER */}
       <div style={{ position:"relative", zIndex:1 }}>
         <div className="foot-mini">
-          <div style={{ display:"flex", align:"center", gap:20, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:20, flexWrap:"wrap" }}>
             <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--fg-3)" }}>© {new Date().getFullYear()} Infraestructura en Finanzas AI S.A.P.I. de C.V.</span>
             <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--fg-3)" }}>Plinius · {VERSION} · {FECHA}</span>
           </div>
