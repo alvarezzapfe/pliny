@@ -1,4 +1,4 @@
-import { Suspense } from "next/compat/router";
+import { Suspense } from "react";
 import LeadClient from "./LeadClient";
 
 export default function LeadPage() {
