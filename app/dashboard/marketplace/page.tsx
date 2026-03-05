@@ -14,7 +14,6 @@ function fmt(n: number) {
   if (n >= 1_000)     return `$${(n/1_000).toFixed(0)}K`;
   return `$${n.toLocaleString("es-MX")}`;
 }
-
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("es-MX", { day:"numeric", month:"short" });
 }
@@ -34,38 +33,51 @@ const FACTURACION_LABEL: Record<string, string> = {
   "20m_50m":"$20M–$50M", "50m_100m":"$50M–$100M", mas_100m:"> $100M",
 };
 
-const GARANTIA_COLOR: Record<string, { bg:string; color:string }> = {
-  hipotecaria: { bg:"#EFF6FF", color:"#1E40AF" },
-  prendaria:   { bg:"#F5F3FF", color:"#5B21B6" },
-  aval:        { bg:"#FFF7ED", color:"#9A3412" },
-  sin_garantia:{ bg:"#F8FAFC", color:"#475569" },
+const GARANTIA_COLOR: Record<string, { bg:string; color:string; border:string }> = {
+  hipotecaria: { bg:"#EFF6FF", color:"#1E40AF", border:"#BFDBFE" },
+  prendaria:   { bg:"#F5F3FF", color:"#5B21B6", border:"#DDD6FE" },
+  aval:        { bg:"#FFF7ED", color:"#9A3412", border:"#FED7AA" },
+  sin_garantia:{ bg:"#F8FAFC", color:"#475569", border:"#E2E8F0" },
 };
 
-// ── Pro Paywall Modal ──────────────────────────────────────────────────────
+// ── Oferta enviada badge ──────────────────────────────────────────────────
+function OfertaBadge() {
+  return (
+    <div style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:8, background:"linear-gradient(135deg,#ECFDF5,#D1FAE5)", border:"1.5px solid #34D399", boxShadow:"0 0 12px rgba(52,211,153,.25),0 0 4px rgba(0,229,160,.15)" }}>
+      <div style={{ position:"relative", width:14, height:14, flexShrink:0 }}>
+        <svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+          <circle cx="7" cy="7" r="6.5" fill="#059669" stroke="#059669" strokeWidth=".5"/>
+          <path d="M3.5 7l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <div style={{ position:"absolute", inset:-2, borderRadius:"50%", background:"rgba(52,211,153,.3)", animation:"pulseRing 1.8s ease-out infinite" }}/>
+      </div>
+      <span style={{ fontSize:11, fontWeight:800, color:"#065F46", fontFamily:"'Geist Mono',monospace", letterSpacing:".02em" }}>Oferta enviada</span>
+    </div>
+  );
+}
+
+// ── Paywall Modal ─────────────────────────────────────────────────────────
 function PaywallModal({ onClose }: { onClose: ()=>void }) {
   return (
     <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
       <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(15,23,42,.5)", backdropFilter:"blur(6px)" }}/>
       <div style={{ position:"relative", background:"#fff", borderRadius:24, width:"100%", maxWidth:440, overflow:"hidden", boxShadow:"0 32px 80px rgba(15,23,42,.22)" }}>
-        {/* Top gradient */}
         <div style={{ background:"linear-gradient(135deg,#0C1E4A,#1B3F8A,#2563EB)", padding:"32px 28px 24px", textAlign:"center" }}>
           <div style={{ width:56, height:56, borderRadius:16, background:"rgba(255,255,255,.12)", border:"1px solid rgba(255,255,255,.2)", display:"grid", placeItems:"center", margin:"0 auto 14px" }}>
             <Ic d="M8 2a3 3 0 00-3 3v2H3v9h10V7h-2V5a3 3 0 00-3-3zM6 5a2 2 0 114 0v2H6V5z" s={24} c="#93C5FD"/>
           </div>
           <div style={{ fontSize:22, fontWeight:900, color:"#fff", letterSpacing:"-0.04em", marginBottom:6 }}>Plinius Pro</div>
           <div style={{ fontSize:13, color:"rgba(255,255,255,.65)", lineHeight:1.6 }}>
-            Conecta con solicitantes calificados y envía ofertas directamente desde el marketplace
+            Conecta con solicitantes calificados, inicia chats cifrados y envía ofertas directamente.
           </div>
         </div>
-
-        {/* Features */}
         <div style={{ padding:"22px 28px" }}>
           <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:22 }}>
             {[
-              { icon:"M2 8l4 4 8-8", text:"Ver RFC y nombre completo del solicitante" },
+              { icon:"M2 8l4 4 8-8", text:"Ver RFC y nombre del solicitante" },
+              { icon:"M2 2h12v8H2zM5 14h6M8 10v4", text:"Chat cifrado AES-256 extremo a extremo" },
               { icon:"M8 2v12M2 8h12", text:"Enviar ofertas de crédito ilimitadas" },
-              { icon:"M2 12L6 7l3 3 3-4 2 2", text:"Acceso a historial crediticio básico" },
-              { icon:"M2 2h12v8H2zM5 14h6M8 10v4", text:"Dashboard de cartera avanzado" },
+              { icon:"M2 12L6 7l3 3 3-4 2 2", text:"Dashboard de cartera avanzado" },
               { icon:"M8 2a3 3 0 100 6M2 14c0-3 2.7-5 6-5s6 2 6 5", text:"Soporte prioritario" },
             ].map((f,i)=>(
               <div key={i} style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -76,8 +88,6 @@ function PaywallModal({ onClose }: { onClose: ()=>void }) {
               </div>
             ))}
           </div>
-
-          {/* CTA */}
           <button style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#1B3F8A,#2563EB)", color:"#fff", border:"none", borderRadius:12, fontSize:15, fontWeight:800, cursor:"pointer", fontFamily:"'Geist',sans-serif", letterSpacing:"-0.02em", boxShadow:"0 4px 16px rgba(37,99,235,.35)", marginBottom:10 }}>
             Suscribirme a Pro →
           </button>
@@ -90,7 +100,7 @@ function PaywallModal({ onClose }: { onClose: ()=>void }) {
   );
 }
 
-// ── Oferta Modal ───────────────────────────────────────────────────────────
+// ── Oferta Modal ──────────────────────────────────────────────────────────
 function OfertaModal({ solicitud, userId, onClose, onSent }: { solicitud:any; userId:string; onClose:()=>void; onSent:()=>void }) {
   const [monto,      setMonto]      = useState(solicitud.monto?.toLocaleString("es-MX") ?? "");
   const [tasa,       setTasa]       = useState("");
@@ -104,17 +114,12 @@ function OfertaModal({ solicitud, userId, onClose, onSent }: { solicitud:any; us
     if (!tasa || !plazo) return;
     setSaving(true);
     await supabase.from("ofertas").upsert({
-      solicitud_id: solicitud.id,
-      otorgante_id: userId,
+      solicitud_id: solicitud.id, otorgante_id: userId,
       monto_ofertado: parseFloat(monto.replace(/,/g,"")) || solicitud.monto,
-      tasa_anual: parseFloat(tasa),
-      plazo_meses: parseInt(plazo),
-      comisiones: parseFloat(comisiones) || 0,
-      condiciones,
-      status: "pendiente",
+      tasa_anual: parseFloat(tasa), plazo_meses: parseInt(plazo),
+      comisiones: parseFloat(comisiones) || 0, condiciones, status: "pendiente",
     }, { onConflict:"solicitud_id,otorgante_id" });
-    setSaving(false);
-    setSent(true);
+    setSaving(false); setSent(true);
     setTimeout(()=>{ onSent(); onClose(); }, 1500);
   }
 
@@ -122,44 +127,37 @@ function OfertaModal({ solicitud, userId, onClose, onSent }: { solicitud:any; us
     <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
       <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(15,23,42,.45)", backdropFilter:"blur(5px)" }}/>
       <div style={{ position:"relative", background:"#fff", borderRadius:20, width:"100%", maxWidth:480, boxShadow:"0 24px 64px rgba(15,23,42,.18)", overflow:"hidden" }}>
-
-        {/* Header */}
         <div style={{ padding:"20px 24px 16px", borderBottom:"1px solid #E8EDF5", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           <div>
             <div style={{ fontSize:16, fontWeight:800, letterSpacing:"-0.03em" }}>Enviar oferta</div>
-            <div style={{ fontSize:12, color:"#94A3B8", marginTop:2 }}>
-              {solicitud.destino} · {fmt(solicitud.monto)} · {solicitud.plazo_meses}m
-            </div>
+            <div style={{ fontSize:12, color:"#94A3B8", marginTop:2 }}>{solicitud.destino} · {fmt(solicitud.monto)} · {solicitud.plazo_meses}m</div>
           </div>
           <button onClick={onClose} style={{ width:30, height:30, borderRadius:8, border:"1px solid #E2E8F0", background:"#F8FAFC", cursor:"pointer", display:"grid", placeItems:"center" }}>
             <Ic d="M3 3l10 10M13 3L3 13" s={12} c="#64748B"/>
           </button>
         </div>
-
         <div style={{ padding:"20px 24px" }}>
           {sent ? (
             <div style={{ textAlign:"center", padding:"24px 0" }}>
-              <div style={{ width:52, height:52, borderRadius:"50%", background:"#ECFDF5", border:"2px solid #A7F3D0", display:"grid", placeItems:"center", margin:"0 auto 12px" }}>
-                <Ic d="M2 8l4 4 8-8" s={20} c="#059669"/>
+              <div style={{ width:60, height:60, borderRadius:"50%", background:"linear-gradient(135deg,#ECFDF5,#D1FAE5)", border:"2px solid #34D399", display:"grid", placeItems:"center", margin:"0 auto 14px", boxShadow:"0 0 24px rgba(52,211,153,.3)" }}>
+                <svg width={26} height={26} viewBox="0 0 26 26" fill="none">
+                  <path d="M5 13l5 5 11-11" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </div>
-              <div style={{ fontSize:15, fontWeight:700, color:"#065F46" }}>¡Oferta enviada!</div>
+              <div style={{ fontSize:16, fontWeight:800, color:"#065F46", letterSpacing:"-0.03em" }}>¡Oferta enviada!</div>
               <div style={{ fontSize:12, color:"#94A3B8", marginTop:4 }}>El solicitante recibirá tu propuesta</div>
             </div>
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-                {/* Monto */}
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                  <label style={{ fontSize:11, fontWeight:700, color:"#374151" }}>Monto a otorgar (MXN)</label>
+                  <label style={{ fontSize:11, fontWeight:700, color:"#374151" }}>Monto (MXN)</label>
                   <div style={{ position:"relative" }}>
                     <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:13, color:"#94A3B8", fontWeight:600, pointerEvents:"none" }}>$</span>
-                    <input value={monto} onChange={e=>{
-                      const d=e.target.value.replace(/[^0-9]/g,"");
-                      setMonto(d?parseInt(d).toLocaleString("es-MX"):"");
-                    }} style={{ height:44, borderRadius:10, border:"1.5px solid #DDE5F7", background:"#F8FAFF", paddingLeft:26, paddingRight:12, fontSize:13, color:"#0F172A", fontFamily:"'Geist',sans-serif", outline:"none", width:"100%" }} placeholder="1,000,000"/>
+                    <input value={monto} onChange={e=>{ const d=e.target.value.replace(/[^0-9]/g,""); setMonto(d?parseInt(d).toLocaleString("es-MX"):""); }}
+                      style={{ height:44, borderRadius:10, border:"1.5px solid #DDE5F7", background:"#F8FAFF", paddingLeft:26, paddingRight:12, fontSize:13, color:"#0F172A", fontFamily:"'Geist',sans-serif", outline:"none", width:"100%" }} placeholder="1,000,000"/>
                   </div>
                 </div>
-                {/* Tasa */}
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                   <label style={{ fontSize:11, fontWeight:700, color:"#374151" }}>Tasa anual (%)<span style={{ color:"#EF4444" }}> *</span></label>
                   <div style={{ position:"relative" }}>
@@ -168,7 +166,6 @@ function OfertaModal({ solicitud, userId, onClose, onSent }: { solicitud:any; us
                     <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", fontSize:13, color:"#94A3B8", pointerEvents:"none" }}>%</span>
                   </div>
                 </div>
-                {/* Plazo */}
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                   <label style={{ fontSize:11, fontWeight:700, color:"#374151" }}>Plazo (meses)<span style={{ color:"#EF4444" }}> *</span></label>
                   <select value={plazo} onChange={e=>setPlazo(e.target.value)}
@@ -177,9 +174,8 @@ function OfertaModal({ solicitud, userId, onClose, onSent }: { solicitud:any; us
                     {[3,6,9,12,18,24,36,48,60].map(m=><option key={m} value={m}>{m} meses</option>)}
                   </select>
                 </div>
-                {/* Comisión */}
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                  <label style={{ fontSize:11, fontWeight:700, color:"#374151" }}>Comisión de apertura (%)</label>
+                  <label style={{ fontSize:11, fontWeight:700, color:"#374151" }}>Comisión apertura (%)</label>
                   <div style={{ position:"relative" }}>
                     <input value={comisiones} onChange={e=>setComisiones(e.target.value)} type="number" min="0" step="0.1"
                       style={{ height:44, borderRadius:10, border:"1.5px solid #DDE5F7", background:"#F8FAFF", padding:"0 32px 0 14px", fontSize:13, color:"#0F172A", fontFamily:"'Geist',sans-serif", outline:"none", width:"100%" }} placeholder="0"/>
@@ -187,19 +183,16 @@ function OfertaModal({ solicitud, userId, onClose, onSent }: { solicitud:any; us
                   </div>
                 </div>
               </div>
-              {/* Condiciones */}
               <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                 <label style={{ fontSize:11, fontWeight:700, color:"#374151" }}>Condiciones adicionales</label>
                 <textarea value={condiciones} onChange={e=>setCondiciones(e.target.value)} rows={3}
                   placeholder="Ej: Se requiere aval adicional, seguro de vida, etc."
                   style={{ borderRadius:10, border:"1.5px solid #DDE5F7", background:"#F8FAFF", padding:"10px 14px", fontSize:13, color:"#0F172A", fontFamily:"'Geist',sans-serif", outline:"none", width:"100%", resize:"vertical" }}/>
               </div>
-
-              {/* Summary */}
               {tasa && plazo && (
                 <div style={{ padding:"12px 14px", background:"#F0FDF9", border:"1px solid #A7F3D0", borderRadius:10, display:"flex", justifyContent:"space-between" }}>
                   <div>
-                    <div style={{ fontSize:11, color:"#059669", fontWeight:700, marginBottom:2 }}>Resumen de oferta</div>
+                    <div style={{ fontSize:11, color:"#059669", fontWeight:700, marginBottom:2 }}>Resumen</div>
                     <div style={{ fontSize:12, color:"#065F46" }}>{fmt(parseFloat(monto.replace(/,/g,""))||solicitud.monto)} · {tasa}% anual · {plazo} meses</div>
                   </div>
                   {comisiones && <div style={{ textAlign:"right" }}>
@@ -208,12 +201,10 @@ function OfertaModal({ solicitud, userId, onClose, onSent }: { solicitud:any; us
                   </div>}
                 </div>
               )}
-
               <div style={{ display:"flex", gap:8, marginTop:4 }}>
-                <button onClick={onClose} style={{ flex:1, height:44, borderRadius:10, border:"1.5px solid #E2E8F0", background:"#F8FAFC", color:"#64748B", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>
-                  Cancelar
-                </button>
-                <button onClick={handleSubmit} disabled={!tasa||!plazo||saving} style={{ flex:2, height:44, borderRadius:10, border:"none", background: tasa&&plazo ? "linear-gradient(135deg,#0C1E4A,#1B3F8A)" : "#E2E8F0", color: tasa&&plazo?"#fff":"#94A3B8", fontSize:13, fontWeight:700, cursor: tasa&&plazo?"pointer":"not-allowed", fontFamily:"'Geist',sans-serif", boxShadow: tasa&&plazo?"0 4px 14px rgba(27,63,138,.25)":"none" }}>
+                <button onClick={onClose} style={{ flex:1, height:44, borderRadius:10, border:"1.5px solid #E2E8F0", background:"#F8FAFC", color:"#64748B", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>Cancelar</button>
+                <button onClick={handleSubmit} disabled={!tasa||!plazo||saving}
+                  style={{ flex:2, height:44, borderRadius:10, border:"none", background:tasa&&plazo?"linear-gradient(135deg,#0C1E4A,#1B3F8A)":"#E2E8F0", color:tasa&&plazo?"#fff":"#94A3B8", fontSize:13, fontWeight:700, cursor:tasa&&plazo?"pointer":"not-allowed", fontFamily:"'Geist',sans-serif", boxShadow:tasa&&plazo?"0 4px 14px rgba(27,63,138,.25)":"none" }}>
                   {saving ? "Enviando..." : "Enviar oferta →"}
                 </button>
               </div>
@@ -225,7 +216,7 @@ function OfertaModal({ solicitud, userId, onClose, onSent }: { solicitud:any; us
   );
 }
 
-// ── Solicitud Card ─────────────────────────────────────────────────────────
+// ── Solicitud Card ────────────────────────────────────────────────────────
 function SolicitudCard({ s, userId, onOfertar, onConectar, yaOferto }: {
   s:any; userId:string; onOfertar:(s:any)=>void; onConectar:()=>void; yaOferto:boolean;
 }) {
@@ -238,7 +229,6 @@ function SolicitudCard({ s, userId, onOfertar, onConectar, yaOferto }: {
       onMouseEnter={e=>{e.currentTarget.style.borderColor="#BFDBFE";e.currentTarget.style.boxShadow="0 8px 28px rgba(15,23,42,.08)";}}
       onMouseLeave={e=>{e.currentTarget.style.borderColor="#E8EDF5";e.currentTarget.style.boxShadow="none";}}>
 
-      {/* Subtle bg accent */}
       <div style={{ position:"absolute", top:0, right:0, width:80, height:80, borderRadius:"0 16px 0 80px", background:"linear-gradient(135deg,#EFF6FF,#DBEAFE)", opacity:.5 }}/>
 
       {/* Top row */}
@@ -266,7 +256,7 @@ function SolicitudCard({ s, userId, onOfertar, onConectar, yaOferto }: {
           </span>
         )}
         {s.garantia_tipo && (
-          <span style={{ fontSize:10, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:gColor.bg, color:gColor.color, borderRadius:999, padding:"3px 8px" }}>
+          <span style={{ fontSize:10, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:gColor.bg, color:gColor.color, border:`1px solid ${gColor.border}`, borderRadius:999, padding:"3px 8px" }}>
             {s.garantia_tipo.replace("_"," ")}
           </span>
         )}
@@ -282,7 +272,6 @@ function SolicitudCard({ s, userId, onOfertar, onConectar, yaOferto }: {
         )}
       </div>
 
-      {/* Description */}
       {s.descripcion && (
         <div style={{ fontSize:12, color:"#64748B", lineHeight:1.6, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>
           {s.descripcion}
@@ -292,54 +281,52 @@ function SolicitudCard({ s, userId, onOfertar, onConectar, yaOferto }: {
       {/* Footer */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:10, borderTop:"1px solid #F1F5F9" }}>
         <div style={{ fontSize:11, color:"#94A3B8" }}>{fmtDate(s.created_at)}</div>
-        <div style={{ display:"flex", gap:6 }}>
-          <button onClick={onConectar} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"7px 12px", borderRadius:8, border:"1.5px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif", transition:"all .15s" }}
-            onMouseEnter={e=>{e.currentTarget.style.background="#F1F5F9";}}
-            onMouseLeave={e=>{e.currentTarget.style.background="#F8FAFC";}}>
-            <Ic d="M8 2a3 3 0 100 6M2 14c0-3 2.7-5 6-5s6 2 6 5" s={11} c="#64748B"/> Conectar
+        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+          <button onClick={onConectar}
+            style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"7px 12px", borderRadius:8, border:"1.5px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif", transition:"all .15s" }}
+            onMouseEnter={e=>{e.currentTarget.style.background="#EFF6FF";e.currentTarget.style.borderColor="#BFDBFE";e.currentTarget.style.color="#1E40AF";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="#F8FAFC";e.currentTarget.style.borderColor="#E2E8F0";e.currentTarget.style.color="#475569";}}>
+            <Ic d="M2 2h12v8a2 2 0 01-2 2H4a2 2 0 01-2-2V2zM6 14h4M8 12v2" s={11} c="currentColor"/> Chat
           </button>
-          <button onClick={()=>onOfertar(s)} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"7px 12px", borderRadius:8, border:"none", background: yaOferto ? "#ECFDF5" : "linear-gradient(135deg,#0C1E4A,#1B3F8A)", color: yaOferto ? "#065F46" : "#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", boxShadow: yaOferto ? "none" : "0 2px 10px rgba(27,63,138,.25)", transition:"all .15s" }}>
-            {yaOferto
-              ? <><Ic d="M2 8l4 4 8-8" s={11} c="#059669"/> Oferta enviada</>
-              : <><Ic d="M8 2v12M2 8h12" s={11} c="#fff"/> Ofertar</>
-            }
-          </button>
+          {yaOferto
+            ? <OfertaBadge/>
+            : <button onClick={()=>onOfertar(s)} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"7px 12px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", boxShadow:"0 2px 10px rgba(27,63,138,.25)", transition:"all .15s" }}
+              onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(27,63,138,.4)";e.currentTarget.style.transform="translateY(-1px)";}}
+              onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 2px 10px rgba(27,63,138,.25)";e.currentTarget.style.transform="none";}}>
+              <Ic d="M8 2v12M2 8h12" s={11} c="#fff"/> Ofertar
+            </button>
+          }
         </div>
       </div>
     </div>
   );
 }
 
-// ── Main ───────────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────
 export default function MarketplacePage() {
   const router = useRouter();
-  const [solicitudes,  setSolicitudes]  = useState<any[]>([]);
-  const [misOfertas,   setMisOfertas]   = useState<string[]>([]); // solicitud_ids
-  const [loading,      setLoading]      = useState(true);
-  const [userId,       setUserId]       = useState<string|null>(null);
-  const [showPaywall,  setShowPaywall]  = useState(false);
-  const [ofertando,    setOfertando]    = useState<any>(null);
+  const [solicitudes, setSolicitudes] = useState<any[]>([]);
+  const [misOfertas,  setMisOfertas]  = useState<string[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [userId,      setUserId]      = useState<string|null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [ofertando,   setOfertando]   = useState<any>(null);
+  const [sort,        setSort]        = useState<"fecha"|"monto_asc"|"monto_desc">("fecha");
   const [filtros, setFiltros] = useState({ sector:"", garantia:"", monto_min:"", monto_max:"", plazo:"" });
-  const [search, setSearch]  = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(()=>{
     (async()=>{
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) { router.push("/login"); return; }
       setUserId(auth.user.id);
-
       const [{ data: sols }, { data: ofertas }] = await Promise.all([
         supabase.from("solicitudes")
           .select("id,tipo,monto,plazo_meses,tasa_solicitada,destino,descripcion,garantia_tipo,fin_sector,fin_facturacion_anual,fin_antiguedad,fin_num_empleados,created_at")
-          .eq("tipo","subasta")
-          .in("status",["enviada","en_revision"])
+          .eq("tipo","subasta").in("status",["enviada","en_revision"])
           .order("created_at", { ascending:false }),
-
-        supabase.from("ofertas")
-          .select("solicitud_id")
-          .eq("otorgante_id", auth.user.id),
+        supabase.from("ofertas").select("solicitud_id").eq("otorgante_id", auth.user.id),
       ]);
-
       setSolicitudes(sols ?? []);
       setMisOfertas((ofertas ?? []).map((o:any)=>o.solicitud_id));
       setLoading(false);
@@ -347,29 +334,34 @@ export default function MarketplacePage() {
   }, [router]);
 
   const filtered = useMemo(()=>{
-    return solicitudes.filter(s=>{
-      if (filtros.sector    && s.fin_sector !== filtros.sector) return false;
-      if (filtros.garantia  && s.garantia_tipo !== filtros.garantia) return false;
-      if (filtros.plazo     && s.plazo_meses?.toString() !== filtros.plazo) return false;
+    let arr = solicitudes.filter(s=>{
+      if (filtros.sector   && s.fin_sector !== filtros.sector) return false;
+      if (filtros.garantia && s.garantia_tipo !== filtros.garantia) return false;
+      if (filtros.plazo    && s.plazo_meses?.toString() !== filtros.plazo) return false;
       if (filtros.monto_min && s.monto < parseFloat(filtros.monto_min)) return false;
       if (filtros.monto_max && s.monto > parseFloat(filtros.monto_max)) return false;
       if (search) {
         const q = search.toLowerCase();
-        return (s.destino||"").toLowerCase().includes(q) ||
-               (s.fin_sector||"").toLowerCase().includes(q) ||
-               (s.descripcion||"").toLowerCase().includes(q);
+        return (s.destino||"").toLowerCase().includes(q)||(s.fin_sector||"").toLowerCase().includes(q)||(s.descripcion||"").toLowerCase().includes(q);
       }
       return true;
     });
-  }, [solicitudes, filtros, search]);
+    if (sort === "monto_asc")  arr = [...arr].sort((a,b)=>a.monto-b.monto);
+    if (sort === "monto_desc") arr = [...arr].sort((a,b)=>b.monto-a.monto);
+    return arr;
+  }, [solicitudes, filtros, search, sort]);
 
   const totalMonto = filtered.reduce((s,x)=>s+(x.monto??0),0);
   const sinOfertas = filtered.filter(s=>!misOfertas.includes(s.id)).length;
-
   function upd(k: keyof typeof filtros, v: string) { setFiltros(f=>({...f,[k]:v})); }
+  function handleSent() { if (ofertando) setMisOfertas(prev=>[...prev, ofertando.id]); }
 
-  function handleSent() {
-    if (ofertando) setMisOfertas(prev=>[...prev, ofertando.id]);
+  function handleConectar(s: any) {
+    if (!userId) return;
+    // For Pro: go to chat. For now: show paywall
+    // If you want to open chat directly for Pro users, replace with:
+    // router.push(`/dashboard/chat?solicitud=${s.id}&other=${s.borrower_id}`)
+    setShowPaywall(true);
   }
 
   const CSS = `
@@ -377,6 +369,7 @@ export default function MarketplacePage() {
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
     @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes pulseRing{0%{transform:scale(1);opacity:.6;}100%{transform:scale(2.2);opacity:0;}}
     .fade{animation:fadeUp .35s cubic-bezier(.16,1,.3,1) both;}
     .d1{animation-delay:.05s;}.d2{animation-delay:.10s;}.d3{animation-delay:.15s;}
     .mono{font-family:'Geist Mono',monospace;}
@@ -402,19 +395,24 @@ export default function MarketplacePage() {
           <div style={{ fontSize:12, color:"#94A3B8" }}>Solicitudes en subasta abierta · Anónimas hasta conectar</div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <select className="fsel" value={sort} onChange={e=>setSort(e.target.value as any)} style={{ fontSize:12 }}>
+            <option value="fecha">Más recientes</option>
+            <option value="monto_desc">Mayor monto</option>
+            <option value="monto_asc">Menor monto</option>
+          </select>
           <div style={{ padding:"6px 12px", background:"#EFF6FF", border:"1px solid #BFDBFE", borderRadius:8, fontSize:11, fontWeight:700, fontFamily:"'Geist Mono',monospace", color:"#1E40AF" }}>
             {loading ? "—" : `${filtered.length} solicitudes`}
           </div>
         </div>
       </div>
 
-      {/* KPI strip */}
+      {/* KPIs */}
       <div className="fade d1" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:16 }}>
         {[
-          { label:"En subasta",      val: loading?"—":filtered.length,         color:"#1E40AF", icon:"M2 2h12v8H2zM5 14h6M8 10v4" },
-          { label:"Monto total",     val: loading?"—":fmt(totalMonto),          color:"#0F172A", icon:"M2 12L6 7l3 3 3-4 2 2" },
-          { label:"Sin tu oferta",   val: loading?"—":sinOfertas,               color:"#059669", icon:"M8 2v12M2 8h12" },
-          { label:"Tus ofertas",     val: loading?"—":misOfertas.length,        color:"#5B21B6", icon:"M2 8l4 4 8-8" },
+          { label:"En subasta",    val:loading?"—":filtered.length,      color:"#1E40AF", icon:"M2 2h12v8H2zM5 14h6M8 10v4" },
+          { label:"Monto total",   val:loading?"—":fmt(totalMonto),      color:"#0F172A", icon:"M2 12L6 7l3 3 3-4 2 2" },
+          { label:"Sin tu oferta", val:loading?"—":sinOfertas,           color:"#059669", icon:"M8 2v12M2 8h12" },
+          { label:"Tus ofertas",   val:loading?"—":misOfertas.length,    color:"#5B21B6", icon:"M2 8l4 4 8-8" },
         ].map(k=>(
           <div key={k.label} className="card" style={{ padding:"13px 16px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
@@ -480,18 +478,18 @@ export default function MarketplacePage() {
           <div className="fade d3" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:14, marginBottom:20 }}>
             {filtered.slice(0,6).map(s=>(
               <SolicitudCard key={s.id} s={s} userId={userId??""} yaOferto={misOfertas.includes(s.id)}
-                onOfertar={setOfertando} onConectar={()=>setShowPaywall(true)}/>
+                onOfertar={setOfertando} onConectar={()=>handleConectar(s)}/>
             ))}
           </div>
 
-          {/* Table — all results */}
+          {/* Table */}
           {filtered.length > 0 && (
             <div className="card fade" style={{ overflow:"hidden" }}>
               <div style={{ padding:"13px 16px", borderBottom:"1px solid #E8EDF5", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ fontSize:13, fontWeight:700 }}>Todas las solicitudes</div>
                 <span className="mono" style={{ fontSize:11, color:"#94A3B8" }}>{filtered.length} resultados</span>
               </div>
-              <div className="tr" style={{ gridTemplateColumns:"1fr 90px 70px 100px 90px 80px 120px", background:"#F8FAFC", cursor:"default" }}>
+              <div className="tr" style={{ gridTemplateColumns:"1fr 90px 70px 100px 90px 80px 130px", background:"#F8FAFC", cursor:"default" }}>
                 {["Destino","Monto","Plazo","Sector","Garantía","Fact.",""].map(h=>(
                   <div key={h} className="mono" style={{ fontSize:10, color:"#94A3B8", letterSpacing:".06em" }}>{h}</div>
                 ))}
@@ -500,7 +498,7 @@ export default function MarketplacePage() {
                 const gColor = GARANTIA_COLOR[s.garantia_tipo] ?? GARANTIA_COLOR.sin_garantia;
                 const yaOferto = misOfertas.includes(s.id);
                 return (
-                  <div key={s.id} className="tr" style={{ gridTemplateColumns:"1fr 90px 70px 100px 90px 80px 120px" }}>
+                  <div key={s.id} className="tr" style={{ gridTemplateColumns:"1fr 90px 70px 100px 90px 80px 130px" }}>
                     <div>
                       <div style={{ fontSize:13, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.destino||"—"}</div>
                       <div className="mono" style={{ fontSize:10, color:"#94A3B8" }}>{fmtDate(s.created_at)}</div>
@@ -508,17 +506,18 @@ export default function MarketplacePage() {
                     <div className="mono" style={{ fontSize:12, fontWeight:700 }}>{fmt(s.monto)}</div>
                     <div style={{ fontSize:12, color:"#64748B" }}>{s.plazo_meses}m</div>
                     <div style={{ fontSize:11, color:"#475569", textTransform:"capitalize" }}>{s.fin_sector||"—"}</div>
-                    <span style={{ fontSize:10, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:gColor.bg, color:gColor.color, borderRadius:999, padding:"2px 7px" }}>
+                    <span style={{ fontSize:10, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:gColor.bg, color:gColor.color, border:`1px solid ${gColor.border}`, borderRadius:999, padding:"2px 7px" }}>
                       {(s.garantia_tipo||"—").replace("_"," ")}
                     </span>
                     <div style={{ fontSize:11, color:"#64748B" }}>{FACTURACION_LABEL[s.fin_facturacion_anual]||"—"}</div>
-                    <div style={{ display:"flex", gap:5 }}>
-                      <button onClick={()=>setShowPaywall(true)} style={{ height:28, padding:"0 8px", borderRadius:7, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>
-                        Conectar
+                    <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                      <button onClick={()=>handleConectar(s)} style={{ height:28, padding:"0 8px", borderRadius:7, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>
+                        Chat
                       </button>
-                      <button onClick={()=>setOfertando(s)} style={{ height:28, padding:"0 10px", borderRadius:7, border:"none", background: yaOferto?"#ECFDF5":"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color: yaOferto?"#065F46":"#fff", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>
-                        {yaOferto?"✓ Oferta":"Ofertar"}
-                      </button>
+                      {yaOferto
+                        ? <span style={{ fontSize:10, fontWeight:800, color:"#059669", fontFamily:"'Geist Mono',monospace", background:"linear-gradient(135deg,#ECFDF5,#D1FAE5)", border:"1.5px solid #34D399", borderRadius:7, padding:"3px 8px", boxShadow:"0 0 8px rgba(52,211,153,.2)" }}>✓ Enviada</span>
+                        : <button onClick={()=>setOfertando(s)} style={{ height:28, padding:"0 10px", borderRadius:7, border:"none", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color:"#fff", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>Ofertar</button>
+                      }
                     </div>
                   </div>
                 );
@@ -528,11 +527,9 @@ export default function MarketplacePage() {
         </>
       )}
 
-      {/* Modals */}
       {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
-      {ofertando   && userId && (
-        <OfertaModal solicitud={ofertando} userId={userId}
-          onClose={()=>setOfertando(null)} onSent={handleSent}/>
+      {ofertando && userId && (
+        <OfertaModal solicitud={ofertando} userId={userId} onClose={()=>setOfertando(null)} onSent={handleSent}/>
       )}
     </div>
   );
