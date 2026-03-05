@@ -200,6 +200,12 @@ export default function SuperAdminClient() {
         .maybeSingle();
 
       if (!sa) { router.push("/dashboard"); return; }
+      // Require MFA verified (aal2)
+const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+if (aal?.currentLevel !== "aal2") {
+  router.push("/admin/login");
+  return;
+}
 
       await Promise.all([loadUsers(), loadLeads()]);
       setLoading(false);
