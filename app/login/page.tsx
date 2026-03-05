@@ -215,7 +215,7 @@ export default function LoginPage() {
             Plataforma para otorgantes y solicitantes de crédito. Rápido, seguro y trazable.
           </p>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:28 }}>
-            {[{ val:"$2.4B", label:"Volumen gestionado" },{ val:"99.8%", label:"Uptime" },{ val:"<3min", label:"Tiempo de reporte" }].map(s => (
+            {[{ val:"MX", label:"Mercado objetivo" },{ val:"<3min", label:"Tiempo de reporte" },{ val:"2025", label:"Fundada" }].map(s => (
               <div key={s.val} className="stat-pill">
                 <div style={{ fontSize:18, fontWeight:700, color:"var(--fg)", letterSpacing:"-0.04em" }}>{s.val}</div>
                 <div style={{ fontSize:10, color:"var(--fg-3)", marginTop:3, fontFamily:"'Geist Mono',monospace" }}>{s.label}</div>
