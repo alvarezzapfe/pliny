@@ -1,9 +1,9 @@
-import { Suspense } from "react";
+import { Suspense } from "next/compat/router";
 import LeadClient from "./LeadClient";
 
 export default function LeadPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen burocrowd-bg" />}>
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#0A2518,#051A10)" }} />}>
       <LeadClient />
     </Suspense>
   );
