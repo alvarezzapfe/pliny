@@ -21,8 +21,11 @@ type SolicitudCard = {
 };
 
 export default function Home() {
-  const [scrolled, setScrolled] = useState(false);
-  const [activeTab, setActiveTab] = useState<"otorgante"|"solicitante">("otorgante");
+  const [scrolled,   setScrolled]   = useState(false);
+  const [activeTab,  setActiveTab]  = useState<"otorgante"|"solicitante">("otorgante");
+  const [empresa,    setEmpresa]    = useState("");
+  const [correo,     setCorreo]     = useState("");
+  const [leadStatus, setLeadStatus] = useState<"idle"|"loading"|"done"|"error">("idle");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -36,6 +39,25 @@ export default function Home() {
     if (typeof document === "undefined") return;
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  async function submitLead() {
+    if (!empresa.trim()) return alert("Empresa requerida.");
+    if (!correo.trim())  return alert("Correo requerido.");
+    setLeadStatus("loading");
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "contacto", company: empresa.trim(), name: empresa.trim(), email: correo.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      setLeadStatus("done");
+      setEmpresa("");
+      setCorreo("");
+    } catch {
+      setLeadStatus("error");
+    }
+  }
 
   const rows: TableRow[] = useMemo(() => [
     { name:"SOFOM Región Sur",       monto:"$2.1M", score:84, vcto:"Mar 26", status:"green", label:"Al corriente", pct:88 },
@@ -81,8 +103,7 @@ export default function Home() {
     @keyframes scanline { from { transform:translateY(-100%); } to { transform:translateY(400%); } }
     @keyframes blink    { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
     @keyframes ticker   { from { transform:translateX(0); } to { transform:translateX(-50%); } }
-    @keyframes float    { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
-    @keyframes pulseRing { 0% { transform:scale(1); opacity:.6; } 100% { transform:scale(1.8); opacity:0; } }
+    @keyframes spin     { to { transform:rotate(360deg); } }
 
     .mount { opacity:0; transform:translateY(12px); animation:fadeUp 0.6s cubic-bezier(.16,1,.3,1) forwards; }
     .mount-1 { animation-delay:0.05s; } .mount-2 { animation-delay:0.12s; }
@@ -103,17 +124,16 @@ export default function Home() {
 
     .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; font-family:var(--font-sans); font-size:13px; font-weight:600; border-radius:9px; border:none; cursor:pointer; text-decoration:none; transition:opacity .15s,transform .15s,box-shadow .15s; letter-spacing:-0.01em; white-space:nowrap; }
     .btn:hover { opacity:0.90; transform:translateY(-1px); }
+    .btn:disabled { opacity:.6; cursor:not-allowed; transform:none; }
     .btn-sm { padding:7px 14px; font-size:12px; }
     .btn-md { padding:10px 20px; }
     .btn-lg { padding:13px 26px; font-size:14px; }
     .btn-solid { background:var(--fg); color:#080C14; box-shadow:0 1px 3px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.2); }
-    .btn-solid:hover { box-shadow:0 2px 8px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); }
+    .btn-solid:hover:not(:disabled) { box-shadow:0 2px 8px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); }
     .btn-ghost { background:rgba(255,255,255,0.06); color:var(--fg-2); border:1px solid var(--border); }
     .btn-ghost:hover { color:var(--fg); background:rgba(255,255,255,0.09); border-color:var(--border-2); }
     .btn-accent { background:var(--accent); color:#fff; box-shadow:0 0 32px rgba(61,126,255,.30),0 4px 16px rgba(0,0,0,.3); }
-    .btn-accent:hover { box-shadow:0 0 48px rgba(61,126,255,.40),0 8px 24px rgba(0,0,0,.4); }
     .btn-green { background:var(--accent-2); color:#05201A; box-shadow:0 0 28px rgba(0,229,160,.25),0 4px 16px rgba(0,0,0,.3); font-weight:700; }
-    .btn-green:hover { box-shadow:0 0 44px rgba(0,229,160,.35),0 8px 24px rgba(0,0,0,.4); }
 
     .section { max-width:1120px; margin:0 auto; padding:0 24px; }
     .mono-label { font-family:var(--font-mono); font-size:10px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--fg-3); }
@@ -149,27 +169,24 @@ export default function Home() {
     .price-card { background:var(--bg-2); border:1px solid var(--border); border-radius:16px; padding:28px; transition:border-color .2s; position:relative; overflow:hidden; }
     .price-card.highlight { border-color:rgba(61,126,255,.35); box-shadow:0 0 0 1px rgba(61,126,255,.12),0 24px 60px rgba(0,0,0,.4); }
 
-    /* ── Marketplace tab toggle ── */
     .tab-toggle { display:inline-flex; background:rgba(255,255,255,.05); border:1px solid var(--border); border-radius:12px; padding:4px; gap:4px; }
     .tab-pill { padding:8px 20px; border-radius:9px; font-family:var(--font-sans); font-size:13px; font-weight:600; cursor:pointer; border:none; transition:all .2s; letter-spacing:-0.01em; }
-    .tab-pill.active-ot { background:var(--accent); color:#fff; box-shadow:0 2px 12px rgba(91,141,239,.4); }
+    .tab-pill.active-ot  { background:var(--accent);   color:#fff;    box-shadow:0 2px 12px rgba(91,141,239,.4); }
     .tab-pill.active-sol { background:var(--accent-2); color:#05201A; box-shadow:0 2px 12px rgba(0,229,160,.35); }
-    .tab-pill.inactive { background:transparent; color:var(--fg-3); }
+    .tab-pill.inactive   { background:transparent; color:var(--fg-3); }
     .tab-pill.inactive:hover { color:var(--fg-2); background:rgba(255,255,255,.04); }
 
-    /* ── Solicitud cards ── */
     .sol-card { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; padding:18px; transition:all .2s; position:relative; overflow:hidden; }
     .sol-card:hover { border-color:var(--border-2); background:rgba(15,34,84,.9); transform:translateY(-2px); box-shadow:0 12px 40px rgba(0,0,0,.4); }
     .sol-card::before { content:''; position:absolute; top:0; right:0; width:60px; height:60px; background:radial-gradient(circle at top right, rgba(0,229,160,.08), transparent 70%); border-radius:0 14px 0 60px; }
-    .sol-tag { display:inline-flex; align-items:center; padding:3px 8px; border-radius:999px; font-family:var(--font-mono); font-size:9px; font-weight:500; letter-spacing:0.06em; background:rgba(0,229,160,.10); color:var(--accent-2); border:1px solid rgba(0,229,160,.2); }
+    .sol-tag   { display:inline-flex; align-items:center; padding:3px 8px; border-radius:999px; font-family:var(--font-mono); font-size:9px; font-weight:500; letter-spacing:0.06em; background:rgba(0,229,160,.10); color:var(--accent-2); border:1px solid rgba(0,229,160,.2); }
     .sol-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 7px; border-radius:999px; font-family:var(--font-mono); font-size:9px; background:rgba(255,255,255,.05); color:var(--fg-3); border:1px solid var(--border); }
-    .sol-btn { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:8px; border:none; font-family:var(--font-sans); font-size:11px; font-weight:700; cursor:pointer; transition:all .15s; }
-    .sol-btn-ot { background:var(--accent); color:#fff; box-shadow:0 2px 8px rgba(91,141,239,.3); }
+    .sol-btn   { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:8px; border:none; font-family:var(--font-sans); font-size:11px; font-weight:700; cursor:pointer; transition:all .15s; }
+    .sol-btn-ot    { background:var(--accent); color:#fff; box-shadow:0 2px 8px rgba(91,141,239,.3); }
     .sol-btn-ot:hover { box-shadow:0 4px 14px rgba(91,141,239,.45); transform:translateY(-1px); }
     .sol-btn-ghost { background:rgba(255,255,255,.06); color:var(--fg-3); border:1px solid var(--border); }
     .sol-btn-ghost:hover { color:var(--fg-2); border-color:var(--border-2); }
 
-    /* ── How it works steps ── */
     .step-line { position:absolute; left:19px; top:40px; bottom:-20px; width:1px; background:linear-gradient(to bottom, var(--border-2), transparent); }
 
     .inp { width:100%; background:rgba(255,255,255,.05); border:1px solid var(--border); border-radius:9px; padding:10px 14px; font-family:var(--font-sans); font-size:13px; color:var(--fg); outline:none; transition:border-color .15s,background .15s; }
@@ -181,6 +198,7 @@ export default function Home() {
 
     .scanline-wrap { position:relative; overflow:hidden; }
     .scanline-wrap::after { content:''; position:absolute; left:0; right:0; top:0; height:30%; pointer-events:none; background:linear-gradient(to bottom,transparent,rgba(61,126,255,.025),transparent); animation:scanline 5s linear infinite; }
+    .spin-ico { animation:spin .7s linear infinite; }
 
     @media (max-width:900px) { .nav-links { display:none !important; } }
     @media (max-width:768px) {
@@ -191,6 +209,7 @@ export default function Home() {
       .tbl-row .hide-mob, .tbl-head .hide-mob { display:none; }
       .sol-grid { grid-template-columns:1fr !important; }
       .hero-about-grid { grid-template-columns:1fr !important; }
+      .lead-grid { flex-direction:column !important; }
     }
   `;
 
@@ -237,21 +256,17 @@ export default function Home() {
               <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--fg-2)", letterSpacing:"0.06em" }}>LIVE · CRÉDITO PRIVADO · MÉXICO</span>
             </div>
           </div>
-
           <div className="mount mount-2" style={{ textAlign:"center", marginBottom:20 }}>
             <h1 style={{ fontSize:"clamp(36px,6vw,72px)", fontWeight:800, lineHeight:1.02, letterSpacing:"-0.045em", color:"var(--fg)" }}>
-              Infraestructura de crédito
-              <br/>
+              Infraestructura de crédito<br/>
               <span style={{ color:"var(--fg-3)", fontWeight:600 }}>para instituciones modernas.</span>
             </h1>
           </div>
-
           <div className="mount mount-3" style={{ textAlign:"center", marginBottom:32 }}>
             <p style={{ fontSize:17, color:"var(--fg-2)", lineHeight:1.65, maxWidth:"54ch", margin:"0 auto" }}>
               Cartera, señales de riesgo y marketplace de crédito en un solo lugar. Para bancos, sofomes, fondos y empresas que buscan financiamiento.
             </p>
           </div>
-
           <div className="mount mount-4" style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:64, flexWrap:"wrap" }}>
             <a href="/login" className="btn btn-solid btn-lg">Entrar a la consola →</a>
             <button className="btn btn-ghost btn-lg" onClick={()=>go("marketplace")}>Ver marketplace</button>
@@ -322,39 +337,25 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════
-          MARKETPLACE SECTION — NEW
-      ═══════════════════════════════════════ */}
+      {/* MARKETPLACE */}
       <section id="marketplace" style={{ position:"relative", zIndex:1, padding:"100px 0" }}>
         <div className="section">
-
-          {/* Header */}
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", marginBottom:48 }}>
             <div className="mono-label accent" style={{ marginBottom:14 }}>// Marketplace</div>
             <h2 style={{ fontSize:"clamp(28px,4vw,48px)", fontWeight:800, letterSpacing:"-0.04em", lineHeight:1.06, marginBottom:14 }}>
-              Donde el capital
-              <br/>
-              <span style={{ color:"var(--accent-2)" }}>encuentra a las empresas.</span>
+              Donde el capital<br/><span style={{ color:"var(--accent-2)" }}>encuentra a las empresas.</span>
             </h2>
             <p style={{ fontSize:15, color:"var(--fg-2)", lineHeight:1.7, maxWidth:"52ch", marginBottom:32 }}>
               Otorgantes calificados compiten por financiar tu empresa. Solicitudes anónimas hasta conectar. Sin intermediarios, sin fricciones.
             </p>
-
-            {/* Tab toggle */}
             <div className="tab-toggle">
-              <button className={`tab-pill ${activeTab==="otorgante"?"active-ot":"inactive"}`} onClick={()=>setActiveTab("otorgante")}>
-                Soy otorgante
-              </button>
-              <button className={`tab-pill ${activeTab==="solicitante"?"active-sol":"inactive"}`} onClick={()=>setActiveTab("solicitante")}>
-                Busco financiamiento
-              </button>
+              <button className={`tab-pill ${activeTab==="otorgante"?"active-ot":"inactive"}`} onClick={()=>setActiveTab("otorgante")}>Soy otorgante</button>
+              <button className={`tab-pill ${activeTab==="solicitante"?"active-sol":"inactive"}`} onClick={()=>setActiveTab("solicitante")}>Busco financiamiento</button>
             </div>
           </div>
 
-          {/* Otorgante view */}
           {activeTab === "otorgante" && (
             <div>
-              {/* Stats bar */}
               <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:24 }}>
                 {[
                   {label:"Solicitudes activas", val:"47",    color:"var(--accent)"},
@@ -367,8 +368,6 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-
-              {/* Cards */}
               <div className="sol-grid" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:24 }}>
                 {solicitudes.map((s,i)=>(
                   <div key={i} className="sol-card">
@@ -385,30 +384,27 @@ export default function Home() {
                       <span className="sol-badge">{s.garantia}</span>
                     </div>
                     <div style={{ display:"flex", gap:6 }}>
-                      <button className="sol-btn sol-btn-ot" style={{ flex:1, justifyContent:"center" }}>Ofertar</button>
-                      <button className="sol-btn sol-btn-ghost">Conectar →</button>
+                      <button className="sol-btn sol-btn-ot" style={{ flex:1, justifyContent:"center" }} onClick={()=>window.location.href="/login"}>Ofertar</button>
+                      <button className="sol-btn sol-btn-ghost" onClick={()=>window.location.href="/login"}>Conectar →</button>
                     </div>
                   </div>
                 ))}
               </div>
-
               <div style={{ textAlign:"center" }}>
                 <a href="/login" className="btn btn-accent btn-md">Ver todas las solicitudes →</a>
               </div>
             </div>
           )}
 
-          {/* Solicitante view */}
           {activeTab === "solicitante" && (
             <div>
-              {/* How it works */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:48, marginBottom:48 }} className="hero-about-grid">
                 <div>
                   <div style={{ fontSize:14, fontWeight:700, color:"var(--fg-2)", marginBottom:24 }}>Cómo funciona</div>
                   {[
-                    { n:"01", t:"Crea tu solicitud", d:"Describe tu empresa, el monto y el destino del crédito. Sin revelar tu nombre ni RFC." },
-                    { n:"02", t:"Otorgantes compiten", d:"Múltiples instituciones revisan tu solicitud y envían ofertas con tasa, plazo y condiciones." },
-                    { n:"03", t:"Tú eliges la mejor", d:"Compara ofertas lado a lado y conecta solo con quien te interese. El control es tuyo." },
+                    { n:"01", t:"Crea tu solicitud",     d:"Describe tu empresa, el monto y el destino del crédito. Sin revelar tu nombre ni RFC." },
+                    { n:"02", t:"Otorgantes compiten",   d:"Múltiples instituciones revisan tu solicitud y envían ofertas con tasa, plazo y condiciones." },
+                    { n:"03", t:"Tú eliges la mejor",    d:"Compara ofertas lado a lado y conecta solo con quien te interese. El control es tuyo." },
                   ].map((s,i)=>(
                     <div key={s.n} style={{ display:"flex", gap:16, marginBottom:28, position:"relative" }}>
                       {i<2 && <div className="step-line"/>}
@@ -422,14 +418,12 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-
-                {/* Benefit cards */}
                 <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
                   {[
-                    { icon:"M5 7V5a3 3 0 016 0v2M3 7h10v7H3z",                      t:"Privacidad total",       d:"Tu nombre y RFC nunca son visibles hasta que decides conectar." },
-                    { icon:"M8 2v3M8 11v3M3 8H1M15 8h-2M4.9 4.9L3.5 3.5M12.5 12.5l-1.4-1.4M4.9 11.1l-1.4 1.4M12.5 3.5l-1.4 1.4", t:"Respuesta en 48h",        d:"Los otorgantes compiten por financiarte. Recibes ofertas rápidamente." },
-                    { icon:"M2 12L6 7l3 3 3-4 2 2",                                    t:"Múltiples ofertas",      d:"Compara tasas, plazos y comisiones de diferentes instituciones." },
-                    { icon:"M2 8l4 4 8-8",                                              t:"Sin costo para empresas",d:"Publicar en el marketplace es gratuito para solicitantes." },
+                    { icon:"M5 7V5a3 3 0 016 0v2M3 7h10v7H3z", t:"Privacidad total", d:"Tu nombre y RFC nunca son visibles hasta que decides conectar." },
+                    { icon:"M8 2v3M8 11v3M3 8H1M15 8h-2M4.9 4.9L3.5 3.5M12.5 12.5l-1.4-1.4M4.9 11.1l-1.4 1.4M12.5 3.5l-1.4 1.4", t:"Respuesta en 48h", d:"Los otorgantes compiten por financiarte. Recibes ofertas rápidamente." },
+                    { icon:"M2 12L6 7l3 3 3-4 2 2", t:"Múltiples ofertas", d:"Compara tasas, plazos y comisiones de diferentes instituciones." },
+                    { icon:"M2 8l4 4 8-8", t:"Sin costo para empresas", d:"Publicar en el marketplace es gratuito para solicitantes." },
                   ].map(b=>(
                     <div key={b.t} style={{ display:"flex", gap:14, padding:"16px 18px", background:"rgba(0,229,160,.04)", border:"1px solid rgba(0,229,160,.12)", borderRadius:12 }}>
                       <div style={{ width:36, height:36, borderRadius:9, background:"rgba(0,229,160,.10)", border:"1px solid rgba(0,229,160,.2)", display:"grid", placeItems:"center", flexShrink:0 }}>
@@ -443,24 +437,14 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-
-              {/* CTA box */}
               <div style={{ background:"linear-gradient(135deg,rgba(0,229,160,.06),rgba(0,229,160,.02))", border:"1px solid rgba(0,229,160,.2)", borderRadius:20, padding:"36px 40px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:32, flexWrap:"wrap" }}>
                 <div>
-                  <div style={{ fontSize:24, fontWeight:800, letterSpacing:"-0.04em", marginBottom:8 }}>
-                    ¿Necesitas financiamiento?
-                  </div>
-                  <p style={{ fontSize:14, color:"var(--fg-2)", lineHeight:1.7, maxWidth:"42ch" }}>
-                    Publica tu solicitud gratis y recibe ofertas de otorgantes institucionales en menos de 48 horas.
-                  </p>
+                  <div style={{ fontSize:24, fontWeight:800, letterSpacing:"-0.04em", marginBottom:8 }}>¿Necesitas financiamiento?</div>
+                  <p style={{ fontSize:14, color:"var(--fg-2)", lineHeight:1.7, maxWidth:"42ch" }}>Publica tu solicitud gratis y recibe ofertas de otorgantes institucionales en menos de 48 horas.</p>
                 </div>
                 <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                  <a href="/register?role=solicitante" className="btn btn-green btn-lg">
-                    Publicar solicitud gratis →
-                  </a>
-                  <button className="btn btn-ghost btn-lg" onClick={()=>go("about")}>
-                    Saber más
-                  </button>
+                  <a href="/register?role=solicitante" className="btn btn-green btn-lg">Publicar solicitud gratis →</a>
+                  <button className="btn btn-ghost btn-lg" onClick={()=>go("about")}>Saber más</button>
                 </div>
               </div>
             </div>
@@ -480,11 +464,11 @@ export default function Home() {
           </div>
           <div className="feat-grid" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", border:"1px solid var(--border)", borderRadius:16, overflow:"hidden" }}>
             {[
-              {n:"01",t:"Onboarding digital",  d:"Expediente, KYC y validación SAT desde el primer día. Sin papelería, sin fricciones."},
-              {n:"02",t:"Analítica de riesgo", d:"Señales automáticas, scoring configurable y alertas por covenants o cambios en el acreditado."},
-              {n:"03",t:"Reporte ejecutivo",   d:"PDF listo para comité en menos de 3 minutos. Benchmarks y evolución del cartera."},
-              {n:"04",t:"Monitor de cartera",  d:"Vista agregada de cartera, segmentada por etapa, riesgo, vencimiento y sector."},
-              {n:"05",t:"Marketplace",         d:"Publica solicitudes o accede a ellas. Conexión directa entre otorgantes y empresas."},
+              {n:"01",t:"Onboarding digital",   d:"Expediente, KYC y validación SAT desde el primer día. Sin papelería, sin fricciones."},
+              {n:"02",t:"Analítica de riesgo",  d:"Señales automáticas, scoring configurable y alertas por covenants o cambios en el acreditado."},
+              {n:"03",t:"Reporte ejecutivo",    d:"PDF listo para comité en menos de 3 minutos. Benchmarks y evolución del cartera."},
+              {n:"04",t:"Monitor de cartera",   d:"Vista agregada de cartera, segmentada por etapa, riesgo, vencimiento y sector."},
+              {n:"05",t:"Marketplace",          d:"Publica solicitudes o accede a ellas. Conexión directa entre otorgantes y empresas."},
               {n:"06",t:"Multi-usuario · Roles",d:"Analistas, directivos y auditores con vistas y permisos diferenciados."},
             ].map((f,i)=>(
               <div key={f.n} className="feat-card" style={{ borderRight:i%3===2?"none":undefined, borderBottom:i>=3?"none":undefined }}>
@@ -507,23 +491,12 @@ export default function Home() {
           </div>
           <div className="price-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
             {[
-              {
-                name:"Basic", price:"$70", per:"/mes USD", desc:"Para validar tu modelo de crédito y arrancar operaciones.",
-                features:["Dashboard y cartera base","Expediente de acreditados","Reporte ejecutivo estándar","Acceso al marketplace","1 usuario"],
-                cta:"Solicitar Basic", href:"/pricing/lead?plan=basic", highlight:false,
-              },
-              {
-                name:"Pro", price:"$500", per:"/mes USD", badge:"Recomendado",
-                desc:"Para operaciones que necesitan escala, señales y automatización.",
-                features:["Todo lo de Basic","Risk signals y alertas automáticas","Multi-usuario + roles","Marketplace Pro (contacto ilimitado)","Integración API (roadmap)","Soporte prioritario"],
-                cta:"Solicitar Pro", href:"/pricing/lead?plan=pro", highlight:true,
-              },
+              { name:"Basic", price:"$70", per:"/mes USD", desc:"Para validar tu modelo de crédito y arrancar operaciones.", features:["Dashboard y cartera base","Expediente de acreditados","Reporte ejecutivo estándar","Acceso al marketplace","1 usuario"], cta:"Solicitar Basic", href:"/pricing/lead?plan=basic", highlight:false },
+              { name:"Pro", price:"$500", per:"/mes USD", badge:"Recomendado", desc:"Para operaciones que necesitan escala, señales y automatización.", features:["Todo lo de Basic","Risk signals y alertas automáticas","Multi-usuario + roles","Marketplace Pro (contacto ilimitado)","Integración API (roadmap)","Soporte prioritario"], cta:"Solicitar Pro", href:"/pricing/lead?plan=pro", highlight:true },
             ].map(p=>(
               <div key={p.name} className={`price-card${p.highlight?" highlight":""}`}>
                 {p.badge && (
-                  <div style={{ position:"absolute", top:0, right:24, background:"var(--accent)", color:"#080C14", fontSize:10, fontWeight:700, fontFamily:"var(--font-mono)", letterSpacing:"0.08em", padding:"4px 10px", borderRadius:"0 0 8px 8px" }}>
-                    {p.badge.toUpperCase()}
-                  </div>
+                  <div style={{ position:"absolute", top:0, right:24, background:"var(--accent)", color:"#080C14", fontSize:10, fontWeight:700, fontFamily:"var(--font-mono)", letterSpacing:"0.08em", padding:"4px 10px", borderRadius:"0 0 8px 8px" }}>{p.badge.toUpperCase()}</div>
                 )}
                 <div className="mono-label" style={{ marginBottom:12 }}>{p.name}</div>
                 <div style={{ display:"flex", alignItems:"baseline", gap:6, marginBottom:8 }}>
@@ -543,7 +516,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-          {/* Free for solicitantes note */}
           <div style={{ marginTop:14, padding:"14px 20px", background:"rgba(0,229,160,.05)", border:"1px solid rgba(0,229,160,.15)", borderRadius:12, display:"flex", alignItems:"center", gap:12 }}>
             <div style={{ width:32, height:32, borderRadius:8, background:"rgba(0,229,160,.12)", border:"1px solid rgba(0,229,160,.2)", display:"grid", placeItems:"center", flexShrink:0 }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 8l4 4 8-8"/></svg>
@@ -594,21 +566,39 @@ export default function Home() {
         </div>
       </section>
 
-      {/* LEAD FORM */}
+      {/* LEAD FORM — conectado a Resend */}
       <section style={{ position:"relative", zIndex:1, padding:"0 0 100px" }}>
         <div className="section">
-          <div style={{ border:"1px solid var(--border)", borderRadius:20, padding:"52px 48px", background:"rgba(255,255,255,.02)", display:"flex", justifyContent:"space-between", alignItems:"center", gap:40, flexWrap:"wrap" }}>
+          <div style={{ border:"1px solid var(--border)", borderRadius:20, padding:"52px 48px", background:"rgba(255,255,255,.02)", display:"flex", justifyContent:"space-between", alignItems:"center", gap:40, flexWrap:"wrap" }} className="lead-grid">
             <div style={{ maxWidth:"42ch" }}>
               <div className="mono-label accent" style={{ marginBottom:12 }}>// ¿Buscas financiamiento?</div>
               <h3 style={{ fontSize:28, fontWeight:800, letterSpacing:"-0.04em", marginBottom:10 }}>Conecta con otorgantes.</h3>
               <p style={{ fontSize:14, color:"var(--fg-2)", lineHeight:1.7 }}>Deja tus datos y te conectamos con instituciones que operan en Plinius. Respondemos en menos de 24 h.</p>
             </div>
             <div style={{ display:"grid", gap:8, minWidth:300, flex:"0 0 auto" }}>
-              <input className="inp" placeholder="Nombre de empresa"/>
-              <input className="inp" placeholder="Correo electrónico"/>
-              <button className="btn btn-solid btn-md" style={{ width:"100%", marginTop:2 }} onClick={()=>alert("MVP: conecta a /api/leads")}>
-                Enviar solicitud →
-              </button>
+              {leadStatus === "done" ? (
+                <div style={{ padding:"20px 24px", background:"rgba(0,229,160,.08)", border:"1px solid rgba(0,229,160,.25)", borderRadius:12, textAlign:"center" }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:"var(--accent-2)", marginBottom:4 }}>¡Listo! Te contactamos pronto.</div>
+                  <div style={{ fontSize:12, color:"var(--fg-3)" }}>Revisa tu correo — te enviamos una confirmación.</div>
+                </div>
+              ) : (
+                <>
+                  <input className="inp" placeholder="Nombre de empresa" value={empresa} onChange={e=>setEmpresa(e.target.value)} disabled={leadStatus==="loading"}/>
+                  <input className="inp" placeholder="Correo electrónico" type="email" value={correo} onChange={e=>setCorreo(e.target.value)} disabled={leadStatus==="loading"}/>
+                  <button className="btn btn-solid btn-md" style={{ width:"100%", marginTop:2 }} onClick={submitLead} disabled={leadStatus==="loading"}>
+                    {leadStatus === "loading"
+                      ? <span style={{ display:"inline-flex", alignItems:"center", gap:8 }}>
+                          <svg className="spin-ico" width={13} height={13} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 2a6 6 0 016 6"/></svg>
+                          Enviando...
+                        </span>
+                      : "Enviar solicitud →"
+                    }
+                  </button>
+                  {leadStatus === "error" && (
+                    <div style={{ fontSize:12, color:"var(--red)", textAlign:"center" }}>Error al enviar. Escríbenos a <a href="mailto:hola@plinius.mx" style={{ color:"var(--accent-2)" }}>hola@plinius.mx</a></div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -625,12 +615,17 @@ export default function Home() {
               </div>
               <p style={{ fontSize:13, color:"var(--fg-3)", lineHeight:1.75, maxWidth:"34ch", marginBottom:24 }}>Infraestructura para originar, administrar y conectar crédito privado en México.</p>
               <div style={{ display:"flex", gap:8 }}>
-                {[{label:"LI",title:"LinkedIn"},{label:"TW",title:"Twitter"},{label:"GH",title:"GitHub"}].map(s=>(
-                  <div key={s.label} title={s.title} style={{ width:30, height:30, borderRadius:7, background:"rgba(255,255,255,.04)", border:"1px solid var(--border)", display:"grid", placeItems:"center", cursor:"pointer", fontFamily:"var(--font-mono)", fontSize:9, color:"var(--fg-3)", transition:"border-color .15s,color .15s" }}
-                    onMouseEnter={(e:React.MouseEvent<HTMLDivElement>)=>{ e.currentTarget.style.borderColor="var(--border-2)"; e.currentTarget.style.color="var(--fg-2)"; }}
-                    onMouseLeave={(e:React.MouseEvent<HTMLDivElement>)=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--fg-3)"; }}>
+                {[
+                  {label:"LI", title:"LinkedIn", href:"https://linkedin.com/company/plinius"},
+                  {label:"TW", title:"Twitter",  href:"https://twitter.com/pliniusmx"},
+                  {label:"GH", title:"GitHub",   href:"https://github.com/alvarezzapfe"},
+                ].map(s=>(
+                  <a key={s.label} href={s.href} title={s.title} target="_blank" rel="noopener noreferrer"
+                    style={{ width:30, height:30, borderRadius:7, background:"rgba(255,255,255,.04)", border:"1px solid var(--border)", display:"grid", placeItems:"center", cursor:"pointer", fontFamily:"var(--font-mono)", fontSize:9, color:"var(--fg-3)", textDecoration:"none", transition:"border-color .15s,color .15s" }}
+                    onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.borderColor="var(--border-2)"; (e.currentTarget as HTMLElement).style.color="var(--fg-2)"; }}
+                    onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.borderColor="var(--border)"; (e.currentTarget as HTMLElement).style.color="var(--fg-3)"; }}>
                     {s.label}
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>
@@ -640,21 +635,21 @@ export default function Home() {
                 {label:"Marketplace",  href:"/#marketplace"},
                 {label:"Risk signals", href:"/login"},
                 {label:"Reporte PDF",  href:"/login"},
-                {label:"Roadmap",      href:"/#producto"},
+                {label:"Pricing",      href:"/#pricing"},
               ]},
               { title:"Empresa", links:[
                 {label:"About",    href:"/#about"},
                 {label:"Pricing",  href:"/#pricing"},
                 {label:"Contacto", href:"mailto:hola@plinius.mx"},
                 {label:"Blog",     href:"#"},
-                {label:"Carreras", href:"#"},
+                {label:"Carreras", href:"mailto:hola@plinius.mx"},
               ]},
               { title:"Legal", links:[
-                {label:"Términos",    href:"/legal/terminos"},
-                {label:"Privacidad",  href:"/legal/privacidad"},
-                {label:"Cookies",     href:"/legal/cookies"},
-                {label:"Seguridad",   href:"#"},
-                {label:"Entrar →",    href:"/login"},
+                {label:"Términos",   href:"/legal/terminos"},
+                {label:"Privacidad", href:"/legal/privacidad"},
+                {label:"Cookies",    href:"/legal/cookies"},
+                {label:"Seguridad",  href:"mailto:hola@plinius.mx"},
+                {label:"Entrar →",   href:"/login"},
               ]},
             ].map(col=>(
               <div key={col.title}>
@@ -669,7 +664,7 @@ export default function Home() {
           </div>
           <div style={{ borderTop:"1px solid var(--border)", paddingTop:24, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
             <div style={{ display:"flex", alignItems:"center", gap:20, flexWrap:"wrap" }}>
-              <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--fg-3)" }}>© {new Date().getFullYear()} Plinius Technologies Mexico LLC & Infraestructura en Finanzas AI S.A.P.I de C.V. </span>
+              <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--fg-3)" }}>© {new Date().getFullYear()} Plinius Technologies Mexico LLC & Infraestructura en Finanzas AI S.A.P.I de C.V.</span>
               <span style={{ width:1, height:10, background:"var(--border)", display:"inline-block" }}/>
               <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--fg-3)" }}>Ciudad de México</span>
             </div>
