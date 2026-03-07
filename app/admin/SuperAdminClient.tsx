@@ -64,9 +64,12 @@ function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; on
 
   async function handleSave() {
     setSaving(true);
-    try { await supabase.from("plinius_profiles").insert({ user_id:user.id, plan:"free" }); } catch(_){}
-    await supabase.from("plinius_profiles").update({ plan, plan_updated_at:new Date().toISOString() }).eq("user_id", user.id);
-    if (role) await supabase.from("user_roles").upsert({ user_id:user.id, role }, { onConflict:"user_id" });
+    const res = await fetch("/api/admin/set-plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: user.id, plan, role: role || null }),
+    });
+    if (!res.ok) { setSaving(false); alert("Error al guardar"); return; }
     setSaving(false); setSaved(true);
     setTimeout(() => { onSaved(user.id, plan, role||null); onClose(); }, 800);
   }
