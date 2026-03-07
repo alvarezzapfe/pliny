@@ -18,13 +18,39 @@ function scoreGrade(s:number){
   return         {l:"E",label:"Alto riesgo",c:"#F87171",g:"rgba(248,113,113,.4)"};
 }
 
+// Mappers para campos enum
+function mapFacturacion(v:string):number{
+  const m:Record<string,number>={menos_1m:500_000,"1m_5m":3_000_000,"5m_20m":12_000_000,"20m_50m":35_000_000,"50m_100m":75_000_000,mas_100m:150_000_000};
+  return m[v]??0;
+}
+function mapFacturacionLabel(v:string):string{
+  const m:Record<string,string>={menos_1m:"< $1M","1m_5m":"$1M–$5M","5m_20m":"$5M–$20M","20m_50m":"$20M–$50M","50m_100m":"$50M–$100M",mas_100m:"> $100M"};
+  return m[v]??"—";
+}
+function mapAntiguedad(v:string):number{
+  const m:Record<string,number>={"0_1":0.5,"1_2":1.5,"2_5":3.5,"5_10":7.5,mas_10:12};
+  return m[v]??0;
+}
+function mapAntiguedadLabel(v:string):string{
+  const m:Record<string,string>={"0_1":"< 1 año","1_2":"1–2 años","2_5":"2–5 años","5_10":"5–10 años",mas_10:"> 10 años"};
+  return m[v]??"—";
+}
+function mapEmpleados(v:string):number{
+  const m:Record<string,number>={"1_10":5,"11_50":30,"51_200":100,"201_500":300,mas_500:600};
+  return m[v]??0;
+}
+function mapEmpleadosLabel(v:string):string{
+  const m:Record<string,string>={"1_10":"1–10","11_50":"11–50","51_200":"51–200","201_500":"201–500",mas_500:"> 500"};
+  return m[v]??"—";
+}
+
 function calcScore(b:any):{score:number;vars:ScoreVar[]}{
   function norm(v:number,min:number,max:number){return Math.min(100,Math.max(0,((v-min)/(max-min))*100));}
   const vars:ScoreVar[]=[
-    {key:"rfc",        label:"RFC validado",             cat:"Fiscal",     w:5,  value:b?.rfc?100:0,              raw:b?.rfc||"Sin RFC",          status:b?.rfc?"ok":"missing",  source:"declared", benchmark:"Requerido"   },
-    {key:"antiguedad", label:"Antigüedad empresa",       cat:"Fiscal",     w:8,  value:b?.fin_antiguedad?norm(Number(b.fin_antiguedad),0,10):0, raw:b?.fin_antiguedad?`${b.fin_antiguedad} años`:"—", status:b?.fin_antiguedad?(Number(b.fin_antiguedad)>=3?"ok":"warn"):"missing", source:"declared", benchmark:">3 años" },
-    {key:"facturacion",label:"Facturación anual",        cat:"Financiero", w:14, value:b?.fin_facturacion_anual?norm(Number(b.fin_facturacion_anual),0,50_000_000):0, raw:b?.fin_facturacion_anual?`$${(Number(b.fin_facturacion_anual)/1_000_000).toFixed(1)}M`:"—", status:b?.fin_facturacion_anual?(Number(b.fin_facturacion_anual)>=5_000_000?"ok":"warn"):"missing", source:"declared", benchmark:">$5M MXN" },
-    {key:"empleados",  label:"Empleados",                cat:"Operativo",  w:6,  value:b?.fin_num_empleados?norm(Number(b.fin_num_empleados),0,200):0, raw:b?.fin_num_empleados?`${b.fin_num_empleados}`:"—", status:b?.fin_num_empleados?(Number(b.fin_num_empleados)>=20?"ok":"warn"):"missing", source:"declared", benchmark:">20" },
+    {key:"rfc",        label:"RFC validado",             cat:"Fiscal",     w:5,  value:b?.company_rfc?100:0,      raw:b?.company_rfc||"Sin RFC",  status:b?.company_rfc?"ok":"missing", source:"declared", benchmark:"Requerido"   },
+    {key:"antiguedad", label:"Antigüedad empresa",       cat:"Fiscal",     w:8,  value:b?.fin_antiguedad?norm(mapAntiguedad(b.fin_antiguedad),0,10):0, raw:b?.fin_antiguedad?mapAntiguedadLabel(b.fin_antiguedad):"—", status:b?.fin_antiguedad?(mapAntiguedad(b.fin_antiguedad)>=3?"ok":"warn"):"missing", source:"declared", benchmark:">3 años" },
+    {key:"facturacion",label:"Facturación anual",        cat:"Financiero", w:14, value:b?.fin_facturacion_anual?norm(mapFacturacion(b.fin_facturacion_anual),0,50_000_000):0, raw:b?.fin_facturacion_anual?mapFacturacionLabel(b.fin_facturacion_anual):"—", status:b?.fin_facturacion_anual?(mapFacturacion(b.fin_facturacion_anual)>=5_000_000?"ok":"warn"):"missing", source:"declared", benchmark:">$5M MXN" },
+    {key:"empleados",  label:"Empleados",                cat:"Operativo",  w:6,  value:b?.fin_num_empleados?norm(mapEmpleados(b.fin_num_empleados),0,200):0, raw:b?.fin_num_empleados?mapEmpleadosLabel(b.fin_num_empleados):"—", status:b?.fin_num_empleados?(mapEmpleados(b.fin_num_empleados)>=20?"ok":"warn"):"missing", source:"declared", benchmark:">20" },
     {key:"sector",     label:"Sector / giro",            cat:"Mercado",    w:6,  value:b?.fin_sector?75:0,        raw:b?.fin_sector||"—",         status:b?.fin_sector?"ok":"missing", source:"declared", benchmark:"Bajo riesgo" },
     {key:"garantias",  label:"Garantías ofrecidas",      cat:"Crédito",    w:12, value:b?.fin_garantias?65:20,    raw:b?.fin_garantias||"Sin garantías", status:b?.fin_garantias?"ok":"warn", source:"declared", benchmark:"1.5x cobertura" },
     {key:"dscr",       label:"DSCR",                     cat:"Financiero", w:14, value:null, raw:"Conecta SAT",   status:"pending", source:"pending", benchmark:"≥1.25x"   },
