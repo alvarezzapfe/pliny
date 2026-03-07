@@ -88,10 +88,12 @@ export default function ScorePage(){
       const{data:auth}=await supabase.auth.getUser();
       if(!auth.user){router.push("/login");return;}
       setUser(auth.user);
-      const[{data:b},{data:p}]=await Promise.all([
+      const[{data:b},{data:p},{data:r}]=await Promise.all([
         supabase.from("borrowers_profile").select("*").eq("owner_id",auth.user.id).maybeSingle(),
         supabase.from("plinius_profiles").select("plan").eq("user_id",auth.user.id).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id",auth.user.id).maybeSingle(),
       ]);
+      if(r?.role==="otorgante"){router.push("/dashboard");return;}
       setBorrower(b);
       setPlan(p?.plan||"free");
       setLoading(false);
