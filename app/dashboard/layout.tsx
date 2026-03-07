@@ -22,6 +22,7 @@ const NAV = [
   { href: "/dashboard/datos",       label: "Datos",       icon: "M8 2a6 6 0 100 12M8 6v2.5M8 11h.01" },
   { href: "/dashboard/marketplace", label: "Marketplace", icon: "M2 2h12v8H2zM5 14h6M8 10v4" },
   { href: "/dashboard/chat",        label: "Mensajes",    icon: "M2 2h12v8a2 2 0 01-2 2H4a2 2 0 01-2-2V2zM6 14h4M8 12v2" },
+  { href: "/dashboard/score", label: "Mi Score", icon: "M2 12L6 7l3 3 3-4 2 2M2 15h12" },
 ];
 
 const BOTTOM = [

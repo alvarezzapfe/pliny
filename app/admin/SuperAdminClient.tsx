@@ -131,77 +131,24 @@ function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; on
   );
 }
 
-// ── Score engine (borrower → score) ────────────────────────────────────────
+// ── Score engine ────────────────────────────────────────────────────────────
 function calcScore(b: any): { score: number; vars: ScoreVar[] } {
   function norm(val: number, min: number, max: number) {
     return Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
   }
   const vars: ScoreVar[] = [
-    {
-      key:"rfc", label:"RFC validado", cat:"Fiscal", w:5,
-      value: b?.rfc ? 100 : 0,
-      raw: b?.rfc || "Sin RFC", status: b?.rfc ? "ok" : "missing", source:"declared",
-      benchmark:"Requerido",
-    },
-    {
-      key:"antiguedad", label:"Antigüedad empresa", cat:"Fiscal", w:8,
-      value: b?.fin_antiguedad ? norm(Number(b.fin_antiguedad), 0, 10) : 0,
-      raw: b?.fin_antiguedad ? `${b.fin_antiguedad} años` : "—", status: b?.fin_antiguedad ? (Number(b.fin_antiguedad)>=3?"ok":"warn") : "missing", source:"declared",
-      benchmark:">3 años",
-    },
-    {
-      key:"facturacion", label:"Facturación anual", cat:"Financiero", w:14,
-      value: b?.fin_facturacion_anual ? norm(Number(b.fin_facturacion_anual), 0, 50_000_000) : 0,
-      raw: b?.fin_facturacion_anual ? `$${(Number(b.fin_facturacion_anual)/1_000_000).toFixed(1)}M` : "—",
-      status: b?.fin_facturacion_anual ? (Number(b.fin_facturacion_anual)>=5_000_000?"ok":"warn") : "missing", source:"declared",
-      benchmark:">$5M MXN",
-    },
-    {
-      key:"empleados", label:"Empleados", cat:"Operativo", w:6,
-      value: b?.fin_num_empleados ? norm(Number(b.fin_num_empleados), 0, 200) : 0,
-      raw: b?.fin_num_empleados ? `${b.fin_num_empleados}` : "—",
-      status: b?.fin_num_empleados ? (Number(b.fin_num_empleados)>=20?"ok":"warn") : "missing", source:"declared",
-      benchmark:">20",
-    },
-    {
-      key:"sector", label:"Sector / giro", cat:"Mercado", w:6,
-      value: b?.fin_sector ? 75 : 0,
-      raw: b?.fin_sector || "—", status: b?.fin_sector ? "ok" : "missing", source:"declared",
-      benchmark:"Bajo riesgo",
-    },
-    {
-      key:"garantias", label:"Garantías ofrecidas", cat:"Crédito", w:12,
-      value: b?.fin_garantias ? 65 : 20,
-      raw: b?.fin_garantias || "Sin garantías", status: b?.fin_garantias ? "ok" : "warn", source:"declared",
-      benchmark:"1.5x cobertura",
-    },
-    {
-      key:"dscr", label:"DSCR (estimado)", cat:"Financiero", w:14,
-      value: 45, raw:"Pendiente Syntage", status:"pending", source:"pending",
-      benchmark:"≥1.25x",
-    },
-    {
-      key:"ebitda_vol", label:"Volatilidad EBITDA", cat:"Financiero", w:10,
-      value: null, raw:"Requiere Syntage", status:"pending", source:"pending",
-      benchmark:"<15%",
-    },
-    {
-      key:"dso", label:"DSO días cobranza", cat:"Operativo", w:8,
-      value: null, raw:"Requiere Syntage", status:"pending", source:"pending",
-      benchmark:"<45 días",
-    },
-    {
-      key:"historial", label:"Historial Plinius", cat:"Crédito", w:8,
-      value: 0, raw:"Sin historial", status:"missing", source:"plinius",
-      benchmark:"Requerido",
-    },
-    {
-      key:"buro", label:"Buró de Crédito", cat:"Crédito", w:9,
-      value: null, raw:"Consulta pendiente", status:"pending", source:"buro",
-      benchmark:"Score >650",
-    },
+    { key:"rfc", label:"RFC validado", cat:"Fiscal", w:5, value: b?.rfc ? 100 : 0, raw: b?.rfc || "Sin RFC", status: b?.rfc ? "ok" : "missing", source:"declared", benchmark:"Requerido" },
+    { key:"antiguedad", label:"Antigüedad empresa", cat:"Fiscal", w:8, value: b?.fin_antiguedad ? norm(Number(b.fin_antiguedad), 0, 10) : 0, raw: b?.fin_antiguedad ? `${b.fin_antiguedad} años` : "—", status: b?.fin_antiguedad ? (Number(b.fin_antiguedad)>=3?"ok":"warn") : "missing", source:"declared", benchmark:">3 años" },
+    { key:"facturacion", label:"Facturación anual", cat:"Financiero", w:14, value: b?.fin_facturacion_anual ? norm(Number(b.fin_facturacion_anual), 0, 50_000_000) : 0, raw: b?.fin_facturacion_anual ? `$${(Number(b.fin_facturacion_anual)/1_000_000).toFixed(1)}M` : "—", status: b?.fin_facturacion_anual ? (Number(b.fin_facturacion_anual)>=5_000_000?"ok":"warn") : "missing", source:"declared", benchmark:">$5M MXN" },
+    { key:"empleados", label:"Empleados", cat:"Operativo", w:6, value: b?.fin_num_empleados ? norm(Number(b.fin_num_empleados), 0, 200) : 0, raw: b?.fin_num_empleados ? `${b.fin_num_empleados}` : "—", status: b?.fin_num_empleados ? (Number(b.fin_num_empleados)>=20?"ok":"warn") : "missing", source:"declared", benchmark:">20" },
+    { key:"sector", label:"Sector / giro", cat:"Mercado", w:6, value: b?.fin_sector ? 75 : 0, raw: b?.fin_sector || "—", status: b?.fin_sector ? "ok" : "missing", source:"declared", benchmark:"Bajo riesgo" },
+    { key:"garantias", label:"Garantías ofrecidas", cat:"Crédito", w:12, value: b?.fin_garantias ? 65 : 20, raw: b?.fin_garantias || "Sin garantías", status: b?.fin_garantias ? "ok" : "warn", source:"declared", benchmark:"1.5x cobertura" },
+    { key:"dscr", label:"DSCR (estimado)", cat:"Financiero", w:14, value: 45, raw:"Pendiente Syntage", status:"pending", source:"pending", benchmark:"≥1.25x" },
+    { key:"ebitda_vol", label:"Volatilidad EBITDA", cat:"Financiero", w:10, value: null, raw:"Requiere Syntage", status:"pending", source:"pending", benchmark:"<15%" },
+    { key:"dso", label:"DSO días cobranza", cat:"Operativo", w:8, value: null, raw:"Requiere Syntage", status:"pending", source:"pending", benchmark:"<45 días" },
+    { key:"historial", label:"Historial Plinius", cat:"Crédito", w:8, value: 0, raw:"Sin historial", status:"missing", source:"plinius", benchmark:"Requerido" },
+    { key:"buro", label:"Buró de Crédito", cat:"Crédito", w:9, value: null, raw:"Consulta pendiente", status:"pending", source:"buro", benchmark:"Score >650" },
   ];
-
   const total_w = vars.reduce((s,v) => s + (v.value!==null && v.status!=="pending" ? v.w : 0), 0);
   const weighted = vars.reduce((s,v) => s + (v.value!==null && v.status!=="pending" ? v.value * v.w : 0), 0);
   const score = total_w > 0 ? Math.round(weighted / total_w) : 0;
@@ -226,7 +173,7 @@ function scoreGrade(s: number) {
 
 function MiniGauge({ score }: { score: number }) {
   const g = scoreGrade(score);
-  const cx=70,cy=62,r=50, START=-210, RANGE=240;
+  const cx=70,cy=62, START=-210, RANGE=240;
   const ang = START + (score/100)*RANGE;
   function pt(deg:number,rad:number){const a=deg*Math.PI/180;return{x:cx+rad*Math.cos(a),y:cy+rad*Math.sin(a)};}
   function arc(s:number,e:number,ri:number,ro:number){
@@ -253,10 +200,7 @@ function MiniGauge({ score }: { score: number }) {
 
 function downloadCSV(borrower: any, vars: ScoreVar[], score: number, empresa: string) {
   const rows = [
-    ["Empresa", empresa],
-    ["Score", score],
-    ["Fecha", new Date().toLocaleDateString("es-MX")],
-    [""],
+    ["Empresa", empresa], ["Score", score], ["Fecha", new Date().toLocaleDateString("es-MX")], [""],
     ["Variable","Categoría","Peso","Valor","Raw","Status","Fuente","Benchmark"],
     ...vars.map(v=>[v.label,v.cat,v.w,v.value??"-",v.raw,v.status,v.source,v.benchmark||""]),
   ];
@@ -270,51 +214,8 @@ function downloadCSV(borrower: any, vars: ScoreVar[], score: number, empresa: st
 function downloadPDF(borrower: any, vars: ScoreVar[], score: number, empresa: string) {
   const g = scoreGrade(score);
   const now = new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"});
-  const rows = vars.map(v=>`
-    <tr>
-      <td>${v.label}</td><td>${v.cat}</td><td>${v.w}%</td>
-      <td style="color:${SCOLOR[v.status]};font-weight:700">${v.raw}</td>
-      <td>${v.benchmark||"—"}</td>
-      <td style="color:${SCOLOR[v.status]};font-weight:700;text-transform:uppercase">${v.status}</td>
-    </tr>`).join("");
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;color:#1E293B;background:#fff;padding:40px}
-    h1{font-size:22px;font-weight:900;letter-spacing:-0.04em;color:#0C1E4A}
-    .sub{font-size:11px;color:#94A3B8;margin-top:4px;font-family:monospace}
-    .score-box{display:inline-flex;align-items:center;gap:20px;margin:24px 0;padding:20px 28px;border-radius:16px;background:#F8FAFC;border:2px solid ${g.c}40}
-    .score-num{font-size:52px;font-weight:900;color:${g.c};font-family:monospace;text-shadow:0 0 20px ${g.g}}
-    .score-label{font-size:13px;font-weight:700;color:${g.c}}
-    .score-grade{width:52px;height:52px;border-radius:12px;background:${g.c}18;border:2px solid ${g.c}44;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:${g.c};font-family:monospace}
-    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:12px}
-    th{background:#0C1E4A;color:#fff;padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em}
-    td{padding:8px 10px;border-bottom:1px solid #F1F5F9}
-    tr:nth-child(even) td{background:#F8FAFC}
-    .warn{background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px 14px;font-size:11px;color:#9A3412;margin-top:16px}
-    .footer{margin-top:32px;font-size:10px;color:#94A3B8;border-top:1px solid #E2E8F0;padding-top:16px}
-  </style></head><body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start">
-    <div>
-      <h1>Score Crediticio Plinius</h1>
-      <div class="sub">${empresa} · ${now} · Modelo v2.0-beta</div>
-    </div>
-    <img src="/logo.png" alt="Plinius" style="height:32px;opacity:.7" onerror="this.style.display='none'"/>
-  </div>
-  <div class="score-box">
-    <div class="score-grade">${g.l}</div>
-    <div>
-      <div class="score-num">${score}</div>
-      <div class="score-label">${g.label} · Grado ${g.l}</div>
-    </div>
-  </div>
-  <table>
-    <thead><tr><th>Variable</th><th>Categoría</th><th>Peso</th><th>Valor</th><th>Benchmark</th><th>Status</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <div class="warn">⚠ Este reporte es preliminar. DSCR, Volatilidad EBITDA y DSO requieren conexión con Syntage (SAT). Buró de Crédito pendiente de consulta manual ($299 MXN).</div>
-  <div class="footer">Generado por Plinius · plinius.mx · Modelo basado en datos declarados + historial interno. No constituye dictamen crediticio definitivo.</div>
-  </body></html>`;
+  const rows = vars.map(v=>`<tr><td>${v.label}</td><td>${v.cat}</td><td>${v.w}%</td><td style="color:${SCOLOR[v.status]};font-weight:700">${v.raw}</td><td>${v.benchmark||"—"}</td><td style="color:${SCOLOR[v.status]};font-weight:700;text-transform:uppercase">${v.status}</td></tr>`).join("");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1E293B;background:#fff;padding:40px}h1{font-size:22px;font-weight:900;letter-spacing:-0.04em;color:#0C1E4A}.sub{font-size:11px;color:#94A3B8;margin-top:4px;font-family:monospace}.score-box{display:inline-flex;align-items:center;gap:20px;margin:24px 0;padding:20px 28px;border-radius:16px;background:#F8FAFC;border:2px solid ${g.c}40}.score-num{font-size:52px;font-weight:900;color:${g.c};font-family:monospace}.score-grade{width:52px;height:52px;border-radius:12px;background:${g.c}18;border:2px solid ${g.c}44;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:${g.c};font-family:monospace}table{width:100%;border-collapse:collapse;margin-top:20px;font-size:12px}th{background:#0C1E4A;color:#fff;padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em}td{padding:8px 10px;border-bottom:1px solid #F1F5F9}tr:nth-child(even) td{background:#F8FAFC}.warn{background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px 14px;font-size:11px;color:#9A3412;margin-top:16px}.footer{margin-top:32px;font-size:10px;color:#94A3B8;border-top:1px solid #E2E8F0;padding-top:16px}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><h1>Score Crediticio Plinius</h1><div class="sub">${empresa} · ${now} · Modelo v2.0-beta</div></div></div><div class="score-box"><div class="score-grade">${g.l}</div><div><div class="score-num">${score}</div><div style="font-size:13px;font-weight:700;color:${g.c}">${g.label} · Grado ${g.l}</div></div></div><table><thead><tr><th>Variable</th><th>Categoría</th><th>Peso</th><th>Valor</th><th>Benchmark</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><div class="warn">⚠ Reporte preliminar. DSCR, EBITDA y DSO requieren Syntage. Buró pendiente ($299 MXN).</div><div class="footer">Generado por Plinius · plinius.mx · No constituye dictamen crediticio definitivo.</div></body></html>`;
   const blob = new Blob([html],{type:"text/html"});
   const url = URL.createObjectURL(blob);
   const w = window.open(url,"_blank"); w?.print();
@@ -323,6 +224,7 @@ function downloadPDF(borrower: any, vars: ScoreVar[], score: number, empresa: st
 
 // ── User Profile Slide Panel ────────────────────────────────────────────────
 function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; onEdit:()=>void }) {
+  const router = useRouter();  // ← ADDED
   const [borrower, setBorrower] = useState<any>(null);
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [ofertas, setOfertas] = useState<any[]>([]);
@@ -363,16 +265,20 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
 
   async function requestScan() {
     setScanLoading(true);
+    await supabase.from("scan_requests").upsert({
+      user_id: user.id, type:"buro_sat", status:"pending",
+      amount: 299, requested_by:"admin", requested_at: new Date().toISOString()
+    }).then(()=>{});
     await new Promise(r=>setTimeout(r,1800));
     setScanLoading(false);
     setScanRequested(true);
   }
 
   const TABS = [
-    {id:"perfil",    label:"Perfil"},
-    {id:"score",     label:"Score"},
+    {id:"perfil",     label:"Perfil"},
+    {id:"score",      label:"Score"},
     {id:"solicitudes",label:`Solicitudes (${user.solicitudes_count})`},
-    {id:"ofertas",   label:`Ofertas (${user.ofertas_count})`},
+    {id:"ofertas",    label:`Ofertas (${user.ofertas_count})`},
   ] as const;
 
   return (
@@ -395,7 +301,6 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                 </div>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                {/* Mini score badge */}
                 {!loading && (
                   <div style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 10px 4px 6px", borderRadius:10, background:`${grade.c}18`, border:`1px solid ${grade.c}40` }}>
                     <div style={{ width:22, height:22, borderRadius:6, background:`${grade.c}20`, border:`1px solid ${grade.c}50`, display:"grid", placeItems:"center", fontSize:11, fontWeight:900, color:grade.c, fontFamily:"'Geist Mono',monospace" }}>{grade.l}</div>
@@ -412,7 +317,6 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
               {user.role && <RoleBadge role={user.role}/>}
               <span style={{ fontSize:9, fontFamily:"'Geist Mono',monospace", color:"rgba(238,242,255,.25)" }}>ID: {user.id.slice(0,8)}…</span>
             </div>
-            {/* Tabs */}
             <div style={{ display:"flex", gap:0, borderBottom:"1px solid rgba(255,255,255,.08)" }}>
               {TABS.map(t=>(
                 <button key={t.id} onClick={()=>setTab(t.id)}
@@ -426,7 +330,6 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
 
         {/* Body */}
         <div style={{ flex:1, padding:"18px 22px", display:"flex", flexDirection:"column", gap:12 }}>
-
           {loading ? (
             <div style={{ padding:32, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
               <svg style={{ animation:"spin .7s linear infinite" }} width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="#94A3B8" strokeWidth="2"><path d="M8 2a6 6 0 016 6"/></svg>
@@ -475,16 +378,24 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                       <div style={{ fontSize:12, color:"#94A3B8" }}>Sin perfil completado</div>
                     </div>
                   )}
-                  <button onClick={onEdit} style={{ height:42, borderRadius:11, border:"none", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", boxShadow:"0 4px 14px rgba(12,30,74,.22)" }}>
-                    Editar plan y rol →
-                  </button>
+                  {/* ── BOTONES ── */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                    <button
+                      onClick={() => { onClose(); router.push(`/admin/users/${user.id}/score`); }}
+                      style={{ height:42, borderRadius:11, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#0C1E4A", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+                      📊 Ver Score completo
+                    </button>
+                    <button onClick={onEdit}
+                      style={{ height:42, borderRadius:11, border:"none", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", boxShadow:"0 4px 14px rgba(12,30,74,.22)" }}>
+                      Editar plan y rol →
+                    </button>
+                  </div>
                 </>
               )}
 
               {/* ── TAB SCORE ── */}
               {tab==="score" && (
                 <>
-                  {/* Score header card */}
                   <div style={{ background:"linear-gradient(135deg,#0C1E4A,#0F2A5C)", border:`1px solid ${grade.c}30`, borderRadius:16, padding:"18px 20px", display:"flex", alignItems:"center", gap:16, position:"relative", overflow:"hidden" }}>
                     <div style={{ position:"absolute",top:-40,right:-40,width:140,height:140,borderRadius:"50%",background:`radial-gradient(circle,${grade.g} 0%,transparent 70%)`,pointerEvents:"none" }}/>
                     <MiniGauge score={score}/>
@@ -497,7 +408,6 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                           <div style={{ fontSize:11,color:"rgba(238,242,255,.5)" }}>{grade.label}</div>
                         </div>
                       </div>
-                      {/* Completeness bar */}
                       <div>
                         <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
                           <span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",color:"rgba(238,242,255,.35)" }}>COMPLETITUD DEL MODELO</span>
@@ -510,7 +420,13 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                     </div>
                   </div>
 
-                  {/* Syntage + Buró banners */}
+                  {/* CTA página completa */}
+                  <button
+                    onClick={() => { onClose(); router.push(`/admin/users/${user.id}/score`); }}
+                    style={{ height:40, borderRadius:11, border:"1px solid rgba(0,229,160,.3)", background:"rgba(0,229,160,.06)", color:"#00C48C", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+                    📊 Abrir score completo en página dedicada →
+                  </button>
+
                   <div style={{ background:"rgba(251,146,60,.05)", border:"1px solid rgba(251,146,60,.18)", borderRadius:12, padding:"11px 14px", display:"flex", alignItems:"center", gap:10 }}>
                     <div style={{ width:26,height:26,borderRadius:7,background:"rgba(251,146,60,.1)",display:"grid",placeItems:"center",flexShrink:0,fontSize:13 }}>⚡</div>
                     <div style={{ flex:1 }}>
@@ -520,7 +436,6 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                     <span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",color:"#FB923C",background:"rgba(251,146,60,.1)",border:"1px solid rgba(251,146,60,.2)",borderRadius:999,padding:"2px 8px",whiteSpace:"nowrap" }}>PENDIENTE</span>
                   </div>
 
-                  {/* Scan Buró CTA */}
                   <div style={{ background: scanRequested?"rgba(0,196,140,.06)":"rgba(139,92,246,.06)", border:`1px solid ${scanRequested?"rgba(0,196,140,.2)":"rgba(139,92,246,.2)"}`, borderRadius:12, padding:"13px 16px" }}>
                     {scanRequested ? (
                       <div style={{ display:"flex",alignItems:"center",gap:10 }}>
@@ -529,7 +444,7 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                         </div>
                         <div>
                           <div style={{ fontSize:11,fontWeight:700,color:"#00C48C" }}>Solicitud de scan enviada</div>
-                          <div style={{ fontSize:9,color:"rgba(0,196,140,.6)",fontFamily:"'Geist Mono',monospace" }}>Equipo notificado para consulta Buró · $299 MXN</div>
+                          <div style={{ fontSize:9,color:"rgba(0,196,140,.6)",fontFamily:"'Geist Mono',monospace" }}>Equipo notificado · Buró + SAT · $299 MXN</div>
                         </div>
                       </div>
                     ) : (
@@ -537,7 +452,7 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                         <div style={{ width:28,height:28,borderRadius:8,background:"rgba(139,92,246,.1)",display:"grid",placeItems:"center",flexShrink:0,fontSize:13 }}>🏦</div>
                         <div style={{ flex:1 }}>
                           <div style={{ fontSize:11,fontWeight:700,color:"#8B5CF6" }}>Consultar Buró de Crédito</div>
-                          <div style={{ fontSize:9,color:"rgba(139,92,246,.6)",fontFamily:"'Geist Mono',monospace" }}>Suma 9 puntos al score · Consulta manual · RFC requerido</div>
+                          <div style={{ fontSize:9,color:"rgba(139,92,246,.6)",fontFamily:"'Geist Mono',monospace" }}>Suma 9 pts al score · RFC requerido</div>
                         </div>
                         <button onClick={requestScan} disabled={scanLoading||!borrower?.rfc}
                           style={{ height:30,padding:"0 14px",borderRadius:8,border:"none",background:borrower?.rfc?"linear-gradient(135deg,#7C3AED,#6D28D9)":"#E2E8F0",color:borrower?.rfc?"#fff":"#94A3B8",fontSize:10,fontWeight:700,cursor:borrower?.rfc?"pointer":"not-allowed",fontFamily:"'Geist',sans-serif",flexShrink:0,opacity:scanLoading?.7:1,whiteSpace:"nowrap" }}>
@@ -547,7 +462,6 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                     )}
                   </div>
 
-                  {/* Variables */}
                   <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, overflow:"hidden" }}>
                     <div style={{ padding:"11px 16px", borderBottom:"1px solid #F1F5F9", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div style={{ fontSize:10,fontWeight:700,color:"#94A3B8",fontFamily:"'Geist Mono',monospace",letterSpacing:".06em" }}>VARIABLES DEL MODELO</div>
@@ -580,15 +494,14 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                     ))}
                   </div>
 
-                  {/* Download buttons */}
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                     <button onClick={()=>downloadCSV(borrower,vars,score,empresa)}
                       style={{ height:40,borderRadius:11,border:"1.5px solid #E2E8F0",background:"#fff",color:"#0C1E4A",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Geist',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}>
-                      <span>⬇</span> Excel / CSV
+                      ⬇ Excel / CSV
                     </button>
                     <button onClick={()=>downloadPDF(borrower,vars,score,empresa)}
                       style={{ height:40,borderRadius:11,border:"none",background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Geist',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6,boxShadow:"0 4px 14px rgba(12,30,74,.2)" }}>
-                      <span>📄</span> PDF Report
+                      📄 PDF Report
                     </button>
                   </div>
                 </>
@@ -619,9 +532,7 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                     })}
                   </div>
                 ) : (
-                  <div style={{ padding:32,textAlign:"center" }}>
-                    <div style={{ fontSize:12,color:"#94A3B8" }}>Sin solicitudes registradas</div>
-                  </div>
+                  <div style={{ padding:32,textAlign:"center" }}><div style={{ fontSize:12,color:"#94A3B8" }}>Sin solicitudes registradas</div></div>
                 )
               )}
 
@@ -647,9 +558,7 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                     })}
                   </div>
                 ) : (
-                  <div style={{ padding:32,textAlign:"center" }}>
-                    <div style={{ fontSize:12,color:"#94A3B8" }}>Sin ofertas registradas</div>
-                  </div>
+                  <div style={{ padding:32,textAlign:"center" }}><div style={{ fontSize:12,color:"#94A3B8" }}>Sin ofertas registradas</div></div>
                 )
               )}
             </>
@@ -793,9 +702,8 @@ export default function SuperAdminClient() {
     <div style={{ fontFamily:"'Geist',sans-serif", color:"#0F172A", minHeight:"100vh", background:"#F1F5F9", display:"flex" }}>
       <style>{CSS}</style>
 
-      {/* ── SIDEBAR ─────────────────────────────────────────────────────── */}
+      {/* ── SIDEBAR ── */}
       <aside style={{ width:220, background:"linear-gradient(180deg,#0C1E4A 0%,#091530 100%)", display:"flex", flexDirection:"column", position:"fixed", top:0, left:0, bottom:0, zIndex:50, borderRight:"1px solid rgba(255,255,255,.05)" }}>
-        {/* Logo */}
         <div style={{ padding:"20px 16px 16px", borderBottom:"1px solid rgba(255,255,255,.06)" }}>
           <div style={{ display:"flex", alignItems:"center", gap:9 }}>
             <div style={{ width:30, height:30, borderRadius:8, background:"rgba(255,255,255,.1)", border:"1px solid rgba(255,255,255,.15)", display:"grid", placeItems:"center", flexShrink:0 }}>
@@ -807,8 +715,6 @@ export default function SuperAdminClient() {
             </div>
           </div>
         </div>
-
-        {/* Nav */}
         <nav style={{ padding:"12px 8px", flex:1 }}>
           <div style={{ fontSize:9, fontFamily:"'Geist Mono',monospace", color:"rgba(238,242,255,.2)", letterSpacing:".12em", padding:"0 8px", marginBottom:6 }}>NAVEGACIÓN</div>
           {NAV.map(n => (
@@ -823,16 +729,12 @@ export default function SuperAdminClient() {
             </button>
           ))}
         </nav>
-
-        {/* Session warning */}
         {sessionWarning && (
           <div style={{ margin:"0 8px 8px", padding:"10px 12px", background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", borderRadius:10 }}>
             <div style={{ fontSize:11, fontWeight:700, color:"#FCA5A5", marginBottom:2 }}>⚠ Sesión expira en 1 min</div>
             <div style={{ fontSize:10, color:"rgba(252,165,165,.6)" }}>Mueve el mouse para extender</div>
           </div>
         )}
-
-        {/* User + logout */}
         <div style={{ padding:"12px 8px", borderTop:"1px solid rgba(255,255,255,.06)" }}>
           <div style={{ padding:"9px 10px", borderRadius:10, background:"rgba(255,255,255,.04)", marginBottom:8 }}>
             <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:3 }}>
@@ -851,10 +753,8 @@ export default function SuperAdminClient() {
         </div>
       </aside>
 
-      {/* ── MAIN ────────────────────────────────────────────────────────── */}
+      {/* ── MAIN ── */}
       <main style={{ marginLeft:220, flex:1, display:"flex", flexDirection:"column", minHeight:"100vh" }}>
-
-        {/* Topbar */}
         <div style={{ background:"#fff", borderBottom:"1px solid #E8EDF5", padding:"0 28px", height:52, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:40 }}>
           <div>
             <div style={{ fontSize:15, fontWeight:800, letterSpacing:"-0.03em" }}>
@@ -870,7 +770,6 @@ export default function SuperAdminClient() {
         </div>
 
         <div style={{ padding:"20px 28px", flex:1 }}>
-
           {/* KPIs */}
           <div className="fade" style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:8, marginBottom:20 }}>
             {[
@@ -894,7 +793,7 @@ export default function SuperAdminClient() {
             ))}
           </div>
 
-          {/* ── USUARIOS ──── */}
+          {/* ── USUARIOS ── */}
           {view==="usuarios" && (
             <div className="card fade" style={{ overflow:"hidden" }}>
               <div style={{ padding:"10px 14px", borderBottom:"1px solid #E8EDF5", display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
@@ -924,13 +823,11 @@ export default function SuperAdminClient() {
                   </button>
                 )}
               </div>
-
               <div className="tr" style={{ gridTemplateColumns:"2.5fr 100px 90px 80px 90px 60px 60px 90px", background:"#F8FAFC", cursor:"default" }}>
                 {["Email","Rol","Plan","Registro","Último acceso","Sols.","Ofertas",""].map(h => (
                   <div key={h} className="mono" style={{ fontSize:9, color:"#94A3B8", letterSpacing:".06em" }}>{h.toUpperCase()}</div>
                 ))}
               </div>
-
               {loading ? (
                 <div style={{ padding:48, display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
                   <svg style={{ animation:"spin .7s linear infinite" }} width={18} height={18} viewBox="0 0 16 16" fill="none" stroke="#94A3B8" strokeWidth="2"><path d="M8 2a6 6 0 016 6"/></svg>
@@ -959,7 +856,7 @@ export default function SuperAdminClient() {
             </div>
           )}
 
-          {/* ── LEADS ──── */}
+          {/* ── LEADS ── */}
           {view==="leads" && (
             <div className="card fade" style={{ overflow:"hidden" }}>
               <div className="tr" style={{ gridTemplateColumns:"1.5fr 80px 1.5fr 110px 1fr 100px", background:"#F8FAFC", cursor:"default" }}>
@@ -985,7 +882,7 @@ export default function SuperAdminClient() {
             </div>
           )}
 
-          {/* ── MÉTRICAS ──── */}
+          {/* ── MÉTRICAS ── */}
           {view==="metricas" && (
             <div className="fade" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
               <div className="card" style={{ padding:22 }}>
@@ -1028,10 +925,10 @@ export default function SuperAdminClient() {
                 <div style={{ fontSize:12, fontWeight:700, marginBottom:18 }}>Resumen de conversión</div>
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
                   {[
-                    { label:"Total usuarios",   val:metrics.total,                     color:"#0F172A" },
-                    { label:"Usuarios pagos",   val:metrics.pro+metrics.basic,          color:"#059669" },
-                    { label:"Total leads",      val:metrics.leads_total,               color:"#5B21B6" },
-                    { label:"Conversión",       val:`${metrics.conversion}%`,           color:"#9A3412" },
+                    { label:"Total usuarios", val:metrics.total,              color:"#0F172A" },
+                    { label:"Usuarios pagos", val:metrics.pro+metrics.basic,  color:"#059669" },
+                    { label:"Total leads",    val:metrics.leads_total,        color:"#5B21B6" },
+                    { label:"Conversión",     val:`${metrics.conversion}%`,   color:"#9A3412" },
                   ].map(l=>(
                     <div key={l.label} style={{ padding:"16px 18px", background:"#F8FAFC", border:"1px solid #E8EDF5", borderRadius:12 }}>
                       <div className="mono" style={{ fontSize:9, color:"#94A3B8", marginBottom:8, letterSpacing:".06em" }}>{l.label.toUpperCase()}</div>
