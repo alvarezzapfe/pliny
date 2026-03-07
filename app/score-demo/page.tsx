@@ -3,6 +3,7 @@ import { CreditScoreCard, CreditScoreCompact } from "./CreditScore";
 import { useState } from "react";
 export default function Page() {
   const [theme, setTheme] = useState<"plinius"|"crowdlink">("plinius");
+  const logo = theme === "crowdlink" ? "/crowdlink-logo.png" : undefined;
   return (
     <div style={{ minHeight:"100vh", background:"#030810", padding:"28px 20px" }}>
       <div style={{ maxWidth:780, margin:"0 auto", display:"flex", flexDirection:"column", gap:16 }}>
@@ -17,8 +18,8 @@ export default function Page() {
             </button>
           ))}
         </div>
-        <CreditScoreCompact themeKey={theme} logoUrl={theme==="crowdlink"?"/crowdlink-logo.png":undefined}/>
-        <CreditScoreCard themeKey={theme} logoUrl={theme==="crowdlink"?"/crowdlink-logo.png":undefined} showSyntage/>
+        <CreditScoreCompact themeKey={theme}/>
+        <CreditScoreCard themeKey={theme} logoUrl={logo} showSyntage/>
       </div>
     </div>
   );
