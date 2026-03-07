@@ -327,7 +327,7 @@ export default function MarketplacePage() {
       setIsPro(prof?.plan === "pro");
       const [{ data: sols }, { data: ofertas }] = await Promise.all([
         supabase.from("solicitudes")
-          .select("id,user_id,tipo,monto,plazo_meses,tasa_solicitada,destino,descripcion,garantia_tipo,fin_sector,fin_facturacion_anual,fin_antiguedad,fin_num_empleados,created_at")
+          .select("id,borrower_id,tipo,monto,plazo_meses,tasa_solicitada,destino,descripcion,garantia_tipo,fin_sector,fin_facturacion_anual,fin_antiguedad,fin_num_empleados,created_at")
           .eq("tipo","subasta").in("status",["enviada","en_revision"])
           .order("created_at", { ascending:false }),
         supabase.from("ofertas").select("solicitud_id").eq("otorgante_id", auth.user.id),
@@ -369,7 +369,7 @@ export default function MarketplacePage() {
       .from("conversaciones")
       .upsert({
         otorgante_id: userId,
-        solicitante_id: s.user_id,
+        solicitante_id: s.borrower_id,
         solicitud_id: s.id,
         solicitante_empresa: s.fin_sector || null,
         otorgante_email: userEmail,
