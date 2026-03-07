@@ -339,7 +339,7 @@ export default function AdminLoginClient() {
         </div>
 
         <div style={{ textAlign: "center", marginTop: 16, fontFamily: "'Geist Mono',monospace", fontSize: 10, color: "rgba(238,242,255,.25)" }}>
-          Plinius · Acceso restringido
+          <a href="/" style={{ color:"rgba(238,242,255,.35)", textDecoration:"none", fontFamily:"'Geist Mono',monospace", fontSize:10 }}>← Inicio</a>
         </div>
       </div>
     </main>
