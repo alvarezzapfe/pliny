@@ -17,6 +17,7 @@ const NAV = [
   { href: "/solicitante/ofertas", label: "Ofertas", match: "prefix", icon: "M2 2h12v8H2zM5 14h6M8 10v4" },
   { href: "/solicitante/creditos", label: "Créditos", match: "prefix", icon: "M2 12L6 7l3 3 3-4 2 2" },
   { href: "/solicitante/mensajes", label: "Mensajes", match: "prefix", icon: "M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H9l-3 2-3-2H2a1 1 0 01-1-1V4a1 1 0 011-1z" },
+  { href: "/solicitante/score", label: "Mi Score", match: "prefix", icon: "M2 12L6 7l3 3 3-4 2 2M2 15h12" },
   { href: "/solicitante/datos", label: "Mis datos", match: "prefix", icon: "M8 2a4 4 0 100 8A4 4 0 008 2zM2 14c0-2.2 2.7-4 6-4s6 1.8 6 4" },
 ];
 
