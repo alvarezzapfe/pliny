@@ -67,7 +67,7 @@ function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; on
     const res = await fetch("/api/admin/set-plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: user.id, plan, role: role || null }),
+      body: JSON.stringify({ user_id: user.id, plan: role === "solicitante" ? "free" : plan, role: role || null }),
     });
     if (!res.ok) { setSaving(false); alert("Error al guardar"); return; }
     setSaving(false); setSaved(true);
@@ -99,17 +99,23 @@ function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; on
             <>
               <div>
                 <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", marginBottom:10, letterSpacing:".08em", fontFamily:"'Geist Mono',monospace" }}>PLAN</div>
-                <div style={{ display:"flex", gap:8 }}>
-                  {(["free","basic","pro"] as const).map(p => {
-                    const cfg = PLAN_CONFIG[p]; const active = plan === p;
-                    return (
-                      <button key={p} onClick={() => setPlan(p)} style={{ flex:1, padding:"12px 8px", borderRadius:12, border:`2px solid ${active?cfg.border:"#E2E8F0"}`, background:active?cfg.bg:"#FAFAFA", cursor:"pointer", fontFamily:"'Geist',sans-serif", transition:"all .15s", boxShadow:active&&cfg.glow?`0 0 16px ${cfg.glow}`:"none" }}>
-                        <div style={{ fontSize:13, fontWeight:800, color:active?cfg.color:"#CBD5E1" }}>{cfg.label}</div>
-                        <div style={{ fontSize:10, color:active?cfg.color:"#E2E8F0", marginTop:3 }}>{p==="free"?"Sin acceso":p==="basic"?"$70/mes":"$500/mes"}</div>
-                      </button>
-                    );
-                  })}
-                </div>
+                {role === "solicitante" ? (
+                  <div style={{ padding:"12px 16px", borderRadius:12, background:"#F8FAFC", border:"1.5px solid #E2E8F0", fontSize:12, color:"#94A3B8", fontFamily:"'Geist',sans-serif" }}>
+                    Los solicitantes siempre son <strong>Free</strong> — no aplica plan de pago.
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", gap:8 }}>
+                    {(["free","basic","pro"] as const).map(p => {
+                      const cfg = PLAN_CONFIG[p]; const active = plan === p;
+                      return (
+                        <button key={p} onClick={() => setPlan(p)} style={{ flex:1, padding:"12px 8px", borderRadius:12, border:`2px solid ${active?cfg.border:"#E2E8F0"}`, background:active?cfg.bg:"#FAFAFA", cursor:"pointer", fontFamily:"'Geist',sans-serif", transition:"all .15s", boxShadow:active&&cfg.glow?`0 0 16px ${cfg.glow}`:"none" }}>
+                          <div style={{ fontSize:13, fontWeight:800, color:active?cfg.color:"#CBD5E1" }}>{cfg.label}</div>
+                          <div style={{ fontSize:10, color:active?cfg.color:"#E2E8F0", marginTop:3 }}>{p==="free"?"Sin acceso":p==="basic"?"$70/mes":"$500/mes"}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div>
                 <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", marginBottom:10, letterSpacing:".08em", fontFamily:"'Geist Mono',monospace" }}>ROL</div>
