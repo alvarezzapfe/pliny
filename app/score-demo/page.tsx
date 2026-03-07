@@ -1,5 +1,5 @@
 "use client";
-import { CreditScoreCard, CreditScoreCompact, MOCK_DATA } from "@/components/CreditScore";
+import { CreditScoreCard, CreditScoreCompact } from "./CreditScore";
 import { useState } from "react";
 export default function Page() {
   const [theme, setTheme] = useState<"plinius"|"crowdlink">("plinius");
