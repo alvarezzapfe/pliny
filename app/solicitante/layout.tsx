@@ -16,6 +16,7 @@ const NAV = [
   { href: "/solicitante/solicitudes", label: "Solicitudes", match: "prefix", icon: "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2" },
   { href: "/solicitante/ofertas", label: "Ofertas", match: "prefix", icon: "M2 2h12v8H2zM5 14h6M8 10v4" },
   { href: "/solicitante/creditos", label: "Créditos", match: "prefix", icon: "M2 12L6 7l3 3 3-4 2 2" },
+  { href: "/solicitante/mensajes", label: "Mensajes", match: "prefix", icon: "M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H9l-3 2-3-2H2a1 1 0 01-1-1V4a1 1 0 011-1z" },
   { href: "/solicitante/datos", label: "Mis datos", match: "prefix", icon: "M8 2a4 4 0 100 8A4 4 0 008 2zM2 14c0-2.2 2.7-4 6-4s6 1.8 6 4" },
 ];
 
@@ -28,7 +29,9 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
   const [open,       setOpen]       = useState(true);
   const [profile,    setProfile]    = useState<BorrowerProfile | null>(null);
   const [userEmail,  setUserEmail]  = useState<string | null>(null);
+  const [userId,     setUserId]     = useState<string | null>(null);
   const [pendientes, setPendientes] = useState(0);
+  const [unreadMsgs, setUnreadMsgs] = useState(0);
 
   const W = open ? W_OPEN : W_CLOSE;
 
@@ -37,6 +40,7 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) { router.push("/login"); return; }
       setUserEmail(auth.user.email ?? null);
+      setUserId(auth.user.id);
 
       const { data } = await supabase
         .from("borrowers_profile")
@@ -47,7 +51,7 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
       if (data) setProfile(data);
       if (data && !data.onboarding_done) router.push("/onboarding/solicitante");
 
-      // Badge: ofertas pendientes
+      // Badge ofertas pendientes
       const { data: sols } = await supabase
         .from("solicitudes").select("id").eq("borrower_id", auth.user.id);
       if (sols && sols.length > 0) {
@@ -58,8 +62,33 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
           .eq("status", "pendiente");
         setPendientes(count ?? 0);
       }
+
+      // Badge mensajes no leídos
+      await loadUnread(auth.user.id);
     })();
   }, [router]);
+
+  // Realtime badge
+  useEffect(() => {
+    if (!userId) return;
+    const ch = supabase.channel("sol_unread")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes" }, () => loadUnread(userId))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "mensajes" }, () => loadUnread(userId))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [userId]);
+
+  async function loadUnread(uid: string) {
+    const { data: convs } = await supabase
+      .from("conversaciones").select("id")
+      .or(`otorgante_id.eq.${uid},solicitante_id.eq.${uid}`);
+    if (!convs || convs.length === 0) { setUnreadMsgs(0); return; }
+    const { count } = await supabase
+      .from("mensajes").select("*", { count: "exact", head: true })
+      .in("conversacion_id", convs.map(c => c.id))
+      .eq("leido", false).neq("sender_id", uid);
+    setUnreadMsgs(count ?? 0);
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut().catch(() => {});
@@ -84,7 +113,8 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
         }
         .sol-grid {
           position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
-          background-image: linear-gradient(rgba(255,255,255,0.06) 1px,transparent 1px), linear-gradient(90deg,rgba(255,255,255,0.06) 1px,transparent 1px);
+          background-image: linear-gradient(rgba(255,255,255,0.06) 1px,transparent 1px),
+            linear-gradient(90deg,rgba(255,255,255,0.06) 1px,transparent 1px);
           background-size: 40px 40px;
         }
         .sol-nl {
@@ -108,7 +138,6 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
         .sol-cb:hover { background: rgba(255,255,255,0.13); color: #ECFDF5; }
       `}</style>
 
-      {/* ── SIDEBAR ── */}
       <aside className="sol-sb" style={{ width: W }}>
         <div className="sol-grid" />
 
@@ -154,7 +183,10 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
             const active = n.match === "exact"
               ? pathname === n.href
               : pathname === n.href || pathname?.startsWith(n.href + "/");
-            const isOfertas = n.href === "/solicitante/ofertas";
+            const isOfertas  = n.href === "/solicitante/ofertas";
+            const isMensajes = n.href === "/solicitante/mensajes";
+            const badge = isOfertas ? pendientes : isMensajes ? unreadMsgs : 0;
+
             return (
               <Link key={n.href} href={n.href}
                 className={`sol-nl${active ? " on" : ""}`}
@@ -164,14 +196,14 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
                   <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                     <path d={n.icon}/>
                   </svg>
-                  {isOfertas && pendientes > 0 && !open && (
-                    <span style={{ position:"absolute", top:-4, right:-4, width:8, height:8, borderRadius:"50%", background:"#F59E0B", border:"1.5px solid #0A2518" }}/>
+                  {badge > 0 && !open && (
+                    <span style={{ position:"absolute", top:-4, right:-4, width:8, height:8, borderRadius:"50%", background: isMensajes ? "#00E5A0" : "#F59E0B", border:"1.5px solid #0A2518" }}/>
                   )}
                 </span>
                 {open && <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{n.label}</span>}
-                {open && isOfertas && pendientes > 0 && (
-                  <span style={{ flexShrink:0, minWidth:18, height:18, borderRadius:999, background:"#F59E0B", color:"#fff", fontSize:10, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Geist Mono',monospace" }}>
-                    {pendientes}
+                {open && badge > 0 && (
+                  <span style={{ flexShrink:0, minWidth:18, height:18, borderRadius:999, background: isMensajes ? "#00E5A0" : "#F59E0B", color: isMensajes ? "#040C18" : "#fff", fontSize:10, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Geist Mono',monospace" }}>
+                    {badge}
                   </span>
                 )}
               </Link>
@@ -189,7 +221,6 @@ export default function SolicitanteLayout({ children }: { children: React.ReactN
             </span>
             {open && <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>Cerrar sesión</span>}
           </button>
-
           {open && (
             <div style={{ marginTop:6, padding:"8px 11px", background:"rgba(0,229,160,.07)", border:"1px solid rgba(0,229,160,.15)", borderRadius:9, display:"flex", alignItems:"center", gap:7 }}>
               <span style={{ width:6, height:6, borderRadius:"50%", background:"#00E5A0", display:"inline-block", animation:"blink 2.5s ease-in-out infinite" }}/>
