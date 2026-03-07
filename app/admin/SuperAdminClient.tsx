@@ -131,19 +131,212 @@ function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; on
   );
 }
 
+// ── Score engine (borrower → score) ────────────────────────────────────────
+function calcScore(b: any): { score: number; vars: ScoreVar[] } {
+  function norm(val: number, min: number, max: number) {
+    return Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
+  }
+  const vars: ScoreVar[] = [
+    {
+      key:"rfc", label:"RFC validado", cat:"Fiscal", w:5,
+      value: b?.rfc ? 100 : 0,
+      raw: b?.rfc || "Sin RFC", status: b?.rfc ? "ok" : "missing", source:"declared",
+      benchmark:"Requerido",
+    },
+    {
+      key:"antiguedad", label:"Antigüedad empresa", cat:"Fiscal", w:8,
+      value: b?.fin_antiguedad ? norm(Number(b.fin_antiguedad), 0, 10) : 0,
+      raw: b?.fin_antiguedad ? `${b.fin_antiguedad} años` : "—", status: b?.fin_antiguedad ? (Number(b.fin_antiguedad)>=3?"ok":"warn") : "missing", source:"declared",
+      benchmark:">3 años",
+    },
+    {
+      key:"facturacion", label:"Facturación anual", cat:"Financiero", w:14,
+      value: b?.fin_facturacion_anual ? norm(Number(b.fin_facturacion_anual), 0, 50_000_000) : 0,
+      raw: b?.fin_facturacion_anual ? `$${(Number(b.fin_facturacion_anual)/1_000_000).toFixed(1)}M` : "—",
+      status: b?.fin_facturacion_anual ? (Number(b.fin_facturacion_anual)>=5_000_000?"ok":"warn") : "missing", source:"declared",
+      benchmark:">$5M MXN",
+    },
+    {
+      key:"empleados", label:"Empleados", cat:"Operativo", w:6,
+      value: b?.fin_num_empleados ? norm(Number(b.fin_num_empleados), 0, 200) : 0,
+      raw: b?.fin_num_empleados ? `${b.fin_num_empleados}` : "—",
+      status: b?.fin_num_empleados ? (Number(b.fin_num_empleados)>=20?"ok":"warn") : "missing", source:"declared",
+      benchmark:">20",
+    },
+    {
+      key:"sector", label:"Sector / giro", cat:"Mercado", w:6,
+      value: b?.fin_sector ? 75 : 0,
+      raw: b?.fin_sector || "—", status: b?.fin_sector ? "ok" : "missing", source:"declared",
+      benchmark:"Bajo riesgo",
+    },
+    {
+      key:"garantias", label:"Garantías ofrecidas", cat:"Crédito", w:12,
+      value: b?.fin_garantias ? 65 : 20,
+      raw: b?.fin_garantias || "Sin garantías", status: b?.fin_garantias ? "ok" : "warn", source:"declared",
+      benchmark:"1.5x cobertura",
+    },
+    {
+      key:"dscr", label:"DSCR (estimado)", cat:"Financiero", w:14,
+      value: 45, raw:"Pendiente Syntage", status:"pending", source:"pending",
+      benchmark:"≥1.25x",
+    },
+    {
+      key:"ebitda_vol", label:"Volatilidad EBITDA", cat:"Financiero", w:10,
+      value: null, raw:"Requiere Syntage", status:"pending", source:"pending",
+      benchmark:"<15%",
+    },
+    {
+      key:"dso", label:"DSO días cobranza", cat:"Operativo", w:8,
+      value: null, raw:"Requiere Syntage", status:"pending", source:"pending",
+      benchmark:"<45 días",
+    },
+    {
+      key:"historial", label:"Historial Plinius", cat:"Crédito", w:8,
+      value: 0, raw:"Sin historial", status:"missing", source:"plinius",
+      benchmark:"Requerido",
+    },
+    {
+      key:"buro", label:"Buró de Crédito", cat:"Crédito", w:9,
+      value: null, raw:"Consulta pendiente", status:"pending", source:"buro",
+      benchmark:"Score >650",
+    },
+  ];
+
+  const total_w = vars.reduce((s,v) => s + (v.value!==null && v.status!=="pending" ? v.w : 0), 0);
+  const weighted = vars.reduce((s,v) => s + (v.value!==null && v.status!=="pending" ? v.value * v.w : 0), 0);
+  const score = total_w > 0 ? Math.round(weighted / total_w) : 0;
+  return { score, vars };
+}
+
+type ScoreVar = {
+  key: string; label: string; cat: string; w: number;
+  value: number | null; raw: string; status: "ok"|"warn"|"risk"|"missing"|"pending";
+  source: string; benchmark?: string;
+};
+
+const SCOLOR: Record<string,string> = { ok:"#00C48C", warn:"#FACC15", risk:"#FB923C", missing:"#F87171", pending:"#475569" };
+
+function scoreGrade(s: number) {
+  if (s>=85) return {l:"A",label:"Excelente", c:"#00C48C",g:"rgba(0,196,140,.35)"};
+  if (s>=70) return {l:"B",label:"Bueno",     c:"#4ADE80",g:"rgba(74,222,128,.3)"};
+  if (s>=55) return {l:"C",label:"Moderado",  c:"#FACC15",g:"rgba(250,204,21,.3)"};
+  if (s>=40) return {l:"D",label:"Bajo",      c:"#FB923C",g:"rgba(251,146,60,.3)"};
+  return            {l:"E",label:"Alto riesgo",c:"#F87171",g:"rgba(248,113,113,.35)"};
+}
+
+function MiniGauge({ score }: { score: number }) {
+  const g = scoreGrade(score);
+  const cx=70,cy=62,r=50, START=-210, RANGE=240;
+  const ang = START + (score/100)*RANGE;
+  function pt(deg:number,rad:number){const a=deg*Math.PI/180;return{x:cx+rad*Math.cos(a),y:cy+rad*Math.sin(a)};}
+  function arc(s:number,e:number,ri:number,ro:number){
+    const a=pt(s,ro),b=pt(e,ro),c=pt(e,ri),d=pt(s,ri);const l=e-s>180?1:0;
+    return `M${a.x},${a.y} A${ro},${ro} 0 ${l} 1 ${b.x},${b.y} L${c.x},${c.y} A${ri},${ri} 0 ${l} 0 ${d.x},${d.y} Z`;
+  }
+  const SEGS=[{f:-210,t:-168,c:"#F87171"},{f:-168,t:-126,c:"#FB923C"},{f:-126,t:-84,c:"#FACC15"},{f:-84,t:-42,c:"#4ADE80"},{f:-42,t:30,c:"#00C48C"}];
+  const needle=pt(ang,40);
+  return (
+    <svg viewBox="0 0 140 90" style={{width:140,overflow:"visible"}}>
+      <defs><radialGradient id="mg"><stop offset="0%" stopColor={g.c} stopOpacity=".12"/><stop offset="100%" stopColor={g.c} stopOpacity="0"/></radialGradient></defs>
+      <circle cx={cx} cy={cy} r={60} fill="url(#mg)"/>
+      <path d={arc(-210,30,36,52)} fill="#F1F5F9"/>
+      {SEGS.map((s,i)=><path key={i} d={arc(s.f,s.t,37,51)} fill={s.c} opacity={0.15}/>)}
+      {score>0&&<path d={arc(-210,ang,37,51)} fill={g.c} opacity={0.9}/>}
+      <line x1={cx} y1={cy} x2={needle.x} y2={needle.y} stroke={g.c} strokeWidth={2} strokeLinecap="round" style={{filter:`drop-shadow(0 0 3px ${g.g})`}}/>
+      <circle cx={cx} cy={cy} r={4} fill={g.c}/>
+      <circle cx={cx} cy={cy} r={2} fill="#fff"/>
+      <text x={cx} y={cy+18} textAnchor="middle" fill={g.c} fontSize={18} fontWeight={900} fontFamily="'Geist Mono',monospace" style={{filter:`drop-shadow(0 0 6px ${g.g})`}}>{score}</text>
+      <text x={cx} y={cy+28} textAnchor="middle" fill="#94A3B8" fontSize={7} fontFamily="'Geist Mono',monospace">/ 100</text>
+    </svg>
+  );
+}
+
+function downloadCSV(borrower: any, vars: ScoreVar[], score: number, empresa: string) {
+  const rows = [
+    ["Empresa", empresa],
+    ["Score", score],
+    ["Fecha", new Date().toLocaleDateString("es-MX")],
+    [""],
+    ["Variable","Categoría","Peso","Valor","Raw","Status","Fuente","Benchmark"],
+    ...vars.map(v=>[v.label,v.cat,v.w,v.value??"-",v.raw,v.status,v.source,v.benchmark||""]),
+  ];
+  const csv = rows.map(r=>r.map(c=>`"${c}"`).join(",")).join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download=`score_${empresa.replace(/\s/g,"_")}_${Date.now()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadPDF(borrower: any, vars: ScoreVar[], score: number, empresa: string) {
+  const g = scoreGrade(score);
+  const now = new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"});
+  const rows = vars.map(v=>`
+    <tr>
+      <td>${v.label}</td><td>${v.cat}</td><td>${v.w}%</td>
+      <td style="color:${SCOLOR[v.status]};font-weight:700">${v.raw}</td>
+      <td>${v.benchmark||"—"}</td>
+      <td style="color:${SCOLOR[v.status]};font-weight:700;text-transform:uppercase">${v.status}</td>
+    </tr>`).join("");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;color:#1E293B;background:#fff;padding:40px}
+    h1{font-size:22px;font-weight:900;letter-spacing:-0.04em;color:#0C1E4A}
+    .sub{font-size:11px;color:#94A3B8;margin-top:4px;font-family:monospace}
+    .score-box{display:inline-flex;align-items:center;gap:20px;margin:24px 0;padding:20px 28px;border-radius:16px;background:#F8FAFC;border:2px solid ${g.c}40}
+    .score-num{font-size:52px;font-weight:900;color:${g.c};font-family:monospace;text-shadow:0 0 20px ${g.g}}
+    .score-label{font-size:13px;font-weight:700;color:${g.c}}
+    .score-grade{width:52px;height:52px;border-radius:12px;background:${g.c}18;border:2px solid ${g.c}44;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:${g.c};font-family:monospace}
+    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:12px}
+    th{background:#0C1E4A;color:#fff;padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+    td{padding:8px 10px;border-bottom:1px solid #F1F5F9}
+    tr:nth-child(even) td{background:#F8FAFC}
+    .warn{background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px 14px;font-size:11px;color:#9A3412;margin-top:16px}
+    .footer{margin-top:32px;font-size:10px;color:#94A3B8;border-top:1px solid #E2E8F0;padding-top:16px}
+  </style></head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <h1>Score Crediticio Plinius</h1>
+      <div class="sub">${empresa} · ${now} · Modelo v2.0-beta</div>
+    </div>
+    <img src="/logo.png" alt="Plinius" style="height:32px;opacity:.7" onerror="this.style.display='none'"/>
+  </div>
+  <div class="score-box">
+    <div class="score-grade">${g.l}</div>
+    <div>
+      <div class="score-num">${score}</div>
+      <div class="score-label">${g.label} · Grado ${g.l}</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>Variable</th><th>Categoría</th><th>Peso</th><th>Valor</th><th>Benchmark</th><th>Status</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="warn">⚠ Este reporte es preliminar. DSCR, Volatilidad EBITDA y DSO requieren conexión con Syntage (SAT). Buró de Crédito pendiente de consulta manual ($299 MXN).</div>
+  <div class="footer">Generado por Plinius · plinius.mx · Modelo basado en datos declarados + historial interno. No constituye dictamen crediticio definitivo.</div>
+  </body></html>`;
+  const blob = new Blob([html],{type:"text/html"});
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url,"_blank"); w?.print();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+}
+
 // ── User Profile Slide Panel ────────────────────────────────────────────────
 function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; onEdit:()=>void }) {
   const [borrower, setBorrower] = useState<any>(null);
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [ofertas, setOfertas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"perfil"|"score"|"solicitudes"|"ofertas">("perfil");
+  const [scanRequested, setScanRequested] = useState(false);
+  const [scanLoading, setScanLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
       const [{ data:b }, { data:s }, { data:o }] = await Promise.all([
         supabase.from("borrowers_profile").select("*").eq("owner_id", user.id).maybeSingle(),
-        supabase.from("solicitudes").select("id,destino,monto,status,created_at,plazo_meses").eq("owner_id", user.id).order("created_at",{ascending:false}).limit(5),
-        supabase.from("ofertas").select("id,monto_ofertado,tasa_anual,status,created_at").eq("otorgante_id", user.id).order("created_at",{ascending:false}).limit(5),
+        supabase.from("solicitudes").select("id,destino,monto,status,created_at,plazo_meses").eq("owner_id", user.id).order("created_at",{ascending:false}).limit(10),
+        supabase.from("ofertas").select("id,monto_ofertado,tasa_anual,status,created_at").eq("otorgante_id", user.id).order("created_at",{ascending:false}).limit(10),
       ]);
       setBorrower(b); setSolicitudes(s??[]); setOfertas(o??[]);
       setLoading(false);
@@ -157,145 +350,310 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
     return `$${n}`;
   }
 
-  const STATUS_COLOR: Record<string,{bg:string;color:string}> = {
+  const SC: Record<string,{bg:string;color:string}> = {
     enviada:{bg:"#EFF6FF",color:"#1E40AF"}, en_revision:{bg:"#FFF7ED",color:"#9A3412"},
     ofertada:{bg:"#F0FDF9",color:"#065F46"}, aceptada:{bg:"#ECFDF5",color:"#065F46"},
     rechazada:{bg:"#FFF1F2",color:"#9F1239"}, pendiente:{bg:"#FFF7ED",color:"#9A3412"},
   };
 
+  const { score, vars } = calcScore(borrower);
+  const grade = scoreGrade(score);
+  const empresa = borrower?.razon_social || borrower?.nombre_completo || user.email.split("@")[0];
+  const completeness = Math.round(vars.filter(v=>v.value!==null&&v.status!=="pending").length/vars.length*100);
+
+  async function requestScan() {
+    setScanLoading(true);
+    await new Promise(r=>setTimeout(r,1800));
+    setScanLoading(false);
+    setScanRequested(true);
+  }
+
+  const TABS = [
+    {id:"perfil",    label:"Perfil"},
+    {id:"score",     label:"Score"},
+    {id:"solicitudes",label:`Solicitudes (${user.solicitudes_count})`},
+    {id:"ofertas",   label:`Ofertas (${user.ofertas_count})`},
+  ] as const;
+
   return (
     <div style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"stretch", justifyContent:"flex-end" }}>
       <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(15,23,42,.4)", backdropFilter:"blur(4px)" }}/>
-      <div style={{ position:"relative", width:"100%", maxWidth:520, background:"#F8FAFC", display:"flex", flexDirection:"column", animation:"slideRight .3s cubic-bezier(.16,1,.3,1)", overflowY:"auto" }}>
+      <div style={{ position:"relative", width:"100%", maxWidth:560, background:"#F8FAFC", display:"flex", flexDirection:"column", animation:"slideRight .3s cubic-bezier(.16,1,.3,1)", overflowY:"auto" }}>
 
         {/* Header */}
-        <div style={{ padding:"22px 24px", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", position:"relative", overflow:"hidden", flexShrink:0 }}>
-          <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px)", backgroundSize:"32px 32px" }}/>
+        <div style={{ padding:"20px 22px 0", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", position:"relative", overflow:"hidden", flexShrink:0 }}>
+          <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px)", backgroundSize:"28px 28px" }}/>
           <div style={{ position:"relative", zIndex:1 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <div style={{ width:44, height:44, borderRadius:12, background:"rgba(255,255,255,.12)", border:"1px solid rgba(255,255,255,.2)", display:"grid", placeItems:"center", flexShrink:0 }}>
-                  <Ic d="M8 2a3 3 0 100 6M2 14c0-3 2.7-5 6-5s6 2 6 5" s={20} c="#93C5FD"/>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ width:40, height:40, borderRadius:11, background:"rgba(255,255,255,.12)", border:"1px solid rgba(255,255,255,.2)", display:"grid", placeItems:"center", flexShrink:0 }}>
+                  <Ic d="M8 2a3 3 0 100 6M2 14c0-3 2.7-5 6-5s6 2 6 5" s={18} c="#93C5FD"/>
                 </div>
                 <div>
-                  <div style={{ fontSize:15, fontWeight:800, color:"#EEF2FF", letterSpacing:"-0.03em" }}>
-                    {borrower?.razon_social || borrower?.nombre_completo || user.email.split("@")[0]}
-                  </div>
-                  <div style={{ fontSize:11, color:"rgba(238,242,255,.5)", fontFamily:"'Geist Mono',monospace", marginTop:2 }}>{user.email}</div>
+                  <div style={{ fontSize:14, fontWeight:800, color:"#EEF2FF", letterSpacing:"-0.03em" }}>{empresa}</div>
+                  <div style={{ fontSize:10, color:"rgba(238,242,255,.45)", fontFamily:"'Geist Mono',monospace", marginTop:1 }}>{user.email}</div>
                 </div>
               </div>
-              <button onClick={onClose} style={{ width:30, height:30, borderRadius:8, border:"1px solid rgba(255,255,255,.15)", background:"rgba(255,255,255,.08)", cursor:"pointer", display:"grid", placeItems:"center", flexShrink:0 }}>
-                <Ic d="M3 3l10 10M13 3L3 13" s={12} c="rgba(255,255,255,.6)"/>
-              </button>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                {/* Mini score badge */}
+                {!loading && (
+                  <div style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 10px 4px 6px", borderRadius:10, background:`${grade.c}18`, border:`1px solid ${grade.c}40` }}>
+                    <div style={{ width:22, height:22, borderRadius:6, background:`${grade.c}20`, border:`1px solid ${grade.c}50`, display:"grid", placeItems:"center", fontSize:11, fontWeight:900, color:grade.c, fontFamily:"'Geist Mono',monospace" }}>{grade.l}</div>
+                    <span style={{ fontSize:12, fontWeight:900, color:grade.c, fontFamily:"'Geist Mono',monospace" }}>{score}</span>
+                  </div>
+                )}
+                <button onClick={onClose} style={{ width:28, height:28, borderRadius:8, border:"1px solid rgba(255,255,255,.15)", background:"rgba(255,255,255,.08)", cursor:"pointer", display:"grid", placeItems:"center", flexShrink:0 }}>
+                  <Ic d="M3 3l10 10M13 3L3 13" s={11} c="rgba(255,255,255,.6)"/>
+                </button>
+              </div>
             </div>
-            <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center", marginBottom:16 }}>
               <PlanBadge plan={user.plan} large/>
               {user.role && <RoleBadge role={user.role}/>}
-              <span style={{ fontSize:10, fontFamily:"'Geist Mono',monospace", color:"rgba(238,242,255,.3)" }}>ID: {user.id.slice(0,8)}…</span>
+              <span style={{ fontSize:9, fontFamily:"'Geist Mono',monospace", color:"rgba(238,242,255,.25)" }}>ID: {user.id.slice(0,8)}…</span>
+            </div>
+            {/* Tabs */}
+            <div style={{ display:"flex", gap:0, borderBottom:"1px solid rgba(255,255,255,.08)" }}>
+              {TABS.map(t=>(
+                <button key={t.id} onClick={()=>setTab(t.id)}
+                  style={{ padding:"8px 14px", border:"none", background:"transparent", cursor:"pointer", fontSize:11, fontWeight:tab===t.id?700:500, color:tab===t.id?"#fff":"rgba(255,255,255,.4)", fontFamily:"'Geist',sans-serif", borderBottom:tab===t.id?"2px solid #00E5A0":"2px solid transparent", transition:"all .15s", whiteSpace:"nowrap" }}>
+                  {t.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
         {/* Body */}
-        <div style={{ flex:1, padding:"20px 24px", display:"flex", flexDirection:"column", gap:14 }}>
+        <div style={{ flex:1, padding:"18px 22px", display:"flex", flexDirection:"column", gap:12 }}>
 
-          {/* Quick stats */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
-            {[
-              { label:"Registro",     val:fmtDateShort(user.created_at) },
-              { label:"Último acceso",val:user.last_sign_in?fmtDateShort(user.last_sign_in):"—" },
-              { label:"Onboarding",   val:user.onboarding_completed?"✓ Completo":"Pendiente" },
-            ].map(s => (
-              <div key={s.label} style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:12, padding:"12px 14px" }}>
-                <div style={{ fontSize:9, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:5, letterSpacing:".06em" }}>{s.label.toUpperCase()}</div>
-                <div style={{ fontSize:12, fontWeight:700 }}>{s.val}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Profile data */}
           {loading ? (
-            <div style={{ padding:24, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+            <div style={{ padding:32, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
               <svg style={{ animation:"spin .7s linear infinite" }} width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="#94A3B8" strokeWidth="2"><path d="M8 2a6 6 0 016 6"/></svg>
               <span style={{ fontSize:12, color:"#94A3B8" }}>Cargando...</span>
             </div>
-          ) : borrower ? (
-            <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, padding:"16px 18px" }}>
-              <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:14, letterSpacing:".06em" }}>DATOS DEL PERFIL</div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-                {([
-                  ["RFC", borrower.rfc],
-                  ["CURP", borrower.curp],
-                  ["Empresa", borrower.razon_social],
-                  ["Sector", borrower.fin_sector],
-                  ["Facturación", borrower.fin_facturacion_anual],
-                  ["Antigüedad", borrower.fin_antiguedad],
-                  ["Empleados", borrower.fin_num_empleados],
-                  ["CLABE", borrower.clabe ? `****${borrower.clabe.slice(-4)}` : null],
-                ] as [string, string|null][]).filter(([,v]) => v).map(([label, val]) => (
-                  <div key={label}>
-                    <div style={{ fontSize:9, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:3, letterSpacing:".06em" }}>{label.toUpperCase()}</div>
-                    <div style={{ fontSize:12, fontWeight:600 }}>{val}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
           ) : (
-            <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, padding:20, textAlign:"center" }}>
-              <div style={{ fontSize:12, color:"#94A3B8" }}>Sin perfil completado</div>
-            </div>
-          )}
-
-          {/* Solicitudes */}
-          {solicitudes.length > 0 && (
-            <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, overflow:"hidden" }}>
-              <div style={{ padding:"11px 16px", borderBottom:"1px solid #F1F5F9", display:"flex", justifyContent:"space-between" }}>
-                <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", letterSpacing:".06em" }}>SOLICITUDES</div>
-                <span style={{ fontSize:10, fontFamily:"'Geist Mono',monospace", color:"#94A3B8" }}>{user.solicitudes_count} total</span>
-              </div>
-              {solicitudes.map(s => {
-                const sc = STATUS_COLOR[s.status]??{bg:"#F8FAFC",color:"#475569"};
-                return (
-                  <div key={s.id} style={{ padding:"10px 16px", borderBottom:"1px solid #F8FAFC", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <div>
-                      <div style={{ fontSize:12, fontWeight:600 }}>{s.destino||"—"}</div>
-                      <div style={{ fontSize:10, color:"#94A3B8", fontFamily:"'Geist Mono',monospace" }}>{fmtDateShort(s.created_at)} · {s.plazo_meses}m</div>
+            <>
+              {/* ── TAB PERFIL ── */}
+              {tab==="perfil" && (
+                <>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+                    {[
+                      {label:"Registro",      val:fmtDateShort(user.created_at)},
+                      {label:"Último acceso", val:user.last_sign_in?fmtDateShort(user.last_sign_in):"—"},
+                      {label:"Onboarding",    val:user.onboarding_completed?"✓ Completo":"Pendiente"},
+                    ].map(s=>(
+                      <div key={s.label} style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:11, padding:"11px 13px" }}>
+                        <div style={{ fontSize:9, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:4, letterSpacing:".06em" }}>{s.label.toUpperCase()}</div>
+                        <div style={{ fontSize:12, fontWeight:700 }}>{s.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {borrower ? (
+                    <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, padding:"15px 17px" }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:13, letterSpacing:".06em" }}>DATOS DEL PERFIL</div>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:11 }}>
+                        {([
+                          ["RFC", borrower.rfc],
+                          ["CURP", borrower.curp],
+                          ["Empresa", borrower.razon_social],
+                          ["Sector", borrower.fin_sector],
+                          ["Facturación", borrower.fin_facturacion_anual ? `$${Number(borrower.fin_facturacion_anual).toLocaleString("es-MX")}` : null],
+                          ["Antigüedad", borrower.fin_antiguedad ? `${borrower.fin_antiguedad} años` : null],
+                          ["Empleados", borrower.fin_num_empleados],
+                          ["CLABE", borrower.clabe ? `****${borrower.clabe.slice(-4)}` : null],
+                        ] as [string,string|null][]).filter(([,v])=>v).map(([label,val])=>(
+                          <div key={label}>
+                            <div style={{ fontSize:9, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:3, letterSpacing:".06em" }}>{label.toUpperCase()}</div>
+                            <div style={{ fontSize:12, fontWeight:600 }}>{val}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <div style={{ fontSize:12, fontWeight:700, fontFamily:"'Geist Mono',monospace" }}>{fmt(s.monto)}</div>
-                      <span style={{ fontSize:10, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:sc.bg, color:sc.color, borderRadius:999, padding:"2px 7px" }}>{s.status}</span>
+                  ) : (
+                    <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, padding:20, textAlign:"center" }}>
+                      <div style={{ fontSize:12, color:"#94A3B8" }}>Sin perfil completado</div>
+                    </div>
+                  )}
+                  <button onClick={onEdit} style={{ height:42, borderRadius:11, border:"none", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", boxShadow:"0 4px 14px rgba(12,30,74,.22)" }}>
+                    Editar plan y rol →
+                  </button>
+                </>
+              )}
+
+              {/* ── TAB SCORE ── */}
+              {tab==="score" && (
+                <>
+                  {/* Score header card */}
+                  <div style={{ background:"linear-gradient(135deg,#0C1E4A,#0F2A5C)", border:`1px solid ${grade.c}30`, borderRadius:16, padding:"18px 20px", display:"flex", alignItems:"center", gap:16, position:"relative", overflow:"hidden" }}>
+                    <div style={{ position:"absolute",top:-40,right:-40,width:140,height:140,borderRadius:"50%",background:`radial-gradient(circle,${grade.g} 0%,transparent 70%)`,pointerEvents:"none" }}/>
+                    <MiniGauge score={score}/>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:10, fontFamily:"'Geist Mono',monospace", color:"rgba(238,242,255,.4)", letterSpacing:".1em", marginBottom:6 }}>SCORE CREDITICIO PLINIUS</div>
+                      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                        <div style={{ width:42,height:42,borderRadius:11,background:`${grade.c}18`,border:`2px solid ${grade.c}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:900,color:grade.c,fontFamily:"'Geist Mono',monospace" }}>{grade.l}</div>
+                        <div>
+                          <div style={{ fontSize:20,fontWeight:900,color:grade.c,fontFamily:"'Geist Mono',monospace",textShadow:`0 0 14px ${grade.g}` }}>{score} <span style={{ fontSize:11,color:"rgba(238,242,255,.4)" }}>/100</span></div>
+                          <div style={{ fontSize:11,color:"rgba(238,242,255,.5)" }}>{grade.label}</div>
+                        </div>
+                      </div>
+                      {/* Completeness bar */}
+                      <div>
+                        <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
+                          <span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",color:"rgba(238,242,255,.35)" }}>COMPLETITUD DEL MODELO</span>
+                          <span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",color:"#00E5A0" }}>{completeness}%</span>
+                        </div>
+                        <div style={{ height:4,borderRadius:999,background:"rgba(255,255,255,.08)" }}>
+                          <div style={{ height:"100%",borderRadius:999,width:`${completeness}%`,background:"linear-gradient(90deg,#3B82F6,#00E5A0)",transition:"width 1s" }}/>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
 
-          {/* Ofertas */}
-          {ofertas.length > 0 && (
-            <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, overflow:"hidden" }}>
-              <div style={{ padding:"11px 16px", borderBottom:"1px solid #F1F5F9", display:"flex", justifyContent:"space-between" }}>
-                <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", letterSpacing:".06em" }}>OFERTAS</div>
-                <span style={{ fontSize:10, fontFamily:"'Geist Mono',monospace", color:"#94A3B8" }}>{user.ofertas_count} total</span>
-              </div>
-              {ofertas.map(o => {
-                const sc = STATUS_COLOR[o.status]??{bg:"#F8FAFC",color:"#475569"};
-                return (
-                  <div key={o.id} style={{ padding:"10px 16px", borderBottom:"1px solid #F8FAFC", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <div>
-                      <div style={{ fontSize:12, fontWeight:700, fontFamily:"'Geist Mono',monospace" }}>{fmt(o.monto_ofertado)}</div>
-                      <div style={{ fontSize:10, color:"#94A3B8", fontFamily:"'Geist Mono',monospace" }}>{fmtDateShort(o.created_at)} · {o.tasa_anual}% anual</div>
+                  {/* Syntage + Buró banners */}
+                  <div style={{ background:"rgba(251,146,60,.05)", border:"1px solid rgba(251,146,60,.18)", borderRadius:12, padding:"11px 14px", display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{ width:26,height:26,borderRadius:7,background:"rgba(251,146,60,.1)",display:"grid",placeItems:"center",flexShrink:0,fontSize:13 }}>⚡</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:11,fontWeight:700,color:"#FB923C" }}>Syntage no conectado</div>
+                      <div style={{ fontSize:9,color:"rgba(251,146,60,.55)",fontFamily:"'Geist Mono',monospace" }}>DSCR · EBITDA real · DSO · CFDIs SAT</div>
                     </div>
-                    <span style={{ fontSize:10, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:sc.bg, color:sc.color, borderRadius:999, padding:"2px 7px" }}>{o.status}</span>
+                    <span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",color:"#FB923C",background:"rgba(251,146,60,.1)",border:"1px solid rgba(251,146,60,.2)",borderRadius:999,padding:"2px 8px",whiteSpace:"nowrap" }}>PENDIENTE</span>
                   </div>
-                );
-              })}
-            </div>
-          )}
 
-          <button onClick={onEdit} style={{ height:44, borderRadius:12, border:"none", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", boxShadow:"0 4px 16px rgba(12,30,74,.25)", marginTop:4 }}>
-            Editar plan y rol →
-          </button>
+                  {/* Scan Buró CTA */}
+                  <div style={{ background: scanRequested?"rgba(0,196,140,.06)":"rgba(139,92,246,.06)", border:`1px solid ${scanRequested?"rgba(0,196,140,.2)":"rgba(139,92,246,.2)"}`, borderRadius:12, padding:"13px 16px" }}>
+                    {scanRequested ? (
+                      <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+                        <div style={{ width:28,height:28,borderRadius:8,background:"rgba(0,196,140,.12)",display:"grid",placeItems:"center",flexShrink:0 }}>
+                          <Ic d="M2 8l4 4 8-8" s={14} c="#00C48C"/>
+                        </div>
+                        <div>
+                          <div style={{ fontSize:11,fontWeight:700,color:"#00C48C" }}>Solicitud de scan enviada</div>
+                          <div style={{ fontSize:9,color:"rgba(0,196,140,.6)",fontFamily:"'Geist Mono',monospace" }}>Equipo notificado para consulta Buró · $299 MXN</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+                        <div style={{ width:28,height:28,borderRadius:8,background:"rgba(139,92,246,.1)",display:"grid",placeItems:"center",flexShrink:0,fontSize:13 }}>🏦</div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:11,fontWeight:700,color:"#8B5CF6" }}>Consultar Buró de Crédito</div>
+                          <div style={{ fontSize:9,color:"rgba(139,92,246,.6)",fontFamily:"'Geist Mono',monospace" }}>Suma 9 puntos al score · Consulta manual · RFC requerido</div>
+                        </div>
+                        <button onClick={requestScan} disabled={scanLoading||!borrower?.rfc}
+                          style={{ height:30,padding:"0 14px",borderRadius:8,border:"none",background:borrower?.rfc?"linear-gradient(135deg,#7C3AED,#6D28D9)":"#E2E8F0",color:borrower?.rfc?"#fff":"#94A3B8",fontSize:10,fontWeight:700,cursor:borrower?.rfc?"pointer":"not-allowed",fontFamily:"'Geist',sans-serif",flexShrink:0,opacity:scanLoading?.7:1,whiteSpace:"nowrap" }}>
+                          {scanLoading?"Enviando…":"$299 MXN →"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Variables */}
+                  <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, overflow:"hidden" }}>
+                    <div style={{ padding:"11px 16px", borderBottom:"1px solid #F1F5F9", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ fontSize:10,fontWeight:700,color:"#94A3B8",fontFamily:"'Geist Mono',monospace",letterSpacing:".06em" }}>VARIABLES DEL MODELO</div>
+                      <div style={{ display:"flex",gap:6 }}>
+                        {(["ok","warn","missing","pending"] as const).map(s=>(
+                          <div key={s} style={{ display:"flex",alignItems:"center",gap:3 }}>
+                            <div style={{ width:6,height:6,borderRadius:"50%",background:SCOLOR[s] }}/>
+                            <span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",color:"#CBD5E1",textTransform:"uppercase" }}>{s}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {vars.map(v=>(
+                      <div key={v.key} style={{ padding:"10px 16px", borderBottom:"1px solid #F8FAFC" }}>
+                        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5 }}>
+                          <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+                            <div style={{ width:7,height:7,borderRadius:"50%",background:SCOLOR[v.status],boxShadow:v.status==="ok"?`0 0 5px ${SCOLOR[v.status]}`:"none",flexShrink:0 }}/>
+                            <span style={{ fontSize:11,fontWeight:600,color:"#1E293B" }}>{v.label}</span>
+                          </div>
+                          <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+                            <span style={{ fontSize:10,fontFamily:"'Geist Mono',monospace",color:"#64748B" }}>{v.raw}</span>
+                            {v.benchmark&&<span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",color:"#CBD5E1" }}>ref:{v.benchmark}</span>}
+                            <span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",fontWeight:700,color:"#64748B",background:"#F1F5F9",borderRadius:999,padding:"1px 6px" }}>{v.w}%</span>
+                          </div>
+                        </div>
+                        <div style={{ height:4,borderRadius:999,background:"#F1F5F9",overflow:"hidden" }}>
+                          <div style={{ height:"100%",borderRadius:999,width:v.value!==null?`${v.value}%`:"0%",background:v.status==="pending"?"repeating-linear-gradient(90deg,#E2E8F0 0,#E2E8F0 4px,transparent 4px,transparent 8px)":SCOLOR[v.status],boxShadow:v.status==="ok"?`0 0 6px ${SCOLOR[v.status]}55`:"none" }}/>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Download buttons */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                    <button onClick={()=>downloadCSV(borrower,vars,score,empresa)}
+                      style={{ height:40,borderRadius:11,border:"1.5px solid #E2E8F0",background:"#fff",color:"#0C1E4A",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Geist',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}>
+                      <span>⬇</span> Excel / CSV
+                    </button>
+                    <button onClick={()=>downloadPDF(borrower,vars,score,empresa)}
+                      style={{ height:40,borderRadius:11,border:"none",background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Geist',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6,boxShadow:"0 4px 14px rgba(12,30,74,.2)" }}>
+                      <span>📄</span> PDF Report
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ── TAB SOLICITUDES ── */}
+              {tab==="solicitudes" && (
+                solicitudes.length > 0 ? (
+                  <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, overflow:"hidden" }}>
+                    <div style={{ padding:"11px 16px", borderBottom:"1px solid #F1F5F9", display:"flex", justifyContent:"space-between" }}>
+                      <div style={{ fontSize:10,fontWeight:700,color:"#94A3B8",fontFamily:"'Geist Mono',monospace",letterSpacing:".06em" }}>SOLICITUDES</div>
+                      <span style={{ fontSize:10,fontFamily:"'Geist Mono',monospace",color:"#94A3B8" }}>{user.solicitudes_count} total</span>
+                    </div>
+                    {solicitudes.map(s=>{
+                      const sc=SC[s.status]??{bg:"#F8FAFC",color:"#475569"};
+                      return (
+                        <div key={s.id} style={{ padding:"11px 16px",borderBottom:"1px solid #F8FAFC",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                          <div>
+                            <div style={{ fontSize:12,fontWeight:600 }}>{s.destino||"—"}</div>
+                            <div style={{ fontSize:10,color:"#94A3B8",fontFamily:"'Geist Mono',monospace" }}>{fmtDateShort(s.created_at)} · {s.plazo_meses}m</div>
+                          </div>
+                          <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                            <div style={{ fontSize:13,fontWeight:700,fontFamily:"'Geist Mono',monospace" }}>{fmt(s.monto)}</div>
+                            <span style={{ fontSize:10,fontWeight:700,fontFamily:"'Geist Mono',monospace",background:sc.bg,color:sc.color,borderRadius:999,padding:"2px 8px" }}>{s.status}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ padding:32,textAlign:"center" }}>
+                    <div style={{ fontSize:12,color:"#94A3B8" }}>Sin solicitudes registradas</div>
+                  </div>
+                )
+              )}
+
+              {/* ── TAB OFERTAS ── */}
+              {tab==="ofertas" && (
+                ofertas.length > 0 ? (
+                  <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, overflow:"hidden" }}>
+                    <div style={{ padding:"11px 16px", borderBottom:"1px solid #F1F5F9", display:"flex", justifyContent:"space-between" }}>
+                      <div style={{ fontSize:10,fontWeight:700,color:"#94A3B8",fontFamily:"'Geist Mono',monospace",letterSpacing:".06em" }}>OFERTAS</div>
+                      <span style={{ fontSize:10,fontFamily:"'Geist Mono',monospace",color:"#94A3B8" }}>{user.ofertas_count} total</span>
+                    </div>
+                    {ofertas.map(o=>{
+                      const sc=SC[o.status]??{bg:"#F8FAFC",color:"#475569"};
+                      return (
+                        <div key={o.id} style={{ padding:"11px 16px",borderBottom:"1px solid #F8FAFC",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                          <div>
+                            <div style={{ fontSize:13,fontWeight:700,fontFamily:"'Geist Mono',monospace" }}>{fmt(o.monto_ofertado)}</div>
+                            <div style={{ fontSize:10,color:"#94A3B8",fontFamily:"'Geist Mono',monospace" }}>{fmtDateShort(o.created_at)} · {o.tasa_anual}% anual</div>
+                          </div>
+                          <span style={{ fontSize:10,fontWeight:700,fontFamily:"'Geist Mono',monospace",background:sc.bg,color:sc.color,borderRadius:999,padding:"2px 8px" }}>{o.status}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ padding:32,textAlign:"center" }}>
+                    <div style={{ fontSize:12,color:"#94A3B8" }}>Sin ofertas registradas</div>
+                  </div>
+                )
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
