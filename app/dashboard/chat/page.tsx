@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { deriveKey, encryptMsg, decryptMsg } from "@/lib/chatCrypto";
 
 type Conv = {
   id: string;
@@ -20,8 +21,10 @@ type Msg = {
   conversacion_id: string;
   sender_id: string;
   content: string;
+  iv: string | null;
   created_at: string;
   leido: boolean;
+  decrypted?: string; // client-side only
 };
 
 function timeAgo(iso: string) {
@@ -44,7 +47,6 @@ const CSS = `
   @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes msgIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
   .fade{animation:fadeUp .3s cubic-bezier(.16,1,.3,1) both}
   textarea{resize:none;font-family:'Geist',sans-serif;}
   textarea:focus{outline:none;}
@@ -53,6 +55,26 @@ const CSS = `
   .conv-item:hover{background:rgba(255,255,255,.04);}
   .conv-item.active{background:rgba(0,229,160,.06);border-right:2px solid #00E5A0;}
 `;
+
+// Derive key for a conversation — memoized by conv id
+const keyCache = new Map<string, CryptoKey>();
+async function getKey(convId: string, uid1: string, uid2: string): Promise<CryptoKey> {
+  if (keyCache.has(convId)) return keyCache.get(convId)!;
+  const key = await deriveKey(convId, uid1, uid2);
+  keyCache.set(convId, key);
+  return key;
+}
+
+async function decryptAll(msgs: Msg[], convId: string, uid1: string, uid2: string): Promise<Msg[]> {
+  const key = await getKey(convId, uid1, uid2);
+  return Promise.all(
+    msgs.map(async (m) => {
+      if (!m.iv) return { ...m, decrypted: m.content }; // legacy plain text
+      const text = await decryptMsg(m.content, m.iv, key);
+      return { ...m, decrypted: text };
+    })
+  );
+}
 
 function ChatInner() {
   const router = useRouter();
@@ -72,13 +94,14 @@ function ChatInner() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const channelRef = useRef<any>(null);
+  const userRef = useRef<any>(null);
 
-  // Load user + convs
   useEffect(() => {
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) { router.push("/login"); return; }
       setUser(auth.user);
+      userRef.current = auth.user;
 
       const [{ data: p }, { data: r }] = await Promise.all([
         supabase.from("plinius_profiles").select("plan").eq("user_id", auth.user.id).maybeSingle(),
@@ -102,22 +125,37 @@ function ChatInner() {
 
     if (!cs) return;
 
-    // Get unread count + last msg per conv
-    const enriched = await Promise.all(cs.map(async (c) => {
-      const [{ count }, { data: lastMsgs }] = await Promise.all([
-        supabase.from("mensajes").select("*", { count: "exact", head: true })
-          .eq("conversacion_id", c.id).eq("leido", false).neq("sender_id", uid),
-        supabase.from("mensajes").select("content").eq("conversacion_id", c.id)
-          .order("created_at", { ascending: false }).limit(1),
-      ]);
-      return { ...c, unread: count ?? 0, last_msg: lastMsgs?.[0]?.content || "" };
-    }));
+    const enriched = await Promise.all(
+      cs.map(async (c) => {
+        const [{ count }, { data: lastMsgs }] = await Promise.all([
+          supabase.from("mensajes").select("*", { count: "exact", head: true })
+            .eq("conversacion_id", c.id).eq("leido", false).neq("sender_id", uid),
+          supabase.from("mensajes").select("content,iv").eq("conversacion_id", c.id)
+            .order("created_at", { ascending: false }).limit(1),
+        ]);
+
+        // Decrypt last_msg preview
+        let lastMsgText = "Sin mensajes aún";
+        if (lastMsgs?.[0]) {
+          const lm = lastMsgs[0];
+          if (lm.iv) {
+            try {
+              const key = await getKey(c.id, c.otorgante_id, c.solicitante_id);
+              lastMsgText = await decryptMsg(lm.content, lm.iv, key);
+            } catch { lastMsgText = "🔒 Mensaje cifrado"; }
+          } else {
+            lastMsgText = lm.content;
+          }
+        }
+
+        return { ...c, unread: count ?? 0, last_msg: lastMsgText };
+      })
+    );
 
     setConvs(enriched);
 
-    // Autoselect
     if (preselect) {
-      const found = enriched.find(c => c.id === preselect);
+      const found = enriched.find((c) => c.id === preselect);
       if (found) selectConv(found, uid);
     } else if (enriched.length > 0) {
       selectConv(enriched[0], uid);
@@ -128,10 +166,7 @@ function ChatInner() {
     setActiveConv(conv);
     setMsgsLoading(true);
 
-    // Unsubscribe previous
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
+    if (channelRef.current) supabase.removeChannel(channelRef.current);
 
     const { data: ms } = await supabase
       .from("mensajes")
@@ -139,11 +174,19 @@ function ChatInner() {
       .eq("conversacion_id", conv.id)
       .order("created_at", { ascending: true });
 
-    setMsgs(ms ?? []);
+    const myId = uid || userRef.current?.id;
+
+    // Decrypt all messages
+    const decrypted = await decryptAll(
+      ms ?? [],
+      conv.id,
+      conv.otorgante_id,
+      conv.solicitante_id
+    );
+    setMsgs(decrypted);
     setMsgsLoading(false);
 
     // Mark as read
-    const myId = uid || user?.id;
     if (myId) {
       await supabase.from("mensajes")
         .update({ leido: true, leido_at: new Date().toISOString() })
@@ -151,10 +194,10 @@ function ChatInner() {
         .eq("leido", false)
         .neq("sender_id", myId);
 
-      setConvs(prev => prev.map(c => c.id === conv.id ? { ...c, unread: 0 } : c));
+      setConvs((prev) => prev.map((c) => (c.id === conv.id ? { ...c, unread: 0 } : c)));
     }
 
-    // Realtime subscription
+    // Realtime
     const channel = supabase
       .channel(`chat:${conv.id}`)
       .on("postgres_changes", {
@@ -162,51 +205,76 @@ function ChatInner() {
         schema: "public",
         table: "mensajes",
         filter: `conversacion_id=eq.${conv.id}`,
-      }, (payload) => {
-        const newMsg = payload.new as Msg;
-        setMsgs(prev => {
-          if (prev.find(m => m.id === newMsg.id)) return prev;
+      }, async (payload) => {
+        const raw = payload.new as Msg;
+        // Decrypt incoming
+        let decryptedText = raw.content;
+        if (raw.iv) {
+          try {
+            const key = await getKey(conv.id, conv.otorgante_id, conv.solicitante_id);
+            decryptedText = await decryptMsg(raw.content, raw.iv, key);
+          } catch { decryptedText = "🔒 Mensaje cifrado"; }
+        }
+        const newMsg = { ...raw, decrypted: decryptedText };
+
+        setMsgs((prev) => {
+          if (prev.find((m) => m.id === newMsg.id)) return prev;
           return [...prev, newMsg];
         });
+
         // Mark read if not mine
-        if (newMsg.sender_id !== (uid || user?.id)) {
+        const currentUser = userRef.current;
+        if (newMsg.sender_id !== currentUser?.id) {
           supabase.from("mensajes")
             .update({ leido: true, leido_at: new Date().toISOString() })
             .eq("id", newMsg.id).then(() => {});
         }
-        // Update conv last_msg
-        setConvs(prev => prev.map(c =>
-          c.id === conv.id
-            ? { ...c, last_msg: newMsg.content, last_message_at: newMsg.created_at }
-            : c
-        ));
+
+        setConvs((prev) =>
+          prev.map((c) =>
+            c.id === conv.id
+              ? { ...c, last_msg: decryptedText, last_message_at: newMsg.created_at }
+              : c
+          )
+        );
       })
       .subscribe();
 
     channelRef.current = channel;
   }
 
-  // Scroll to bottom on new msgs
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs]);
 
   async function sendMsg() {
     if (!input.trim() || !activeConv || sending) return;
-    const content = input.trim();
+    const plaintext = input.trim();
     setInput("");
     setSending(true);
 
-    const { error } = await supabase.from("mensajes").insert({
-      conversacion_id: activeConv.id,
-      sender_id: user.id,
-      content,
-    });
+    try {
+      const key = await getKey(
+        activeConv.id,
+        activeConv.otorgante_id,
+        activeConv.solicitante_id
+      );
+      const { content, iv } = await encryptMsg(plaintext, key);
 
-    if (!error) {
-      await supabase.from("conversaciones")
-        .update({ last_message_at: new Date().toISOString() })
-        .eq("id", activeConv.id);
+      const { error } = await supabase.from("mensajes").insert({
+        conversacion_id: activeConv.id,
+        sender_id: user.id,
+        content,
+        iv,
+      });
+
+      if (!error) {
+        await supabase.from("conversaciones")
+          .update({ last_message_at: new Date().toISOString() })
+          .eq("id", activeConv.id);
+      }
+    } catch (e) {
+      console.error("Error al cifrar/enviar:", e);
     }
 
     setSending(false);
@@ -229,14 +297,14 @@ function ChatInner() {
     return conv.otorgante_email?.split("@")[0] || "Otorgante";
   };
 
-  if (loading) return (
-    <div style={{ minHeight: "100vh", background: "#040C18", display: "grid", placeItems: "center", fontFamily: "'Geist',sans-serif" }}>
-      <style>{CSS}</style>
-      <svg style={{ animation: "spin .8s linear infinite" }} width={20} height={20} viewBox="0 0 20 20" fill="none" stroke="#334155" strokeWidth="2"><path d="M10 2a8 8 0 018 8" /></svg>
-    </div>
-  );
+  if (loading)
+    return (
+      <div style={{ minHeight: "100vh", background: "#040C18", display: "grid", placeItems: "center", fontFamily: "'Geist',sans-serif" }}>
+        <style>{CSS}</style>
+        <svg style={{ animation: "spin .8s linear infinite" }} width={20} height={20} viewBox="0 0 20 20" fill="none" stroke="#334155" strokeWidth="2"><path d="M10 2a8 8 0 018 8" /></svg>
+      </div>
+    );
 
-  // Gate: otorgante free → upgrade wall
   if (isOtorgante && !isPro && convs.length === 0) {
     return (
       <div style={{ minHeight: "100vh", background: "#040C18", display: "grid", placeItems: "center", fontFamily: "'Geist',sans-serif", padding: 24 }}>
@@ -265,6 +333,11 @@ function ChatInner() {
           <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'Geist Mono',monospace", background: "#00E5A0", color: "#040C18", borderRadius: 999, padding: "2px 7px" }}>{totalUnread}</span>
         )}
         <div style={{ flex: 1 }} />
+        {/* E2E indicator */}
+        <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "rgba(0,229,160,.06)", border: "1px solid rgba(0,229,160,.12)" }}>
+          <svg width={10} height={10} viewBox="0 0 10 10" fill="none"><rect x="2" y="4" width="6" height="5" rx="1" stroke="#00E5A0" strokeWidth="1"/><path d="M3.5 4V3a1.5 1.5 0 013 0v1" stroke="#00E5A0" strokeWidth="1"/></svg>
+          <span style={{ fontSize: 9, fontFamily: "'Geist Mono',monospace", color: "#00E5A0", fontWeight: 600, letterSpacing: "0.04em" }}>E2E CIFRADO</span>
+        </div>
         {isOtorgante && !isPro && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", borderRadius: 10, background: "rgba(99,102,241,.1)", border: "1px solid rgba(99,102,241,.2)" }}>
             <span style={{ fontSize: 11, color: "#818CF8", fontWeight: 600 }}>Solo Pro puede iniciar chats</span>
@@ -294,7 +367,7 @@ function ChatInner() {
               )}
             </div>
           ) : (
-            convs.map(conv => (
+            convs.map((conv) => (
               <div key={conv.id} className={`conv-item${activeConv?.id === conv.id ? " active" : ""}`}
                 onClick={() => selectConv(conv)}
                 style={{ padding: "14px 16px", borderBottom: "1px solid #0A1628" }}>
@@ -342,7 +415,7 @@ function ChatInner() {
                   </div>
                 </div>
                 <div style={{ flex: 1 }} />
-                <button onClick={() => router.push(`/dashboard/marketplace`)}
+                <button onClick={() => router.push("/dashboard/marketplace")}
                   style={{ height: 30, padding: "0 12px", borderRadius: 8, border: "1px solid #1E293B", background: "transparent", color: "#334155", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Geist',sans-serif" }}>
                   Ver solicitud
                 </button>
@@ -365,7 +438,12 @@ function ChatInner() {
                   <>
                     {msgs.map((msg, i) => {
                       const isMine = msg.sender_id === user?.id;
-                      const showDate = i === 0 || new Date(msg.created_at).toDateString() !== new Date(msgs[i - 1].created_at).toDateString();
+                      const showDate =
+                        i === 0 ||
+                        new Date(msg.created_at).toDateString() !==
+                          new Date(msgs[i - 1].created_at).toDateString();
+                      const displayText = msg.decrypted ?? msg.content;
+
                       return (
                         <div key={msg.id} style={{ animation: "msgIn .2s cubic-bezier(.16,1,.3,1) both" }}>
                           {showDate && (
@@ -377,13 +455,20 @@ function ChatInner() {
                           )}
                           <div style={{ display: "flex", justifyContent: isMine ? "flex-end" : "flex-start" }}>
                             <div style={{
-                              maxWidth: "70%", padding: "10px 14px", borderRadius: isMine ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                              maxWidth: "70%", padding: "10px 14px",
+                              borderRadius: isMine ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
                               background: isMine ? "linear-gradient(135deg,#0C1E4A,#1B3F8A)" : "#0A1628",
                               border: isMine ? "none" : "1px solid #1E293B",
                               boxShadow: isMine ? "0 2px 12px rgba(12,30,74,.4)" : "none",
                             }}>
-                              <div style={{ fontSize: 13, color: "#F8FAFC", lineHeight: 1.5, wordBreak: "break-word" }}>{msg.content}</div>
+                              <div style={{ fontSize: 13, color: "#F8FAFC", lineHeight: 1.5, wordBreak: "break-word" }}>{displayText}</div>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, marginTop: 4 }}>
+                                {msg.iv && (
+                                  <svg width={8} height={8} viewBox="0 0 10 10" fill="none" style={{ opacity: .4 }}>
+                                    <rect x="2" y="4" width="6" height="5" rx="1" stroke="#00E5A0" strokeWidth="1.2"/>
+                                    <path d="M3.5 4V3a1.5 1.5 0 013 0v1" stroke="#00E5A0" strokeWidth="1.2"/>
+                                  </svg>
+                                )}
                                 <span style={{ fontSize: 9, fontFamily: "'Geist Mono',monospace", color: isMine ? "rgba(238,242,255,.3)" : "#1E293B" }}>{fmtTime(msg.created_at)}</span>
                                 {isMine && (
                                   <span style={{ fontSize: 9, color: msg.leido ? "#00E5A0" : "rgba(238,242,255,.25)" }}>
@@ -403,7 +488,6 @@ function ChatInner() {
 
               {/* Input */}
               <div style={{ padding: "12px 20px", borderTop: "1px solid #0F1E2E", flexShrink: 0 }}>
-                {/* Gate check: solicitante always can reply, otorgante needs pro */}
                 {isOtorgante && !isPro ? (
                   <div style={{ padding: "12px 16px", borderRadius: 12, background: "rgba(99,102,241,.06)", border: "1px solid rgba(99,102,241,.2)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <span style={{ fontSize: 12, color: "#818CF8" }}>Necesitas Pro para enviar mensajes</span>
@@ -415,14 +499,14 @@ function ChatInner() {
                 ) : (
                   <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
                     <div style={{ flex: 1, background: "#0A1628", border: "1px solid #1E293B", borderRadius: 14, padding: "10px 14px", transition: "border-color .15s" }}
-                      onFocus={e => (e.currentTarget.style.borderColor = "#334155")}
-                      onBlur={e => (e.currentTarget.style.borderColor = "#1E293B")}>
+                      onFocus={(e) => (e.currentTarget.style.borderColor = "#334155")}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = "#1E293B")}>
                       <textarea
                         ref={inputRef}
                         value={input}
-                        onChange={e => setInput(e.target.value)}
+                        onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Escribe un mensaje... (Enter para enviar)"
+                        placeholder="Escribe un mensaje… (Enter para enviar)"
                         rows={1}
                         style={{
                           width: "100%", background: "transparent", border: "none", color: "#F8FAFC",
@@ -437,7 +521,7 @@ function ChatInner() {
                         cursor: input.trim() ? "pointer" : "not-allowed",
                         display: "grid", placeItems: "center",
                         boxShadow: input.trim() ? "0 2px 12px rgba(12,30,74,.4)" : "none",
-                        transition: "all .15s", opacity: sending ? .6 : 1,
+                        transition: "all .15s", opacity: sending ? 0.6 : 1,
                       }}>
                       {sending ? (
                         <svg style={{ animation: "spin .6s linear infinite" }} width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="#fff" strokeWidth="1.5"><path d="M7 1a6 6 0 016 6" /></svg>
@@ -450,7 +534,7 @@ function ChatInner() {
                   </div>
                 )}
                 <div style={{ marginTop: 6, fontSize: 9, fontFamily: "'Geist Mono',monospace", color: "#1E293B", textAlign: "center" }}>
-                  Enter para enviar · Shift+Enter nueva línea
+                  Enter para enviar · Shift+Enter nueva línea · 🔒 cifrado extremo a extremo
                 </div>
               </div>
             </>
@@ -464,8 +548,8 @@ function ChatInner() {
 export default function ChatPage() {
   return (
     <Suspense fallback={
-      <div style={{ minHeight:"100vh", background:"#040C18", display:"grid", placeItems:"center" }}>
-        <svg style={{ animation:"spin .8s linear infinite" }} width={20} height={20} viewBox="0 0 20 20" fill="none" stroke="#334155" strokeWidth="2"><path d="M10 2a8 8 0 018 8"/></svg>
+      <div style={{ minHeight: "100vh", background: "#040C18", display: "grid", placeItems: "center" }}>
+        <svg style={{ animation: "spin .8s linear infinite" }} width={20} height={20} viewBox="0 0 20 20" fill="none" stroke="#334155" strokeWidth="2"><path d="M10 2a8 8 0 018 8" /></svg>
       </div>
     }>
       <ChatInner />
