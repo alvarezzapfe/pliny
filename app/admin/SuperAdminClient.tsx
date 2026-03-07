@@ -64,7 +64,8 @@ function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; on
 
   async function handleSave() {
     setSaving(true);
-    await supabase.from("plinius_profiles").upsert({ user_id:user.id, plan, plan_updated_at:new Date().toISOString() }, { onConflict:"user_id" });
+    await supabase.from("plinius_profiles").insert({ user_id:user.id, plan:"free" }).throwOnError().catch(()=>{});
+    await supabase.from("plinius_profiles").update({ plan, plan_updated_at:new Date().toISOString() }).eq("user_id", user.id);
     if (role) await supabase.from("user_roles").upsert({ user_id:user.id, role }, { onConflict:"user_id" });
     setSaving(false); setSaved(true);
     setTimeout(() => { onSaved(user.id, plan, role||null); onClose(); }, 800);
