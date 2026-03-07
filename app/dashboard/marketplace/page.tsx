@@ -309,6 +309,8 @@ export default function MarketplacePage() {
   const [misOfertas,  setMisOfertas]  = useState<string[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [userId,      setUserId]      = useState<string|null>(null);
+  const [isPro,       setIsPro]       = useState(false);
+  const [userEmail,   setUserEmail]   = useState<string>("");
   const [showPaywall, setShowPaywall] = useState(false);
   const [ofertando,   setOfertando]   = useState<any>(null);
   const [sort,        setSort]        = useState<"fecha"|"monto_asc"|"monto_desc">("fecha");
@@ -320,9 +322,12 @@ export default function MarketplacePage() {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) { router.push("/login"); return; }
       setUserId(auth.user.id);
+      setUserEmail(auth.user.email ?? "");
+      const { data: prof } = await supabase.from("plinius_profiles").select("plan").eq("user_id", auth.user.id).maybeSingle();
+      setIsPro(prof?.plan === "pro");
       const [{ data: sols }, { data: ofertas }] = await Promise.all([
         supabase.from("solicitudes")
-          .select("id,tipo,monto,plazo_meses,tasa_solicitada,destino,descripcion,garantia_tipo,fin_sector,fin_facturacion_anual,fin_antiguedad,fin_num_empleados,created_at")
+          .select("id,user_id,tipo,monto,plazo_meses,tasa_solicitada,destino,descripcion,garantia_tipo,fin_sector,fin_facturacion_anual,fin_antiguedad,fin_num_empleados,created_at")
           .eq("tipo","subasta").in("status",["enviada","en_revision"])
           .order("created_at", { ascending:false }),
         supabase.from("ofertas").select("solicitud_id").eq("otorgante_id", auth.user.id),
@@ -356,12 +361,24 @@ export default function MarketplacePage() {
   function upd(k: keyof typeof filtros, v: string) { setFiltros(f=>({...f,[k]:v})); }
   function handleSent() { if (ofertando) setMisOfertas(prev=>[...prev, ofertando.id]); }
 
-  function handleConectar(s: any) {
+  async function handleConectar(s: any) {
     if (!userId) return;
-    // For Pro: go to chat. For now: show paywall
-    // If you want to open chat directly for Pro users, replace with:
-    // router.push(`/dashboard/chat?solicitud=${s.id}&other=${s.borrower_id}`)
-    setShowPaywall(true);
+    if (!isPro) { setShowPaywall(true); return; }
+    // Upsert conversacion y navegar al chat
+    const { data: conv, error } = await supabase
+      .from("conversaciones")
+      .upsert({
+        otorgante_id: userId,
+        solicitante_id: s.user_id,
+        solicitud_id: s.id,
+        solicitante_empresa: s.fin_sector || null,
+        otorgante_email: userEmail,
+      }, { onConflict: "otorgante_id,solicitante_id", ignoreDuplicates: false })
+      .select("id")
+      .maybeSingle();
+    if (!error && conv?.id) {
+      router.push(`/dashboard/chat?conv=${conv.id}`);
+    }
   }
 
   const CSS = `
