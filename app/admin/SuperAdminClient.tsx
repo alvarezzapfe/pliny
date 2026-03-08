@@ -52,7 +52,7 @@ type User = {
 };
 type Lead = { id: string; plan: string; company: string; name: string; email: string; phone: string; notes: string; created_at: string; };
 type Solicitud = {
-  id: string; owner_id: string; destino: string | null; descripcion: string | null;
+  id: string; borrower_id: string; destino: string | null; descripcion: string | null;
   monto: number; plazo_meses: number; status: string; created_at: string;
   owner_email?: string;
 };
@@ -112,7 +112,7 @@ function EditSolicitudModal({ sol, onClose, onSaved }: {
           <div>
             <div style={{ fontSize:15, fontWeight:800, letterSpacing:"-0.03em" }}>Editar solicitud</div>
             <div style={{ fontSize:10, color:"#94A3B8", marginTop:3, fontFamily:"'Geist Mono',monospace" }}>
-              {sol.id.slice(0,8)}… · {sol.owner_email ?? sol.owner_id.slice(0,8)+"…"}
+              {sol.id.slice(0,8)}… · {sol.owner_email ?? sol.borrower_id.slice(0,8)+"…"}
             </div>
           </div>
           <button onClick={onClose} style={{ width:28, height:28, borderRadius:8, border:"1px solid #E2E8F0", background:"#F8FAFC", cursor:"pointer", display:"grid", placeItems:"center" }}>
@@ -385,8 +385,8 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
   useEffect(() => {
     (async () => {
       const [{ data:b }, { data:s }, { data:o }] = await Promise.all([
-        supabase.from("borrowers_profile").select("*").eq("owner_id", user.id).maybeSingle(),
-        supabase.from("solicitudes").select("id,destino,descripcion,monto,status,created_at,plazo_meses").eq("owner_id", user.id).order("created_at",{ascending:false}).limit(20),
+        supabase.from("borrowers_profile").select("*").eq("borrower_id", user.id).maybeSingle(),
+        supabase.from("solicitudes").select("id,destino,descripcion,monto,status,created_at,plazo_meses").eq("borrower_id", user.id).order("created_at",{ascending:false}).limit(20),
         supabase.from("ofertas").select("id,monto_ofertado,tasa_anual,status,created_at").eq("otorgante_id", user.id).order("created_at",{ascending:false}).limit(10),
       ]);
       setBorrower(b); setSolicitudes(s??[]); setOfertas(o??[]);
@@ -786,7 +786,7 @@ export default function SuperAdminClient() {
     setLoadingSols(true);
     const { data } = await supabase
       .from("solicitudes")
-      .select("id,owner_id,destino,descripcion,monto,plazo_meses,status,created_at")
+      .select("id,borrower_id,destino,descripcion,monto,plazo_meses,status,created_at")
       .order("created_at", { ascending: false })
       .limit(200);
     if (data) setSolicitudes(data as Solicitud[]);
@@ -808,7 +808,7 @@ export default function SuperAdminClient() {
 
   const enrichedSols = useMemo(() => {
     const emailMap = new Map(users.map(u => [u.id, u.email]));
-    return solicitudes.map(s => ({ ...s, owner_email: emailMap.get(s.owner_id) ?? s.owner_id.slice(0,8)+"…" }));
+    return solicitudes.map(s => ({ ...s, owner_email: emailMap.get(s.borrower_id) ?? s.borrower_id.slice(0,8)+"…" }));
   }, [solicitudes, users]);
 
   const filteredSols = useMemo(() => {
