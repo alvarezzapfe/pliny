@@ -79,7 +79,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // ── Edit Solicitud Modal ────────────────────────────────────────────────────
-function EditSolicitudModal({ sol, onClose, onSaved }: {
+function EditSolicitudModal({ sol, onClose, onSaved, onDeleted }: {
   sol: Solicitud; onClose: () => void; onSaved: (updated: Solicitud) => void; onDeleted: (id: string) => void;
 }) {
   const [descripcion, setDescripcion] = useState(sol.descripcion ?? "");
