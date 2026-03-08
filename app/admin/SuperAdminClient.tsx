@@ -99,6 +99,8 @@ function EditSolicitudModal({ sol, onClose, onSaved, onDeleted }: {
     setTimeout(() => {
       onSaved({ ...sol, descripcion: descripcion.trim(), destino: destino.trim(), status });
       onClose();
+    }, 700);
+  }
 
   async function handleDelete() {
     if (!confirm("¿Eliminar esta solicitud? Esta acción no se puede deshacer.")) return;
@@ -106,8 +108,6 @@ function EditSolicitudModal({ sol, onClose, onSaved, onDeleted }: {
     if (error) { alert("Error al eliminar: " + error.message); return; }
     onDeleted(sol.id);
     onClose();
-  }
-    }, 700);
   }
 
   const STATUSES = ["enviada","en_revision","ofertada","aceptada","rechazada","pendiente"];
