@@ -20,6 +20,12 @@ function fmtDate(iso: string) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
 }
+function fmt(n: number) {
+  if (!n) return "—";
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n}`;
+}
 
 const PLAN_CONFIG = {
   free:  { label: "Free",  bg: "#F8FAFC", color: "#475569", border: "#E2E8F0", dot: "#CBD5E1", glow: "" },
@@ -30,6 +36,14 @@ const ROLE_CONFIG = {
   otorgante:   { label: "Otorgante",   bg: "#F5F3FF", color: "#5B21B6", border: "#DDD6FE" },
   solicitante: { label: "Solicitante", bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA" },
 };
+const SOL_STATUS_CONFIG: Record<string, { bg: string; color: string }> = {
+  enviada:    { bg: "#EFF6FF", color: "#1E40AF" },
+  en_revision:{ bg: "#FFF7ED", color: "#9A3412" },
+  ofertada:   { bg: "#F0FDF9", color: "#065F46" },
+  aceptada:   { bg: "#ECFDF5", color: "#065F46" },
+  rechazada:  { bg: "#FFF1F2", color: "#9F1239" },
+  pendiente:  { bg: "#FFF7ED", color: "#9A3412" },
+};
 
 type User = {
   id: string; email: string; created_at: string; last_sign_in: string | null;
@@ -37,7 +51,12 @@ type User = {
   onboarding_completed: boolean; solicitudes_count: number; ofertas_count: number;
 };
 type Lead = { id: string; plan: string; company: string; name: string; email: string; phone: string; notes: string; created_at: string; };
-type View = "usuarios" | "leads" | "metricas";
+type Solicitud = {
+  id: string; owner_id: string; destino: string | null; descripcion: string | null;
+  monto: number; plazo_meses: number; status: string; created_at: string;
+  owner_email?: string;
+};
+type View = "usuarios" | "solicitudes" | "leads" | "metricas";
 
 function PlanBadge({ plan, large }: { plan: string; large?: boolean }) {
   const cfg = PLAN_CONFIG[plan as keyof typeof PLAN_CONFIG] ?? PLAN_CONFIG.free;
@@ -53,6 +72,126 @@ function RoleBadge({ role }: { role: string | null }) {
   const cfg = ROLE_CONFIG[role as keyof typeof ROLE_CONFIG];
   if (!cfg) return <span style={{ fontSize:11, color:"#94A3B8" }}>{role}</span>;
   return <span style={{ fontSize:11, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:cfg.bg, color:cfg.color, border:`1px solid ${cfg.border}`, borderRadius:999, padding:"2px 8px", whiteSpace:"nowrap" }}>{cfg.label}</span>;
+}
+function StatusBadge({ status }: { status: string }) {
+  const cfg = SOL_STATUS_CONFIG[status] ?? { bg:"#F8FAFC", color:"#475569" };
+  return <span style={{ fontSize:10, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:cfg.bg, color:cfg.color, borderRadius:999, padding:"2px 8px", whiteSpace:"nowrap" }}>{status}</span>;
+}
+
+// ── Edit Solicitud Modal ────────────────────────────────────────────────────
+function EditSolicitudModal({ sol, onClose, onSaved }: {
+  sol: Solicitud; onClose: () => void; onSaved: (updated: Solicitud) => void;
+}) {
+  const [descripcion, setDescripcion] = useState(sol.descripcion ?? "");
+  const [destino, setDestino] = useState(sol.destino ?? "");
+  const [status, setStatus] = useState(sol.status);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    const { error } = await supabase
+      .from("solicitudes")
+      .update({ descripcion: descripcion.trim(), destino: destino.trim(), status })
+      .eq("id", sol.id);
+    if (error) { setSaving(false); alert("Error al guardar: " + error.message); return; }
+    setSaving(false); setSaved(true);
+    setTimeout(() => {
+      onSaved({ ...sol, descripcion: descripcion.trim(), destino: destino.trim(), status });
+      onClose();
+    }, 700);
+  }
+
+  const STATUSES = ["enviada","en_revision","ofertada","aceptada","rechazada","pendiente"];
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(15,23,42,.65)", backdropFilter:"blur(8px)" }}/>
+      <div style={{ position:"relative", background:"#fff", borderRadius:20, width:"100%", maxWidth:520, boxShadow:"0 32px 80px rgba(15,23,42,.25)", overflow:"hidden", animation:"modalIn .25s cubic-bezier(.16,1,.3,1)" }}>
+        <div style={{ padding:"18px 22px 14px", borderBottom:"1px solid #E8EDF5", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+          <div>
+            <div style={{ fontSize:15, fontWeight:800, letterSpacing:"-0.03em" }}>Editar solicitud</div>
+            <div style={{ fontSize:10, color:"#94A3B8", marginTop:3, fontFamily:"'Geist Mono',monospace" }}>
+              {sol.id.slice(0,8)}… · {sol.owner_email ?? sol.owner_id.slice(0,8)+"…"}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:8, border:"1px solid #E2E8F0", background:"#F8FAFC", cursor:"pointer", display:"grid", placeItems:"center" }}>
+            <Ic d="M3 3l10 10M13 3L3 13" s={11} c="#64748B"/>
+          </button>
+        </div>
+        <div style={{ padding:"18px 22px", display:"flex", flexDirection:"column", gap:16 }}>
+          {saved ? (
+            <div style={{ textAlign:"center", padding:"20px 0" }}>
+              <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#ECFDF5,#D1FAE5)", border:"2px solid #34D399", display:"grid", placeItems:"center", margin:"0 auto 12px", boxShadow:"0 0 24px rgba(52,211,153,.3)" }}>
+                <Ic d="M2 8l4 4 8-8" s={20} c="#059669"/>
+              </div>
+              <div style={{ fontSize:14, fontWeight:700, color:"#065F46" }}>Guardado</div>
+            </div>
+          ) : (
+            <>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+                {[
+                  { label:"MONTO", val: fmt(sol.monto) },
+                  { label:"PLAZO", val: `${sol.plazo_meses} meses` },
+                  { label:"FECHA", val: fmtDate(sol.created_at) },
+                ].map(f => (
+                  <div key={f.label} style={{ background:"#F8FAFC", border:"1px solid #E8EDF5", borderRadius:10, padding:"9px 12px" }}>
+                    <div style={{ fontSize:9, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", letterSpacing:".06em", marginBottom:4 }}>{f.label}</div>
+                    <div style={{ fontSize:12, fontWeight:700 }}>{f.val}</div>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", marginBottom:8, letterSpacing:".08em", fontFamily:"'Geist Mono',monospace" }}>DESTINO</div>
+                <input value={destino} onChange={e => setDestino(e.target.value)} placeholder="Ej. Capital de trabajo..."
+                  style={{ width:"100%", height:38, borderRadius:10, border:"1.5px solid #E2E8F0", background:"#FAFAFA", padding:"0 12px", fontSize:12, fontFamily:"'Geist',sans-serif", outline:"none", color:"#0F172A" }}
+                  onFocus={e => e.currentTarget.style.borderColor="#3B82F6"}
+                  onBlur={e => e.currentTarget.style.borderColor="#E2E8F0"}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", marginBottom:8, letterSpacing:".08em", fontFamily:"'Geist Mono',monospace" }}>
+                  DESCRIPCIÓN
+                  <span style={{ marginLeft:8, fontSize:9, color:"#F87171", background:"#FFF1F2", border:"1px solid #FECDD3", borderRadius:4, padding:"1px 6px" }}>editable</span>
+                </div>
+                <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={5}
+                  placeholder="Descripción de la solicitud..."
+                  style={{ width:"100%", borderRadius:10, border:"1.5px solid #E2E8F0", background:"#FAFAFA", padding:"10px 12px", fontSize:12, fontFamily:"'Geist',sans-serif", outline:"none", color:"#0F172A", resize:"vertical", lineHeight:1.6 }}
+                  onFocus={e => e.currentTarget.style.borderColor="#3B82F6"}
+                  onBlur={e => e.currentTarget.style.borderColor="#E2E8F0"}
+                />
+                <div style={{ fontSize:9, color:"#94A3B8", marginTop:4, fontFamily:"'Geist Mono',monospace" }}>
+                  {descripcion.length} caracteres
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", marginBottom:8, letterSpacing:".08em", fontFamily:"'Geist Mono',monospace" }}>STATUS</div>
+                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                  {STATUSES.map(s => {
+                    const cfg = SOL_STATUS_CONFIG[s] ?? { bg:"#F8FAFC", color:"#475569" };
+                    const active = status === s;
+                    return (
+                      <button key={s} onClick={() => setStatus(s)}
+                        style={{ height:30, padding:"0 12px", borderRadius:8, border:`2px solid ${active ? cfg.color+"66" : "#E2E8F0"}`, background:active ? cfg.bg : "#FAFAFA", color:active ? cfg.color : "#CBD5E1", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'Geist Mono',monospace", transition:"all .12s" }}>
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:8, paddingTop:4 }}>
+                <button onClick={onClose} style={{ flex:1, height:42, borderRadius:10, border:"1.5px solid #E2E8F0", background:"#FAFAFA", color:"#64748B", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving}
+                  style={{ flex:2, height:42, borderRadius:10, border:"none", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", opacity:saving ? .6 : 1 }}>
+                  {saving ? "Guardando..." : "Guardar cambios"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Plan Modal ─────────────────────────────────────────────────────────────
@@ -93,15 +232,15 @@ function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; on
               <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#ECFDF5,#D1FAE5)", border:"2px solid #34D399", display:"grid", placeItems:"center", margin:"0 auto 12px", boxShadow:"0 0 24px rgba(52,211,153,.3)" }}>
                 <Ic d="M2 8l4 4 8-8" s={20} c="#059669"/>
               </div>
-              <div style={{ fontSize:14, fontWeight:700, color:"#065F46" }}>¡Guardado!</div>
+              <div style={{ fontSize:14, fontWeight:700, color:"#065F46" }}>Guardado</div>
             </div>
           ) : (
             <>
               <div>
                 <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", marginBottom:10, letterSpacing:".08em", fontFamily:"'Geist Mono',monospace" }}>PLAN</div>
                 {role === "solicitante" ? (
-                  <div style={{ padding:"12px 16px", borderRadius:12, background:"#F8FAFC", border:"1.5px solid #E2E8F0", fontSize:12, color:"#94A3B8", fontFamily:"'Geist',sans-serif" }}>
-                    Los solicitantes siempre son <strong>Free</strong> — no aplica plan de pago.
+                  <div style={{ padding:"12px 16px", borderRadius:12, background:"#F8FAFC", border:"1.5px solid #E2E8F0", fontSize:12, color:"#94A3B8" }}>
+                    Solicitantes siempre son <strong>Free</strong>.
                   </div>
                 ) : (
                   <div style={{ display:"flex", gap:8 }}>
@@ -141,7 +280,22 @@ function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; on
   );
 }
 
-// ── Score engine ────────────────────────────────────────────────────────────
+// ── Score helpers ───────────────────────────────────────────────────────────
+type ScoreVar = {
+  key: string; label: string; cat: string; w: number;
+  value: number | null; raw: string; status: "ok"|"warn"|"risk"|"missing"|"pending";
+  source: string; benchmark?: string;
+};
+const SCOLOR: Record<string,string> = { ok:"#00C48C", warn:"#FACC15", risk:"#FB923C", missing:"#F87171", pending:"#475569" };
+
+function scoreGrade(s: number) {
+  if (s>=85) return {l:"A",label:"Excelente", c:"#00C48C",g:"rgba(0,196,140,.35)"};
+  if (s>=70) return {l:"B",label:"Bueno",     c:"#4ADE80",g:"rgba(74,222,128,.3)"};
+  if (s>=55) return {l:"C",label:"Moderado",  c:"#FACC15",g:"rgba(250,204,21,.3)"};
+  if (s>=40) return {l:"D",label:"Bajo",      c:"#FB923C",g:"rgba(251,146,60,.3)"};
+  return            {l:"E",label:"Alto riesgo",c:"#F87171",g:"rgba(248,113,113,.35)"};
+}
+
 function calcScore(b: any): { score: number; vars: ScoreVar[] } {
   function norm(val: number, min: number, max: number) {
     return Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
@@ -153,9 +307,9 @@ function calcScore(b: any): { score: number; vars: ScoreVar[] } {
     { key:"empleados", label:"Empleados", cat:"Operativo", w:6, value: b?.fin_num_empleados ? norm(Number(b.fin_num_empleados), 0, 200) : 0, raw: b?.fin_num_empleados ? `${b.fin_num_empleados}` : "—", status: b?.fin_num_empleados ? (Number(b.fin_num_empleados)>=20?"ok":"warn") : "missing", source:"declared", benchmark:">20" },
     { key:"sector", label:"Sector / giro", cat:"Mercado", w:6, value: b?.fin_sector ? 75 : 0, raw: b?.fin_sector || "—", status: b?.fin_sector ? "ok" : "missing", source:"declared", benchmark:"Bajo riesgo" },
     { key:"garantias", label:"Garantías ofrecidas", cat:"Crédito", w:12, value: b?.fin_garantias ? 65 : 20, raw: b?.fin_garantias || "Sin garantías", status: b?.fin_garantias ? "ok" : "warn", source:"declared", benchmark:"1.5x cobertura" },
-    { key:"dscr", label:"DSCR (estimado)", cat:"Financiero", w:14, value: 45, raw:"Pendiente Syntage", status:"pending", source:"pending", benchmark:"≥1.25x" },
-    { key:"ebitda_vol", label:"Volatilidad EBITDA", cat:"Financiero", w:10, value: null, raw:"Requiere Syntage", status:"pending", source:"pending", benchmark:"<15%" },
-    { key:"dso", label:"DSO días cobranza", cat:"Operativo", w:8, value: null, raw:"Requiere Syntage", status:"pending", source:"pending", benchmark:"<45 días" },
+    { key:"dscr", label:"DSCR (estimado)", cat:"Financiero", w:14, value: 45, raw:"Pendiente Ekatena", status:"pending", source:"pending", benchmark:"≥1.25x" },
+    { key:"ebitda_vol", label:"Volatilidad EBITDA", cat:"Financiero", w:10, value: null, raw:"Requiere Ekatena", status:"pending", source:"pending", benchmark:"<15%" },
+    { key:"dso", label:"DSO días cobranza", cat:"Operativo", w:8, value: null, raw:"Requiere Ekatena", status:"pending", source:"pending", benchmark:"<45 días" },
     { key:"historial", label:"Historial Plinius", cat:"Crédito", w:8, value: 0, raw:"Sin historial", status:"missing", source:"plinius", benchmark:"Requerido" },
     { key:"buro", label:"Buró de Crédito", cat:"Crédito", w:9, value: null, raw:"Consulta pendiente", status:"pending", source:"buro", benchmark:"Score >650" },
   ];
@@ -163,22 +317,6 @@ function calcScore(b: any): { score: number; vars: ScoreVar[] } {
   const weighted = vars.reduce((s,v) => s + (v.value!==null && v.status!=="pending" ? v.value * v.w : 0), 0);
   const score = total_w > 0 ? Math.round(weighted / total_w) : 0;
   return { score, vars };
-}
-
-type ScoreVar = {
-  key: string; label: string; cat: string; w: number;
-  value: number | null; raw: string; status: "ok"|"warn"|"risk"|"missing"|"pending";
-  source: string; benchmark?: string;
-};
-
-const SCOLOR: Record<string,string> = { ok:"#00C48C", warn:"#FACC15", risk:"#FB923C", missing:"#F87171", pending:"#475569" };
-
-function scoreGrade(s: number) {
-  if (s>=85) return {l:"A",label:"Excelente", c:"#00C48C",g:"rgba(0,196,140,.35)"};
-  if (s>=70) return {l:"B",label:"Bueno",     c:"#4ADE80",g:"rgba(74,222,128,.3)"};
-  if (s>=55) return {l:"C",label:"Moderado",  c:"#FACC15",g:"rgba(250,204,21,.3)"};
-  if (s>=40) return {l:"D",label:"Bajo",      c:"#FB923C",g:"rgba(251,146,60,.3)"};
-  return            {l:"E",label:"Alto riesgo",c:"#F87171",g:"rgba(248,113,113,.35)"};
 }
 
 function MiniGauge({ score }: { score: number }) {
@@ -225,7 +363,7 @@ function downloadPDF(borrower: any, vars: ScoreVar[], score: number, empresa: st
   const g = scoreGrade(score);
   const now = new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"});
   const rows = vars.map(v=>`<tr><td>${v.label}</td><td>${v.cat}</td><td>${v.w}%</td><td style="color:${SCOLOR[v.status]};font-weight:700">${v.raw}</td><td>${v.benchmark||"—"}</td><td style="color:${SCOLOR[v.status]};font-weight:700;text-transform:uppercase">${v.status}</td></tr>`).join("");
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1E293B;background:#fff;padding:40px}h1{font-size:22px;font-weight:900;letter-spacing:-0.04em;color:#0C1E4A}.sub{font-size:11px;color:#94A3B8;margin-top:4px;font-family:monospace}.score-box{display:inline-flex;align-items:center;gap:20px;margin:24px 0;padding:20px 28px;border-radius:16px;background:#F8FAFC;border:2px solid ${g.c}40}.score-num{font-size:52px;font-weight:900;color:${g.c};font-family:monospace}.score-grade{width:52px;height:52px;border-radius:12px;background:${g.c}18;border:2px solid ${g.c}44;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:${g.c};font-family:monospace}table{width:100%;border-collapse:collapse;margin-top:20px;font-size:12px}th{background:#0C1E4A;color:#fff;padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em}td{padding:8px 10px;border-bottom:1px solid #F1F5F9}tr:nth-child(even) td{background:#F8FAFC}.warn{background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px 14px;font-size:11px;color:#9A3412;margin-top:16px}.footer{margin-top:32px;font-size:10px;color:#94A3B8;border-top:1px solid #E2E8F0;padding-top:16px}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><h1>Score Crediticio Plinius</h1><div class="sub">${empresa} · ${now} · Modelo v2.0-beta</div></div></div><div class="score-box"><div class="score-grade">${g.l}</div><div><div class="score-num">${score}</div><div style="font-size:13px;font-weight:700;color:${g.c}">${g.label} · Grado ${g.l}</div></div></div><table><thead><tr><th>Variable</th><th>Categoría</th><th>Peso</th><th>Valor</th><th>Benchmark</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><div class="warn">⚠ Reporte preliminar. DSCR, EBITDA y DSO requieren Syntage. Buró pendiente ($299 MXN).</div><div class="footer">Generado por Plinius · plinius.mx · No constituye dictamen crediticio definitivo.</div></body></html>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1E293B;background:#fff;padding:40px}h1{font-size:22px;font-weight:900;letter-spacing:-0.04em;color:#0C1E4A}.sub{font-size:11px;color:#94A3B8;margin-top:4px;font-family:monospace}.score-box{display:inline-flex;align-items:center;gap:20px;margin:24px 0;padding:20px 28px;border-radius:16px;background:#F8FAFC;border:2px solid ${g.c}40}.score-num{font-size:52px;font-weight:900;color:${g.c};font-family:monospace}.score-grade{width:52px;height:52px;border-radius:12px;background:${g.c}18;border:2px solid ${g.c}44;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:${g.c};font-family:monospace}table{width:100%;border-collapse:collapse;margin-top:20px;font-size:12px}th{background:#0C1E4A;color:#fff;padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em}td{padding:8px 10px;border-bottom:1px solid #F1F5F9}tr:nth-child(even) td{background:#F8FAFC}.warn{background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px 14px;font-size:11px;color:#9A3412;margin-top:16px}.footer{margin-top:32px;font-size:10px;color:#94A3B8;border-top:1px solid #E2E8F0;padding-top:16px}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><h1>Score Crediticio Plinius</h1><div class="sub">${empresa} · ${now} · Modelo v2.0-beta</div></div></div><div class="score-box"><div class="score-grade">${g.l}</div><div><div class="score-num">${score}</div><div style="font-size:13px;font-weight:700;color:${g.c}">${g.label} · Grado ${g.l}</div></div></div><table><thead><tr><th>Variable</th><th>Categoría</th><th>Peso</th><th>Valor</th><th>Benchmark</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><div class="warn">⚠ Reporte preliminar. DSCR, EBITDA y DSO requieren Ekatena. Buró pendiente ($299 MXN).</div><div class="footer">Generado por Plinius · plinius.mx · No constituye dictamen crediticio definitivo.</div></body></html>`;
   const blob = new Blob([html],{type:"text/html"});
   const url = URL.createObjectURL(blob);
   const w = window.open(url,"_blank"); w?.print();
@@ -234,7 +372,7 @@ function downloadPDF(borrower: any, vars: ScoreVar[], score: number, empresa: st
 
 // ── User Profile Slide Panel ────────────────────────────────────────────────
 function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; onEdit:()=>void }) {
-  const router = useRouter();  // ← ADDED
+  const router = useRouter();
   const [borrower, setBorrower] = useState<any>(null);
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [ofertas, setOfertas] = useState<any[]>([]);
@@ -242,25 +380,19 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
   const [tab, setTab] = useState<"perfil"|"score"|"solicitudes"|"ofertas">("perfil");
   const [scanRequested, setScanRequested] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
+  const [editingSol, setEditingSol] = useState<any | null>(null);
 
   useEffect(() => {
     (async () => {
       const [{ data:b }, { data:s }, { data:o }] = await Promise.all([
         supabase.from("borrowers_profile").select("*").eq("owner_id", user.id).maybeSingle(),
-        supabase.from("solicitudes").select("id,destino,monto,status,created_at,plazo_meses").eq("owner_id", user.id).order("created_at",{ascending:false}).limit(10),
+        supabase.from("solicitudes").select("id,destino,descripcion,monto,status,created_at,plazo_meses").eq("owner_id", user.id).order("created_at",{ascending:false}).limit(20),
         supabase.from("ofertas").select("id,monto_ofertado,tasa_anual,status,created_at").eq("otorgante_id", user.id).order("created_at",{ascending:false}).limit(10),
       ]);
       setBorrower(b); setSolicitudes(s??[]); setOfertas(o??[]);
       setLoading(false);
     })();
   }, [user.id]);
-
-  function fmt(n:number) {
-    if (!n) return "—";
-    if (n>=1_000_000) return `$${(n/1_000_000).toFixed(1)}M`;
-    if (n>=1_000) return `$${(n/1_000).toFixed(0)}K`;
-    return `$${n}`;
-  }
 
   const SC: Record<string,{bg:string;color:string}> = {
     enviada:{bg:"#EFF6FF",color:"#1E40AF"}, en_revision:{bg:"#FFF7ED",color:"#9A3412"},
@@ -292,11 +424,10 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
   ] as const;
 
   return (
+    <>
     <div style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"stretch", justifyContent:"flex-end" }}>
       <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(15,23,42,.4)", backdropFilter:"blur(4px)" }}/>
       <div style={{ position:"relative", width:"100%", maxWidth:560, background:"#F8FAFC", display:"flex", flexDirection:"column", animation:"slideRight .3s cubic-bezier(.16,1,.3,1)", overflowY:"auto" }}>
-
-        {/* Header */}
         <div style={{ padding:"20px 22px 0", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", position:"relative", overflow:"hidden", flexShrink:0 }}>
           <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px)", backgroundSize:"28px 28px" }}/>
           <div style={{ position:"relative", zIndex:1 }}>
@@ -337,8 +468,6 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
             </div>
           </div>
         </div>
-
-        {/* Body */}
         <div style={{ flex:1, padding:"18px 22px", display:"flex", flexDirection:"column", gap:12 }}>
           {loading ? (
             <div style={{ padding:32, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
@@ -347,7 +476,6 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
             </div>
           ) : (
             <>
-              {/* ── TAB PERFIL ── */}
               {tab==="perfil" && (
                 <>
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
@@ -388,10 +516,8 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                       <div style={{ fontSize:12, color:"#94A3B8" }}>Sin perfil completado</div>
                     </div>
                   )}
-                  {/* ── BOTONES ── */}
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                    <button
-                      onClick={() => { onClose(); router.push(`/admin/users/${user.id}/score`); }}
+                    <button onClick={() => { onClose(); router.push(`/admin/users/${user.id}/score`); }}
                       style={{ height:42, borderRadius:11, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#0C1E4A", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
                       📊 Ver Score completo
                     </button>
@@ -403,7 +529,6 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                 </>
               )}
 
-              {/* ── TAB SCORE ── */}
               {tab==="score" && (
                 <>
                   <div style={{ background:"linear-gradient(135deg,#0C1E4A,#0F2A5C)", border:`1px solid ${grade.c}30`, borderRadius:16, padding:"18px 20px", display:"flex", alignItems:"center", gap:16, position:"relative", overflow:"hidden" }}>
@@ -429,23 +554,18 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                       </div>
                     </div>
                   </div>
-
-                  {/* CTA página completa */}
-                  <button
-                    onClick={() => { onClose(); router.push(`/admin/users/${user.id}/score`); }}
+                  <button onClick={() => { onClose(); router.push(`/admin/users/${user.id}/score`); }}
                     style={{ height:40, borderRadius:11, border:"1px solid rgba(0,229,160,.3)", background:"rgba(0,229,160,.06)", color:"#00C48C", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-                    📊 Abrir score completo en página dedicada →
+                    📊 Abrir score completo →
                   </button>
-
                   <div style={{ background:"rgba(251,146,60,.05)", border:"1px solid rgba(251,146,60,.18)", borderRadius:12, padding:"11px 14px", display:"flex", alignItems:"center", gap:10 }}>
                     <div style={{ width:26,height:26,borderRadius:7,background:"rgba(251,146,60,.1)",display:"grid",placeItems:"center",flexShrink:0,fontSize:13 }}>⚡</div>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:11,fontWeight:700,color:"#FB923C" }}>Syntage no conectado</div>
+                      <div style={{ fontSize:11,fontWeight:700,color:"#FB923C" }}>Ekatena no conectado</div>
                       <div style={{ fontSize:9,color:"rgba(251,146,60,.55)",fontFamily:"'Geist Mono',monospace" }}>DSCR · EBITDA real · DSO · CFDIs SAT</div>
                     </div>
                     <span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",color:"#FB923C",background:"rgba(251,146,60,.1)",border:"1px solid rgba(251,146,60,.2)",borderRadius:999,padding:"2px 8px",whiteSpace:"nowrap" }}>PENDIENTE</span>
                   </div>
-
                   <div style={{ background: scanRequested?"rgba(0,196,140,.06)":"rgba(139,92,246,.06)", border:`1px solid ${scanRequested?"rgba(0,196,140,.2)":"rgba(139,92,246,.2)"}`, borderRadius:12, padding:"13px 16px" }}>
                     {scanRequested ? (
                       <div style={{ display:"flex",alignItems:"center",gap:10 }}>
@@ -453,8 +573,8 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                           <Ic d="M2 8l4 4 8-8" s={14} c="#00C48C"/>
                         </div>
                         <div>
-                          <div style={{ fontSize:11,fontWeight:700,color:"#00C48C" }}>Solicitud de scan enviada</div>
-                          <div style={{ fontSize:9,color:"rgba(0,196,140,.6)",fontFamily:"'Geist Mono',monospace" }}>Equipo notificado · Buró + SAT · $299 MXN</div>
+                          <div style={{ fontSize:11,fontWeight:700,color:"#00C48C" }}>Scan solicitado</div>
+                          <div style={{ fontSize:9,color:"rgba(0,196,140,.6)",fontFamily:"'Geist Mono',monospace" }}>Buró + SAT · $299 MXN</div>
                         </div>
                       </div>
                     ) : (
@@ -462,62 +582,50 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                         <div style={{ width:28,height:28,borderRadius:8,background:"rgba(139,92,246,.1)",display:"grid",placeItems:"center",flexShrink:0,fontSize:13 }}>🏦</div>
                         <div style={{ flex:1 }}>
                           <div style={{ fontSize:11,fontWeight:700,color:"#8B5CF6" }}>Consultar Buró de Crédito</div>
-                          <div style={{ fontSize:9,color:"rgba(139,92,246,.6)",fontFamily:"'Geist Mono',monospace" }}>Suma 9 pts al score · RFC requerido</div>
+                          <div style={{ fontSize:9,color:"rgba(139,92,246,.6)",fontFamily:"'Geist Mono',monospace" }}>+9 pts al score · RFC requerido</div>
                         </div>
                         <button onClick={requestScan} disabled={scanLoading||!borrower?.rfc}
                           style={{ height:30,padding:"0 14px",borderRadius:8,border:"none",background:borrower?.rfc?"linear-gradient(135deg,#7C3AED,#6D28D9)":"#E2E8F0",color:borrower?.rfc?"#fff":"#94A3B8",fontSize:10,fontWeight:700,cursor:borrower?.rfc?"pointer":"not-allowed",fontFamily:"'Geist',sans-serif",flexShrink:0,opacity:scanLoading?.7:1,whiteSpace:"nowrap" }}>
-                          {scanLoading?"Enviando…":"$299 MXN →"}
+                          {scanLoading?"Enviando…":"$299 →"}
                         </button>
                       </div>
                     )}
                   </div>
-
                   <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, overflow:"hidden" }}>
                     <div style={{ padding:"11px 16px", borderBottom:"1px solid #F1F5F9", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div style={{ fontSize:10,fontWeight:700,color:"#94A3B8",fontFamily:"'Geist Mono',monospace",letterSpacing:".06em" }}>VARIABLES DEL MODELO</div>
-                      <div style={{ display:"flex",gap:6 }}>
-                        {(["ok","warn","missing","pending"] as const).map(s=>(
-                          <div key={s} style={{ display:"flex",alignItems:"center",gap:3 }}>
-                            <div style={{ width:6,height:6,borderRadius:"50%",background:SCOLOR[s] }}/>
-                            <span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",color:"#CBD5E1",textTransform:"uppercase" }}>{s}</span>
-                          </div>
-                        ))}
-                      </div>
                     </div>
                     {vars.map(v=>(
                       <div key={v.key} style={{ padding:"10px 16px", borderBottom:"1px solid #F8FAFC" }}>
                         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5 }}>
                           <div style={{ display:"flex",alignItems:"center",gap:6 }}>
-                            <div style={{ width:7,height:7,borderRadius:"50%",background:SCOLOR[v.status],boxShadow:v.status==="ok"?`0 0 5px ${SCOLOR[v.status]}`:"none",flexShrink:0 }}/>
+                            <div style={{ width:7,height:7,borderRadius:"50%",background:SCOLOR[v.status],flexShrink:0 }}/>
                             <span style={{ fontSize:11,fontWeight:600,color:"#1E293B" }}>{v.label}</span>
                           </div>
                           <div style={{ display:"flex",alignItems:"center",gap:6 }}>
                             <span style={{ fontSize:10,fontFamily:"'Geist Mono',monospace",color:"#64748B" }}>{v.raw}</span>
-                            {v.benchmark&&<span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",color:"#CBD5E1" }}>ref:{v.benchmark}</span>}
                             <span style={{ fontSize:9,fontFamily:"'Geist Mono',monospace",fontWeight:700,color:"#64748B",background:"#F1F5F9",borderRadius:999,padding:"1px 6px" }}>{v.w}%</span>
                           </div>
                         </div>
                         <div style={{ height:4,borderRadius:999,background:"#F1F5F9",overflow:"hidden" }}>
-                          <div style={{ height:"100%",borderRadius:999,width:v.value!==null?`${v.value}%`:"0%",background:v.status==="pending"?"repeating-linear-gradient(90deg,#E2E8F0 0,#E2E8F0 4px,transparent 4px,transparent 8px)":SCOLOR[v.status],boxShadow:v.status==="ok"?`0 0 6px ${SCOLOR[v.status]}55`:"none" }}/>
+                          <div style={{ height:"100%",borderRadius:999,width:v.value!==null?`${v.value}%`:"0%",background:v.status==="pending"?"repeating-linear-gradient(90deg,#E2E8F0 0,#E2E8F0 4px,transparent 4px,transparent 8px)":SCOLOR[v.status] }}/>
                         </div>
                       </div>
                     ))}
                   </div>
-
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                     <button onClick={()=>downloadCSV(borrower,vars,score,empresa)}
                       style={{ height:40,borderRadius:11,border:"1.5px solid #E2E8F0",background:"#fff",color:"#0C1E4A",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Geist',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}>
-                      ⬇ Excel / CSV
+                      ⬇ CSV
                     </button>
                     <button onClick={()=>downloadPDF(borrower,vars,score,empresa)}
-                      style={{ height:40,borderRadius:11,border:"none",background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Geist',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6,boxShadow:"0 4px 14px rgba(12,30,74,.2)" }}>
-                      📄 PDF Report
+                      style={{ height:40,borderRadius:11,border:"none",background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Geist',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}>
+                      📄 PDF
                     </button>
                   </div>
                 </>
               )}
 
-              {/* ── TAB SOLICITUDES ── */}
               {tab==="solicitudes" && (
                 solicitudes.length > 0 ? (
                   <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, overflow:"hidden" }}>
@@ -528,25 +636,35 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                     {solicitudes.map(s=>{
                       const sc=SC[s.status]??{bg:"#F8FAFC",color:"#475569"};
                       return (
-                        <div key={s.id} style={{ padding:"11px 16px",borderBottom:"1px solid #F8FAFC",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                          <div>
-                            <div style={{ fontSize:12,fontWeight:600 }}>{s.destino||"—"}</div>
-                            <div style={{ fontSize:10,color:"#94A3B8",fontFamily:"'Geist Mono',monospace" }}>{fmtDateShort(s.created_at)} · {s.plazo_meses}m</div>
+                        <div key={s.id} style={{ borderBottom:"1px solid #F8FAFC" }}>
+                          <div style={{ padding:"11px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                            <div>
+                              <div style={{ fontSize:12,fontWeight:600 }}>{s.destino||"—"}</div>
+                              <div style={{ fontSize:10,color:"#94A3B8",fontFamily:"'Geist Mono',monospace" }}>{fmtDateShort(s.created_at)} · {s.plazo_meses}m</div>
+                            </div>
+                            <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                              <div style={{ fontSize:13,fontWeight:700,fontFamily:"'Geist Mono',monospace" }}>{fmt(s.monto)}</div>
+                              <span style={{ fontSize:10,fontWeight:700,fontFamily:"'Geist Mono',monospace",background:sc.bg,color:sc.color,borderRadius:999,padding:"2px 8px" }}>{s.status}</span>
+                              <button onClick={() => setEditingSol({ ...s, owner_email: user.email })}
+                                style={{ height:24,padding:"0 8px",borderRadius:6,border:"1px solid #E2E8F0",background:"#F8FAFC",color:"#475569",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Geist',sans-serif" }}>
+                                Editar
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                            <div style={{ fontSize:13,fontWeight:700,fontFamily:"'Geist Mono',monospace" }}>{fmt(s.monto)}</div>
-                            <span style={{ fontSize:10,fontWeight:700,fontFamily:"'Geist Mono',monospace",background:sc.bg,color:sc.color,borderRadius:999,padding:"2px 8px" }}>{s.status}</span>
-                          </div>
+                          {s.descripcion && (
+                            <div style={{ padding:"0 16px 10px" }}>
+                              <div style={{ fontSize:11,color:"#64748B",background:"#F8FAFC",borderRadius:8,padding:"7px 10px",lineHeight:1.5 }}>{s.descripcion}</div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <div style={{ padding:32,textAlign:"center" }}><div style={{ fontSize:12,color:"#94A3B8" }}>Sin solicitudes registradas</div></div>
+                  <div style={{ padding:32,textAlign:"center" }}><div style={{ fontSize:12,color:"#94A3B8" }}>Sin solicitudes</div></div>
                 )
               )}
 
-              {/* ── TAB OFERTAS ── */}
               {tab==="ofertas" && (
                 ofertas.length > 0 ? (
                   <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, overflow:"hidden" }}>
@@ -568,7 +686,7 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                     })}
                   </div>
                 ) : (
-                  <div style={{ padding:32,textAlign:"center" }}><div style={{ fontSize:12,color:"#94A3B8" }}>Sin ofertas registradas</div></div>
+                  <div style={{ padding:32,textAlign:"center" }}><div style={{ fontSize:12,color:"#94A3B8" }}>Sin ofertas</div></div>
                 )
               )}
             </>
@@ -576,6 +694,17 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
         </div>
       </div>
     </div>
+    {editingSol && (
+      <EditSolicitudModal
+        sol={editingSol}
+        onClose={() => setEditingSol(null)}
+        onSaved={(updated) => {
+          setSolicitudes(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
+          setEditingSol(null);
+        }}
+      />
+    )}
+    </>
   );
 }
 
@@ -587,6 +716,8 @@ export default function SuperAdminClient() {
   const [view, setView] = useState<View>("usuarios");
   const [users, setUsers] = useState<User[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
+  const [loadingSols, setLoadingSols] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterPlan, setFilterPlan] = useState("");
@@ -594,6 +725,9 @@ export default function SuperAdminClient() {
   const [sortBy, setSortBy] = useState<"created_at"|"last_sign_in"|"plan">("created_at");
   const [editing, setEditing] = useState<User|null>(null);
   const [viewing, setViewing] = useState<User|null>(null);
+  const [editingSol, setEditingSol] = useState<Solicitud|null>(null);
+  const [solSearch, setSolSearch] = useState("");
+  const [solFilterStatus, setSolFilterStatus] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [sessionWarning, setSessionWarning] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -633,6 +767,12 @@ export default function SuperAdminClient() {
     })();
   }, [router]);
 
+  useEffect(() => {
+    if (view === "solicitudes" && solicitudes.length === 0) {
+      loadSolicitudes();
+    }
+  }, [view]);
+
   async function loadUsers() {
     const res = await fetch("/api/admin/users");
     const json = await res.json();
@@ -642,6 +782,17 @@ export default function SuperAdminClient() {
     const { data } = await supabase.from("leads").select("*").order("created_at",{ascending:false});
     setLeads(data ?? []);
   }
+  async function loadSolicitudes() {
+    setLoadingSols(true);
+    const { data } = await supabase
+      .from("solicitudes")
+      .select("id,owner_id,destino,descripcion,monto,plazo_meses,status,created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (data) setSolicitudes(data as Solicitud[]);
+    setLoadingSols(false);
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/admin/login");
@@ -650,6 +801,28 @@ export default function SuperAdminClient() {
     setUsers(prev => prev.map(u => u.id===uid ? {...u,plan,role} : u));
     if (viewing?.id===uid) setViewing(prev => prev ? {...prev,plan,role} : null);
   }
+  function handleSolSaved(updated: Solicitud) {
+    setSolicitudes(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
+    setEditingSol(null);
+  }
+
+  const enrichedSols = useMemo(() => {
+    const emailMap = new Map(users.map(u => [u.id, u.email]));
+    return solicitudes.map(s => ({ ...s, owner_email: emailMap.get(s.owner_id) ?? s.owner_id.slice(0,8)+"…" }));
+  }, [solicitudes, users]);
+
+  const filteredSols = useMemo(() => {
+    return enrichedSols.filter(s => {
+      if (solFilterStatus && s.status !== solFilterStatus) return false;
+      if (solSearch) {
+        const q = solSearch.toLowerCase();
+        return (s.destino ?? "").toLowerCase().includes(q)
+          || (s.descripcion ?? "").toLowerCase().includes(q)
+          || (s.owner_email ?? "").toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [enrichedSols, solSearch, solFilterStatus]);
 
   const filtered = useMemo(() => {
     let arr = users.filter(u => {
@@ -672,16 +845,15 @@ export default function SuperAdminClient() {
     otorgantes:   users.filter(u=>u.role==="otorgante").length,
     solicitantes: users.filter(u=>u.role==="solicitante").length,
     leads_total:  leads.length,
-    leads_pro:    leads.filter(l=>l.plan==="pro").length,
-    leads_basic:  leads.filter(l=>l.plan==="basic").length,
     active_7d:    users.filter(u=>u.last_sign_in && new Date(u.last_sign_in)>new Date(Date.now()-7*86400000)).length,
     conversion:   users.length>0 ? Math.round((users.filter(u=>u.plan!=="free").length/users.length)*100) : 0,
   }), [users, leads]);
 
   const NAV = [
-    { key:"usuarios", label:"Usuarios", icon:"M8 2a3 3 0 100 6M2 14c0-3 2.7-5 6-5s6 2 6 5", count:users.length },
-    { key:"leads",    label:"Leads",    icon:"M4 2h8l2 2v10H2V4z",                           count:leads.length },
-    { key:"metricas", label:"Métricas", icon:"M2 12L6 7l3 3 3-4 2 2",                        count:null },
+    { key:"usuarios",    label:"Usuarios",    icon:"M8 2a3 3 0 100 6M2 14c0-3 2.7-5 6-5s6 2 6 5",  count:users.length },
+    { key:"solicitudes", label:"Solicitudes", icon:"M2 2h12v2H2zM2 6h9M2 10h7M10 9l2 2 4-4",        count:solicitudes.length || null },
+    { key:"leads",       label:"Leads",       icon:"M4 2h8l2 2v10H2V4z",                            count:leads.length },
+    { key:"metricas",    label:"Métricas",    icon:"M2 12L6 7l3 3 3-4 2 2",                         count:null },
   ];
 
   const CSS = `
@@ -712,7 +884,7 @@ export default function SuperAdminClient() {
     <div style={{ fontFamily:"'Geist',sans-serif", color:"#0F172A", minHeight:"100vh", background:"#F1F5F9", display:"flex" }}>
       <style>{CSS}</style>
 
-      {/* ── SIDEBAR ── */}
+      {/* SIDEBAR */}
       <aside style={{ width:220, background:"linear-gradient(180deg,#0C1E4A 0%,#091530 100%)", display:"flex", flexDirection:"column", position:"fixed", top:0, left:0, bottom:0, zIndex:50, borderRight:"1px solid rgba(255,255,255,.05)" }}>
         <div style={{ padding:"20px 16px 16px", borderBottom:"1px solid rgba(255,255,255,.06)" }}>
           <div style={{ display:"flex", alignItems:"center", gap:9 }}>
@@ -763,18 +935,21 @@ export default function SuperAdminClient() {
         </div>
       </aside>
 
-      {/* ── MAIN ── */}
+      {/* MAIN */}
       <main style={{ marginLeft:220, flex:1, display:"flex", flexDirection:"column", minHeight:"100vh" }}>
         <div style={{ background:"#fff", borderBottom:"1px solid #E8EDF5", padding:"0 28px", height:52, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:40 }}>
           <div>
             <div style={{ fontSize:15, fontWeight:800, letterSpacing:"-0.03em" }}>
-              {view==="usuarios"?"Usuarios":view==="leads"?"Leads":"Métricas"}
+              {view==="usuarios"?"Usuarios":view==="solicitudes"?"Solicitudes":view==="leads"?"Leads":"Métricas"}
             </div>
             <div style={{ fontSize:10, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginTop:1 }}>
-              {view==="usuarios"?`${filtered.length} de ${users.length} usuarios`:view==="leads"?`${leads.length} leads`:null}
+              {view==="usuarios"&&`${filtered.length} de ${users.length} usuarios`}
+              {view==="solicitudes"&&`${filteredSols.length} de ${solicitudes.length} solicitudes`}
+              {view==="leads"&&`${leads.length} leads`}
             </div>
           </div>
-          <button onClick={()=>{loadUsers();loadLeads();}} style={{ display:"flex", alignItems:"center", gap:5, height:30, padding:"0 12px", borderRadius:7, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>
+          <button onClick={()=>{ loadUsers(); loadLeads(); if(view==="solicitudes") loadSolicitudes(); }}
+            style={{ display:"flex", alignItems:"center", gap:5, height:30, padding:"0 12px", borderRadius:7, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>
             <Ic d="M2 8a6 6 0 0110.9-3M14 8a6 6 0 01-10.9 3M2 4v4h4M14 12v-4h-4" s={11} c="#475569"/> Refrescar
           </button>
         </div>
@@ -803,7 +978,7 @@ export default function SuperAdminClient() {
             ))}
           </div>
 
-          {/* ── USUARIOS ── */}
+          {/* USUARIOS */}
           {view==="usuarios" && (
             <div className="card fade" style={{ overflow:"hidden" }}>
               <div style={{ padding:"10px 14px", borderBottom:"1px solid #E8EDF5", display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
@@ -866,7 +1041,71 @@ export default function SuperAdminClient() {
             </div>
           )}
 
-          {/* ── LEADS ── */}
+          {/* SOLICITUDES GLOBAL */}
+          {view==="solicitudes" && (
+            <div className="card fade" style={{ overflow:"hidden" }}>
+              <div style={{ padding:"10px 14px", borderBottom:"1px solid #E8EDF5", display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                <div style={{ position:"relative", flex:"1 1 200px" }}>
+                  <div style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }}>
+                    <Ic d="M10 10l4 4M2 7a5 5 0 1010 0A5 5 0 002 7z" s={11} c="#94A3B8"/>
+                  </div>
+                  <input className="finp" placeholder="Buscar destino, descripción o email..." value={solSearch} onChange={e=>setSolSearch(e.target.value)}/>
+                </div>
+                <select className="fsel" value={solFilterStatus} onChange={e=>setSolFilterStatus(e.target.value)}>
+                  <option value="">Todos los status</option>
+                  {["enviada","en_revision","ofertada","aceptada","rechazada","pendiente"].map(s=>(
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                {(solSearch||solFilterStatus) && (
+                  <button onClick={()=>{setSolSearch("");setSolFilterStatus("");}}
+                    style={{ height:32, padding:"0 10px", borderRadius:8, border:"1px solid #FECDD3", background:"#FFF1F2", color:"#9F1239", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>
+                    Limpiar
+                  </button>
+                )}
+              </div>
+              <div className="tr" style={{ gridTemplateColumns:"2fr 1.2fr 90px 70px 90px 80px 70px", background:"#F8FAFC", cursor:"default" }}>
+                {["Usuario","Destino","Monto","Plazo","Status","Fecha",""].map(h=>(
+                  <div key={h} className="mono" style={{ fontSize:9, color:"#94A3B8", letterSpacing:".06em" }}>{h.toUpperCase()}</div>
+                ))}
+              </div>
+              {loadingSols ? (
+                <div style={{ padding:48, display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
+                  <svg style={{ animation:"spin .7s linear infinite" }} width={18} height={18} viewBox="0 0 16 16" fill="none" stroke="#94A3B8" strokeWidth="2"><path d="M8 2a6 6 0 016 6"/></svg>
+                  <span style={{ fontSize:12, color:"#94A3B8" }}>Cargando...</span>
+                </div>
+              ) : filteredSols.length === 0 ? (
+                <div style={{ padding:40, textAlign:"center", fontSize:13, color:"#94A3B8" }}>Sin solicitudes</div>
+              ) : filteredSols.map(s => (
+                <div key={s.id} style={{ borderBottom:"1px solid #F1F5F9" }}>
+                  <div className="tr" style={{ gridTemplateColumns:"2fr 1.2fr 90px 70px 90px 80px 70px", borderBottom:"none" }}>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:11, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.owner_email}</div>
+                      <div className="mono" style={{ fontSize:9, color:"#CBD5E1" }}>{s.id.slice(0,8)}…</div>
+                    </div>
+                    <div style={{ fontSize:12, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontWeight:600 }}>{s.destino||"—"}</div>
+                    <div className="mono" style={{ fontSize:12, fontWeight:700 }}>{fmt(s.monto)}</div>
+                    <div className="mono" style={{ fontSize:11, color:"#64748B" }}>{s.plazo_meses}m</div>
+                    <StatusBadge status={s.status}/>
+                    <div className="mono" style={{ fontSize:10, color:"#94A3B8" }}>{fmtDateShort(s.created_at)}</div>
+                    <button onClick={() => setEditingSol(s)}
+                      style={{ height:26, padding:"0 10px", borderRadius:6, border:"none", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color:"#fff", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", whiteSpace:"nowrap" }}>
+                      Editar
+                    </button>
+                  </div>
+                  {s.descripcion && (
+                    <div style={{ padding:"0 16px 10px" }}>
+                      <div style={{ fontSize:11, color:"#64748B", background:"#F8FAFC", border:"1px solid #E8EDF5", borderRadius:8, padding:"7px 11px", lineHeight:1.55, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as any }}>
+                        {s.descripcion}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* LEADS */}
           {view==="leads" && (
             <div className="card fade" style={{ overflow:"hidden" }}>
               <div className="tr" style={{ gridTemplateColumns:"1.5fr 80px 1.5fr 110px 1fr 100px", background:"#F8FAFC", cursor:"default" }}>
@@ -892,7 +1131,7 @@ export default function SuperAdminClient() {
             </div>
           )}
 
-          {/* ── MÉTRICAS ── */}
+          {/* MÉTRICAS */}
           {view==="metricas" && (
             <div className="fade" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
               <div className="card" style={{ padding:22 }}>
@@ -952,8 +1191,9 @@ export default function SuperAdminClient() {
         </div>
       </main>
 
-      {viewing && <UserProfile user={viewing} onClose={()=>setViewing(null)} onEdit={()=>{setEditing(viewing);setViewing(null);}}/>}
-      {editing  && <PlanModal  user={editing}  onClose={()=>setEditing(null)} onSaved={handleSaved}/>}
+      {viewing    && <UserProfile user={viewing}   onClose={()=>setViewing(null)} onEdit={()=>{setEditing(viewing);setViewing(null);}}/>}
+      {editing    && <PlanModal   user={editing}    onClose={()=>setEditing(null)} onSaved={handleSaved}/>}
+      {editingSol && <EditSolicitudModal sol={editingSol} onClose={()=>setEditingSol(null)} onSaved={handleSolSaved}/>}
     </div>
   );
 }
