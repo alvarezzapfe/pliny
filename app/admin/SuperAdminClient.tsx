@@ -180,8 +180,7 @@ function EditSolicitudModal({ sol, onClose, onSaved }: {
                     const active = status === s;
                     return (
                       <button key={s} onClick={() => setStatus(s)}
-              <button onClick={handleDelete} style={{ flex:1, height:42, borderRadius:10, border:"1.5px solid #FECDD3", background:"#FFF1F2", color:"#9F1239", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>Eliminar</button>
-              <button onClick={onClose} style={{ flex:1, height:42, borderRadius:10, border:"1.5px solid #E2E8F0", background:"#FAFAFA", color:"#64748B", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>Cancelar</button>
+                        style={{ height:30, padding:"0 12px", borderRadius:8, border:`2px solid ${active ? cfg.color+"66" : "#E2E8F0"}`, background:active ? cfg.bg : "#FAFAFA", color:active ? cfg.color : "#CBD5E1", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'Geist Mono',monospace", transition:"all .12s" }}>
                         {s}
                       </button>
                     );
