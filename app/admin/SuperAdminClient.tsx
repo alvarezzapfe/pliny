@@ -1210,7 +1210,7 @@ export default function SuperAdminClient() {
 
       {viewing    && <UserProfile user={viewing}   onClose={()=>setViewing(null)} onEdit={()=>{setEditing(viewing);setViewing(null);}}/>}
       {editing    && <PlanModal   user={editing}    onClose={()=>setEditing(null)} onSaved={handleSaved}/>}
-      {editingSol && <EditSolicitudModal sol={editingSol} onClose={()=>setEditingSol(null)} onSaved={handleSolSaved}/>}
+      {editingSol && <EditSolicitudModal sol={editingSol} onClose={()=>setEditingSol(null)} onSaved={handleSolSaved} onDeleted={handleSolDeleted}/>}
     </div>
   );
 }
