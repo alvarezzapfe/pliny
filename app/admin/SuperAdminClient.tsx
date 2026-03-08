@@ -711,6 +711,10 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
           setSolicitudes(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
           setEditingSol(null);
         }}
+        onDeleted={(id) => {
+          setSolicitudes(prev => prev.filter(s => s.id !== id));
+          setEditingSol(null);
+        }}
       />
     )}
     </>
