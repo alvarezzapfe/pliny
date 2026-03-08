@@ -80,7 +80,7 @@ function StatusBadge({ status }: { status: string }) {
 
 // ── Edit Solicitud Modal ────────────────────────────────────────────────────
 function EditSolicitudModal({ sol, onClose, onSaved }: {
-  sol: Solicitud; onClose: () => void; onSaved: (updated: Solicitud) => void;
+  sol: Solicitud; onClose: () => void; onSaved: (updated: Solicitud) => void; onDeleted: (id: string) => void;
 }) {
   const [descripcion, setDescripcion] = useState(sol.descripcion ?? "");
   const [destino, setDestino] = useState(sol.destino ?? "");
@@ -99,6 +99,14 @@ function EditSolicitudModal({ sol, onClose, onSaved }: {
     setTimeout(() => {
       onSaved({ ...sol, descripcion: descripcion.trim(), destino: destino.trim(), status });
       onClose();
+
+  async function handleDelete() {
+    if (!confirm("¿Eliminar esta solicitud? Esta acción no se puede deshacer.")) return;
+    const { error } = await supabase.from("solicitudes").delete().eq("id", sol.id);
+    if (error) { alert("Error al eliminar: " + error.message); return; }
+    onDeleted(sol.id);
+    onClose();
+  }
     }, 700);
   }
 
@@ -172,7 +180,8 @@ function EditSolicitudModal({ sol, onClose, onSaved }: {
                     const active = status === s;
                     return (
                       <button key={s} onClick={() => setStatus(s)}
-                        style={{ height:30, padding:"0 12px", borderRadius:8, border:`2px solid ${active ? cfg.color+"66" : "#E2E8F0"}`, background:active ? cfg.bg : "#FAFAFA", color:active ? cfg.color : "#CBD5E1", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'Geist Mono',monospace", transition:"all .12s" }}>
+              <button onClick={handleDelete} style={{ flex:1, height:42, borderRadius:10, border:"1.5px solid #FECDD3", background:"#FFF1F2", color:"#9F1239", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>Eliminar</button>
+              <button onClick={onClose} style={{ flex:1, height:42, borderRadius:10, border:"1.5px solid #E2E8F0", background:"#FAFAFA", color:"#64748B", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>Cancelar</button>
                         {s}
                       </button>
                     );
@@ -180,6 +189,7 @@ function EditSolicitudModal({ sol, onClose, onSaved }: {
                 </div>
               </div>
               <div style={{ display:"flex", gap:8, paddingTop:4 }}>
+                <button onClick={handleDelete} style={{ flex:1, height:42, borderRadius:10, border:"1.5px solid #FECDD3", background:"#FFF1F2", color:"#9F1239", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>🗑 Eliminar</button>
                 <button onClick={onClose} style={{ flex:1, height:42, borderRadius:10, border:"1.5px solid #E2E8F0", background:"#FAFAFA", color:"#64748B", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>Cancelar</button>
                 <button onClick={handleSave} disabled={saving}
                   style={{ flex:2, height:42, borderRadius:10, border:"none", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", opacity:saving ? .6 : 1 }}>
@@ -803,6 +813,10 @@ export default function SuperAdminClient() {
   }
   function handleSolSaved(updated: Solicitud) {
     setSolicitudes(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
+    setEditingSol(null);
+  }
+  function handleSolDeleted(id: string) {
+    setSolicitudes(prev => prev.filter(s => s.id !== id));
     setEditingSol(null);
   }
 
