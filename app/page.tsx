@@ -641,8 +641,6 @@ export default function Home() {
                 {label:"About",    href:"/#about"},
                 {label:"Pricing",  href:"/#pricing"},
                 {label:"Contacto", href:"mailto:hola@plinius.mx"},
-                {label:"Blog",     href:"#"},
-                {label:"Carreras", href:"mailto:hola@plinius.mx"},
               ]},
               { title:"Legal", links:[
                 {label:"Términos",   href:"/legal/terminos"},

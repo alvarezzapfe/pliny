@@ -1,5 +1,15 @@
 import "./globals.css";
 import React from "react";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Plinius — Crédito privado en México",
+  description: "Infraestructura para originar, administrar y conectar crédito privado en México.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
