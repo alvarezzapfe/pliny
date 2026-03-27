@@ -36,7 +36,7 @@ export default function LoginPage() {
     const { error: oauthErr } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `https://www.plinius.mx/auth/callback`,
       },
     });
     if (oauthErr) {
