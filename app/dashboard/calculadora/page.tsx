@@ -1150,7 +1150,7 @@ function ReporteTab({ cartData, results, inputs }: { cartData: CartRow[]; result
         doc.setFont('helvetica','bold');
         doc.setFontSize(9);
         doc.setTextColor(100, 110, 130);
-        doc.text('DISTRIBUCIÓN POR RATING S&P / MOODY'S', M, y); y += 8;
+        doc.text("DISTRIBUCIÓN POR RATING S&P / MOODY'S", M, y); y += 8;
 
         const ratings = ['AAA','AA','A','BBB','BB','B','CCC','CC','D'];
         const rColors: Record<string,[number,number,number]> = {
@@ -1321,7 +1321,7 @@ function ReporteTab({ cartData, results, inputs }: { cartData: CartRow[]; result
         {[
           {icon:'M4 2h8l2 2v10H4V2z',  title:'Portada institucional',       desc:'Logo Plinius, fecha, tipo de análisis'},
           {icon:'M2 8h12M6 4l4 4-4 4', title:'Resumen ejecutivo KPIs',      desc:'Cartera total, score promedio, pérdida esperada, TIR, RAROC, spread'},
-          {icon:'M2 12L6 7l3 3 3-4 2 2',title:'Distribución por rating',   desc:'Calificación S&P/Moody's: AAA, AA, A, BBB, BB, B, CCC, CC, D'},
+          {icon:'M2 12L6 7l3 3 3-4 2 2',title:'Distribución por rating',   desc:"Calificación S&P/Moody's: AAA, AA, A, BBB, BB, B, CCC, CC, D"},
           {icon:'M2 2h12v12H2z',        title:'Tabla de créditos calificados', desc:'Hasta 50 créditos con rating individual, mora, score, pérdida esperada'},
           {icon:'M2 14L8 2l6 12',       title:'Pie de página',              desc:'Plinius · Confidencial · Número de páginas'},
         ].map(item=>(
