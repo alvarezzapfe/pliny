@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [password,      setPassword]      = useState("");
   const [error,         setError]         = useState<string | null>(null);
   const [loading,       setLoading]       = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPass,      setShowPass]      = useState(false);
   const [mounted,       setMounted]       = useState(false);
   const [emailFocus,    setEmailFocus]    = useState(false);
@@ -28,6 +29,24 @@ export default function LoginPage() {
 
   const hint = useMemo(() => "Admin: /admin/login", []);
 
+  // ── Google OAuth ─────────────────────────────────────────────────────────
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (oauthErr) {
+      setError(oauthErr.message);
+      setGoogleLoading(false);
+    }
+    // Si no hay error, Google redirige — el loading se queda hasta que sale la página
+  };
+
+  // ── Email/password ────────────────────────────────────────────────────────
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
@@ -70,7 +89,6 @@ export default function LoginPage() {
 
       // ── Route by role ────────────────────────────────────────────────────
       if (userRole === "solicitante") {
-        // Check if onboarding is complete
         const { data: borrower } = await supabase
           .from("borrowers_profile")
           .select("onboarding_done")
@@ -86,7 +104,6 @@ export default function LoginPage() {
         return;
       }
 
-      // otorgante or no role → main dashboard
       setLoading(false);
       router.push("/dashboard");
 
@@ -95,6 +112,8 @@ export default function LoginPage() {
       setError(getErrMessage(err));
     }
   };
+
+  const isAnyLoading = loading || googleLoading;
 
   return (
     <main
@@ -113,15 +132,15 @@ export default function LoginPage() {
           --fg:#EEF2FF; --fg-2:rgba(238,242,255,0.62); --fg-3:rgba(238,242,255,0.36);
           --border:rgba(255,255,255,0.08);
         }
-        @keyframes fadeUp   { from{opacity:0;transform:translateY(14px);} to{opacity:1;transform:translateY(0);} }
-        @keyframes fadeIn   { from{opacity:0;} to{opacity:1;} }
-        @keyframes ticker   { from{transform:translateX(0);} to{transform:translateX(-50%);} }
-        @keyframes spin     { to{transform:rotate(360deg);} }
-        @keyframes blink    { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
-        @keyframes gridPulse{ 0%,100%{opacity:0.5;} 50%{opacity:0.75;} }
-        @keyframes orbDrift { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-20px);} }
-        @keyframes scanline { from{transform:translateY(-100%);} to{transform:translateY(600%);} }
-        @keyframes slideIn  { from{opacity:0;transform:translateY(-6px);} to{opacity:1;transform:translateY(0);} }
+        @keyframes fadeUp    { from{opacity:0;transform:translateY(14px);} to{opacity:1;transform:translateY(0);} }
+        @keyframes fadeIn    { from{opacity:0;} to{opacity:1;} }
+        @keyframes ticker    { from{transform:translateX(0);} to{transform:translateX(-50%);} }
+        @keyframes spin      { to{transform:rotate(360deg);} }
+        @keyframes blink     { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+        @keyframes gridPulse { 0%,100%{opacity:0.5;} 50%{opacity:0.75;} }
+        @keyframes orbDrift  { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-20px);} }
+        @keyframes scanline  { from{transform:translateY(-100%);} to{transform:translateY(600%);} }
+        @keyframes slideIn   { from{opacity:0;transform:translateY(-6px);} to{opacity:1;transform:translateY(0);} }
         @keyframes progressBar { from{transform:scaleX(0);} to{transform:scaleX(1);} }
 
         .left-panel  { animation: fadeUp 0.65s cubic-bezier(.16,1,.3,1) both; }
@@ -167,6 +186,19 @@ export default function LoginPage() {
         .btn-submit::after { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,transparent 60%); pointer-events:none; }
         .btn-submit:hover:not(:disabled) { opacity:0.94; transform:translateY(-1px); box-shadow:0 8px 32px rgba(12,30,74,0.35),0 2px 8px rgba(12,30,74,0.25); }
         .btn-submit:disabled { opacity:0.52; cursor:not-allowed; transform:none; }
+
+        .btn-google {
+          height:48px; width:100%;
+          background:#fff; border:1.5px solid #E2E8F0; border-radius:12px;
+          display:flex; align-items:center; justify-content:center; gap:10px;
+          font-size:14px; font-weight:600; color:#0F172A;
+          font-family:'Geist',sans-serif; cursor:pointer;
+          box-shadow:0 1px 4px rgba(12,30,74,0.06);
+          transition:border-color 0.15s,box-shadow 0.15s,background 0.15s,transform 0.15s;
+          position:relative; overflow:hidden;
+        }
+        .btn-google:hover:not(:disabled) { border-color:#CBD5E1; box-shadow:0 4px 16px rgba(12,30,74,0.10); transform:translateY(-1px); }
+        .btn-google:disabled { opacity:0.52; cursor:not-allowed; transform:none; }
 
         .error-box { background:#FFF1F2; border:1px solid #FECDD3; border-radius:10px; padding:11px 14px; font-size:13px; font-weight:500; color:#9F1239; display:flex; align-items:center; gap:8px; animation:slideIn 0.2s ease both; }
         .card { background:#fff; border-radius:24px; border:1px solid #E2E8F0; box-shadow:0 24px 80px rgba(12,30,74,0.10),0 4px 16px rgba(12,30,74,0.06); padding:28px; }
@@ -274,9 +306,38 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
+            {/* Google Button */}
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isAnyLoading}
+              className="btn-google"
+            >
+              {googleLoading ? (
+                <>
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ animation:"spin 0.75s linear infinite" }}>
+                    <circle cx="7.5" cy="7.5" r="5.5" stroke="rgba(0,0,0,0.15)" strokeWidth="2"/>
+                    <path d="M13 7.5a5.5 5.5 0 00-5.5-5.5" stroke="#0F172A" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                  Conectando con Google...
+                </>
+              ) : (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 14.013 17.64 11.705 17.64 9.2z" fill="#4285F4"/>
+                    <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+                    <path d="M3.964 10.707A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+                    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.96l3.007 2.332C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+                  </svg>
+                  Continuar con Google
+                </>
+              )}
+            </button>
+
+            {/* Divider */}
+            <div style={{ display:"flex", alignItems:"center", gap:10, margin:"18px 0" }}>
               <div className="divider" />
-              <span style={{ fontSize:10, color:"#CBD5E1", fontFamily:"'Geist Mono',monospace", whiteSpace:"nowrap", letterSpacing:"0.08em" }}>CREDENCIALES</span>
+              <span style={{ fontSize:10, color:"#CBD5E1", fontFamily:"'Geist Mono',monospace", whiteSpace:"nowrap", letterSpacing:"0.08em" }}>O CON CORREO</span>
               <div className="divider" />
             </div>
 
@@ -319,7 +380,7 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <button type="submit" disabled={loading} className="btn-submit" style={{ marginTop:2 }}>
+              <button type="submit" disabled={isAnyLoading} className="btn-submit" style={{ marginTop:2 }}>
                 {loading && <div className="progress-bar" />}
                 {loading ? (
                   <><svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ animation:"spin 0.75s linear infinite" }}><circle cx="7.5" cy="7.5" r="5.5" stroke="rgba(255,255,255,0.25)" strokeWidth="2"/><path d="M13 7.5a5.5 5.5 0 00-5.5-5.5" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>Validando...</>
