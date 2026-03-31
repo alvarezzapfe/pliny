@@ -500,25 +500,100 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                     ))}
                   </div>
                   {borrower ? (
-                    <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, padding:"15px 17px" }}>
-                      <div style={{ fontSize:10, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:13, letterSpacing:".06em" }}>DATOS DEL PERFIL</div>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:11 }}>
-                        {([
-                          ["RFC", borrower.rfc],
-                          ["CURP", borrower.curp],
-                          ["Empresa", borrower.razon_social],
-                          ["Sector", borrower.fin_sector],
-                          ["Facturación", borrower.fin_facturacion_anual ? `$${Number(borrower.fin_facturacion_anual).toLocaleString("es-MX")}` : null],
-                          ["Antigüedad", borrower.fin_antiguedad ? `${borrower.fin_antiguedad} años` : null],
-                          ["Empleados", borrower.fin_num_empleados],
-                          ["CLABE", borrower.clabe ? `****${borrower.clabe.slice(-4)}` : null],
-                        ] as [string,string|null][]).filter(([,v])=>v).map(([label,val])=>(
-                          <div key={label}>
-                            <div style={{ fontSize:9, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:3, letterSpacing:".06em" }}>{label.toUpperCase()}</div>
-                            <div style={{ fontSize:12, fontWeight:600 }}>{val}</div>
-                          </div>
-                        ))}
+                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+
+                      {/* PERSONA */}
+                      <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:12, padding:"13px 15px" }}>
+                        <div style={{ fontSize:9, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:10, letterSpacing:".06em" }}>DATOS PERSONALES</div>
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                          {([
+                            ["Nombre", [borrower.first_name, borrower.last_name].filter(Boolean).join(" ") || null],
+                            ["Email", borrower.email],
+                            ["Teléfono", borrower.phone_national ? `+${borrower.phone_country||"52"} ${borrower.phone_national}` : null],
+                            ["CURP", borrower.curp],
+                            ["RFC", borrower.rfc],
+                            ["Tipo", borrower.persona_type],
+                            ["Onboarding", borrower.onboarding_done ? "✓ Completo" : `Paso ${borrower.onboarding_step||0}`],
+                            ["KYC", borrower.kyc_status || "—"],
+                          ] as [string,string|null][]).filter(([,v])=>v).map(([label,val])=>(
+                            <div key={label}>
+                              <div style={{ fontSize:8, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:2, letterSpacing:".06em" }}>{label.toUpperCase()}</div>
+                              <div style={{ fontSize:11, fontWeight:600, wordBreak:"break-all" }}>{val}</div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
+
+                      {/* EMPRESA */}
+                      {(borrower.company_name || borrower.company_razon_social) && (
+                        <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:12, padding:"13px 15px" }}>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:10, letterSpacing:".06em" }}>EMPRESA</div>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                            {([
+                              ["Razón social", borrower.company_razon_social || borrower.company_name],
+                              ["RFC empresa", borrower.company_rfc],
+                              ["Giro", borrower.company_giro],
+                              ["Régimen fiscal", borrower.company_regimen_fiscal],
+                              ["Estado", borrower.company_state],
+                              ["Fecha constitución", borrower.company_fecha_constitucion],
+                              ["Calle", borrower.company_calle],
+                              ["Colonia", borrower.company_colonia],
+                              ["Municipio", borrower.company_municipio],
+                              ["C.P.", borrower.company_cp],
+                            ] as [string,string|null][]).filter(([,v])=>v).map(([label,val])=>(
+                              <div key={label}>
+                                <div style={{ fontSize:8, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:2, letterSpacing:".06em" }}>{label.toUpperCase()}</div>
+                                <div style={{ fontSize:11, fontWeight:600, wordBreak:"break-all" }}>{val}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* REP LEGAL */}
+                      {(borrower.rep_first_names || borrower.rep_last_name) && (
+                        <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:12, padding:"13px 15px" }}>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:10, letterSpacing:".06em" }}>REPRESENTANTE LEGAL</div>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                            {([
+                              ["Nombre", [borrower.rep_first_names, borrower.rep_last_name].filter(Boolean).join(" ")],
+                              ["RFC", borrower.rep_rfc],
+                              ["CURP", borrower.rep_curp],
+                              ["Cargo", borrower.rep_cargo],
+                              ["Email", borrower.rep_email],
+                              ["Teléfono", borrower.rep_phone],
+                            ] as [string,string|null][]).filter(([,v])=>v).map(([label,val])=>(
+                              <div key={label}>
+                                <div style={{ fontSize:8, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:2, letterSpacing:".06em" }}>{label.toUpperCase()}</div>
+                                <div style={{ fontSize:11, fontWeight:600, wordBreak:"break-all" }}>{val}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* FINANCIERO */}
+                      {(borrower.fin_facturacion_anual || borrower.fin_sector) && (
+                        <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:12, padding:"13px 15px" }}>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:10, letterSpacing:".06em" }}>INFORMACIÓN FINANCIERA</div>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                            {([
+                              ["Facturación anual", borrower.fin_facturacion_anual ? `$${Number(borrower.fin_facturacion_anual).toLocaleString("es-MX")}` : null],
+                              ["Antigüedad", borrower.fin_antiguedad ? `${borrower.fin_antiguedad} años` : null],
+                              ["Empleados", borrower.fin_num_empleados],
+                              ["Sector", borrower.fin_sector],
+                              ["Banco", borrower.fin_banco],
+                              ["CLABE", borrower.fin_clabe ? `****${borrower.fin_clabe.slice(-4)}` : null],
+                            ] as [string,string|null][]).filter(([,v])=>v).map(([label,val])=>(
+                              <div key={label}>
+                                <div style={{ fontSize:8, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:2, letterSpacing:".06em" }}>{label.toUpperCase()}</div>
+                                <div style={{ fontSize:11, fontWeight:600, wordBreak:"break-all" }}>{val}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                     </div>
                   ) : (
                     <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:14, padding:20, textAlign:"center" }}>
