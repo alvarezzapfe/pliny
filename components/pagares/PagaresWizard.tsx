@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabaseClient'
 import { generarPagarePDF, CuotaAmortizacion, PagareData } from '@/lib/pagares/PagarePDF'
 
 interface ClienteForm {
@@ -86,7 +86,7 @@ function Field({ label, children, required }: { label: string; children: React.R
 const inputCls = "w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1B3A6B]/30 focus:border-[#1B3A6B]"
 
 export default function PagaresWizard({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const supabase = createClientComponentClient()
+  
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

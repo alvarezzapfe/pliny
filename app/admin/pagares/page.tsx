@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabaseClient'
 import PagaresWizard from '@/components/pagares/PagaresWizard'
 
 interface Pagare {
@@ -21,7 +21,7 @@ function fmt(n: number) {
 }
 
 export default function PagaresPage() {
-  const supabase = createClientComponentClient()
+  
   const [pagares, setPagares] = useState<Pagare[]>([])
   const [loading, setLoading] = useState(true)
   const [showWizard, setShowWizard] = useState(false)
