@@ -152,7 +152,7 @@ export async function generarPagarePDF(data: PagareData): Promise<Blob> {
   let lineX = margin
   let lineWords: typeof words = []
 
-  function flushLine(words: typeof words, x: number, lineY: number, justify: boolean, lastLine: boolean) {
+  function flushLine(ws: {word:string;bold:boolean}[], x: number, lineY: number, justify: boolean, lastLine: boolean) {
     if (!words.length) return
     const totalTextW = words.reduce((s, w) => {
       doc.setFont('helvetica', w.bold ? 'bold' : 'normal')
