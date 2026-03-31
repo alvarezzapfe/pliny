@@ -526,13 +526,13 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                       </div>
 
                       {/* EMPRESA */}
-                      {(borrower.company_name || borrower.company_razon_social) && (
+                      {(borrower.company_name || borrower.company_razon_social || borrower.institution_name) && (
                         <div style={{ background:"#fff", border:"1px solid #E8EDF5", borderRadius:12, padding:"13px 15px" }}>
                           <div style={{ fontSize:9, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:10, letterSpacing:".06em" }}>EMPRESA</div>
                           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                             {([
-                              ["Razón social", borrower.company_razon_social || borrower.company_name],
-                              ["RFC empresa", borrower.company_rfc],
+                              ["Razón social", borrower.company_razon_social || borrower.company_name || borrower.institution_name],
+                              ["RFC", borrower.company_rfc || borrower.rfc],
                               ["Giro", borrower.company_giro],
                               ["Régimen fiscal", borrower.company_regimen_fiscal],
                               ["Estado", borrower.company_state],
