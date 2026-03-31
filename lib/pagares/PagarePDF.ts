@@ -56,8 +56,8 @@ export async function generarPagarePDF(data: PagareData): Promise<Blob> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
   const W = 215.9
   const H = 279.4
-  const margin = 14
-  const cw = W - margin * 2
+  const margin = 20
+  const cw = W - margin * 2 - 4
 
   function drawHeader() {
     // Banda azul oscura
