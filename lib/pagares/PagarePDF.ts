@@ -118,82 +118,14 @@ export async function generarPagarePDF(data: PagareData): Promise<Blob> {
   doc.text(`(${enLetras(data.monto)})`, W / 2, y + 14, { align: 'center' })
   y += 24
 
-  // ── TEXTO LEGAL ─────────────────────────────────────────────────────────────
+  // ── TEXTO LEGAL ──────────────────────────────────────────────────────────
+  const textoLegal = `Yo, ${data.clienteNombre}, con Clave de Elector ${data.clienteClaveElector}, CURP ${data.clienteCurp}, con domicilio en ${data.clienteDomicilio}, en mi carácter de suscriptor, de manera incondicional e irrevocable me obligo a pagar a la orden de PLINIUS INFRAESTRUCTURA EN FINANZAS AI, SAPI DE C.V. ("el Tenedor"), la cantidad de ${fmt(data.monto)} M.N. (${enLetras(data.monto)}), que recibo como crédito simple personal en Torre Esmeralda III, Blvd. Manuel Ávila Camacho 32, Sky Lobby B, Lomas de Chapultepec I, C.P. 11000, CDMX.`
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9.5)
   doc.setTextColor(...GRIS_OSC)
-
-  // Construir texto con nombre en negrita
-  const partes = [
-    { text: 'Yo, ', bold: false },
-    { text: data.clienteNombre, bold: true },
-    { text: ', con Clave de Elector ', bold: false },
-    { text: data.clienteClaveElector, bold: true },
-    { text: ', CURP ', bold: false },
-    { text: data.clienteCurp, bold: true },
-    { text: ', con domicilio en ', bold: false },
-    { text: data.clienteDomicilio, bold: true },
-    { text: ', en mi carácter de suscriptor, de manera incondicional e irrevocable me obligo a pagar a la orden de ', bold: false },
-    { text: 'PLINIUS INFRAESTRUCTURA EN FINANZAS AI, SAPI DE C.V.', bold: true },
-    { text: ' ("el Tenedor"), la cantidad de ', bold: false },
-    { text: `${fmt(data.monto)} M.N. (${enLetras(data.monto)})`, bold: true },
-    { text: ', que recibo como crédito simple personal en Torre Esmeralda III, Blvd. Manuel Ávila Camacho 32, Sky Lobby B, Lomas de Chapultepec I, C.P. 11000, CDMX.', bold: false },
-  ]
-
-  // Renderizar párrafo mixto manualmente
-  const lineH = 5.2
-  const words: { word: string; bold: boolean }[] = []
-  for (const p of partes) {
-    p.text.split(' ').forEach((w, i) => {
-      if (w) words.push({ word: (i === 0 ? '' : '') + w, bold: p.bold })
-    })
-  }
-
-  let lineX = margin
-  let lineWords: typeof words = []
-
-  function flushLine(ws: {word:string;bold:boolean}[], x: number, lineY: number, justify: boolean, lastLine: boolean) {
-    if (!words.length) return
-    const totalTextW = words.reduce((s, w) => {
-      doc.setFont('helvetica', w.bold ? 'bold' : 'normal')
-      doc.setFontSize(9.5)
-      return s + doc.getTextWidth(w.word + ' ')
-    }, 0)
-    let spaceExtra = 0
-    if (justify && !lastLine && words.length > 1) {
-      spaceExtra = (cw - totalTextW) / (words.length - 1)
-    }
-    let cx = x
-    for (const w of words) {
-      doc.setFont('helvetica', w.bold ? 'bold' : 'normal')
-      doc.setFontSize(9.5)
-      doc.setTextColor(...GRIS_OSC)
-      doc.text(w.word, cx, lineY)
-      cx += doc.getTextWidth(w.word) + doc.getTextWidth(' ') + spaceExtra
-    }
-  }
-
-  let currentLine: typeof words = []
-  let currentW = 0
-  for (const w of words) {
-    doc.setFont('helvetica', w.bold ? 'bold' : 'normal')
-    doc.setFontSize(9.5)
-    const ww = doc.getTextWidth(w.word + ' ')
-    if (currentW + ww > cw && currentLine.length > 0) {
-      flushLine(currentLine, margin, y, true, false)
-      y += lineH
-      currentLine = [w]
-      currentW = ww
-    } else {
-      currentLine.push(w)
-      currentW += ww
-    }
-  }
-  if (currentLine.length) {
-    flushLine(currentLine, margin, y, true, true)
-    y += lineH
-  }
-  y += 8
+  const legalLines = doc.splitTextToSize(textoLegal, cw)
+  doc.text(legalLines, margin, y, { align: 'justify' })
+  y += legalLines.length * 5.2 + 8
 
   // ── CONDICIONES ─────────────────────────────────────────────────────────────
   hr(doc, y, margin, W); y += 5
