@@ -386,8 +386,9 @@ export async function POST(req: NextRequest) {
     })
 
     const buffer = await Packer.toBuffer(doc)
+    const uint8 = new Uint8Array(buffer)
 
-    return new NextResponse(buffer, {
+    return new NextResponse(uint8, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
