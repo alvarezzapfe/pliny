@@ -394,7 +394,7 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
   useEffect(() => {
     (async () => {
       const [{ data:b }, { data:s }, { data:o }] = await Promise.all([
-        supabase.from("borrowers_profile").select("*").eq("borrower_id", user.id).maybeSingle(),
+        supabase.from("borrowers_profile").select("*").eq("owner_id", user.id).maybeSingle(),
         supabase.from("solicitudes").select("id,destino,descripcion,monto,status,created_at,plazo_meses").eq("borrower_id", user.id).order("created_at",{ascending:false}).limit(20),
         supabase.from("ofertas").select("id,monto_ofertado,tasa_anual,status,created_at").eq("otorgante_id", user.id).order("created_at",{ascending:false}).limit(10),
       ]);
