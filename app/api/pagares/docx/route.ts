@@ -45,7 +45,7 @@ function headerCell(text: string, width: number) {
   })
 }
 
-function dataCell(text: string, width: number, align = AlignmentType.CENTER, shade = "F5F7FA") {
+function dataCell(text: string, width: number, align: any = AlignmentType.CENTER, shade = "F5F7FA") {
   return new TableCell({
     width: { size: width, type: WidthType.DXA },
     borders: allBorders,
