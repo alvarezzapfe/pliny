@@ -579,7 +579,7 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                           <div style={{ fontSize:9, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:10, letterSpacing:".06em" }}>INFORMACIÓN FINANCIERA</div>
                           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                             {([
-                              ["Facturación anual", borrower.fin_facturacion_anual ? `$${Number(borrower.fin_facturacion_anual).toLocaleString("es-MX")}` : null],
+                              ["Facturación anual", borrower.fin_facturacion_anual || null],
                               ["Antigüedad", borrower.fin_antiguedad ? `${borrower.fin_antiguedad} años` : null],
                               ["Empleados", borrower.fin_num_empleados],
                               ["Sector", borrower.fin_sector],
