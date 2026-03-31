@@ -41,7 +41,7 @@ function calcScore(b: any): { score: number; vars: ScoreVar[] } {
   }
   function parseFacturacion(v: string|null): number|null {
     if (!v) return null;
-    const map: Record<string,number> = { "menos_500k":250000,"500k_1m":750000,"1m_5m":3000000,"5m_20m":12500000,"20m_50m":35000000,"mas_50m":75000000 };
+    const map: Record<string,number> = { "menos_500k":250000,"500k_1m":750000,"1m_5m":3000000,"5m_20m":12500000,"20m_50m":35000000,"mas_50m":75000000,"mas_10m":15000000,"10m_50m":30000000 };
     return map[v] ?? parseFloat(v) ?? null;
   }
   function parseEmpleados(v: string|null): number|null {
