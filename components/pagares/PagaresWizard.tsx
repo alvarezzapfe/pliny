@@ -128,54 +128,74 @@ export default function PagaresWizard({ onClose, onSaved }: { onClose: () => voi
     )
   }
 
+
   async function handleGenerar() {
-    setLoading(true); setError('')
+    setLoading(true); setError("")
     try {
-      const { data: folioData } = await supabase.rpc('generate_folio')
+      const { data: folioData } = await supabase.rpc("generate_folio")
       const folio = folioData ?? `CR-${new Date().getFullYear()}-${Date.now().toString().slice(-3)}`
-      let ineFrente64 = '', ineReverso64 = '', ineFrentePath = '', ineReversoPath = ''
+      let ineFrente64 = "", ineReverso64 = "", ineFrentePath = "", ineReversoPath = ""
       if (ine.frente) {
         ineFrente64 = await fileToBase64(ine.frente)
         const path = `${folio}/ine_frente.jpg`
-        await supabase.storage.from('pagares-docs').upload(path, ine.frente, { upsert: true })
+        await supabase.storage.from("pagares-docs").upload(path, ine.frente, { upsert: true })
         ineFrentePath = path
       }
       if (ine.reverso) {
         ineReverso64 = await fileToBase64(ine.reverso)
         const path = `${folio}/ine_reverso.jpg`
-        await supabase.storage.from('pagares-docs').upload(path, ine.reverso, { upsert: true })
+        await supabase.storage.from("pagares-docs").upload(path, ine.reverso, { upsert: true })
         ineReversoPath = path
       }
-      const pdfData: PagareData = {
+      const payload = {
         folio, fecha: fechaLeg, vencimiento, lugar: condiciones.lugar,
-        clienteNombre: cliente.nombre.toUpperCase(), clienteCurp: cliente.curp.toUpperCase(),
-        clienteClaveElector: cliente.claveElector.toUpperCase(), clienteDomicilio: cliente.domicilio.toUpperCase(),
-        monto: condiciones.monto, tasaMensual: condiciones.tasaMensual, plazoMeses: condiciones.plazoMeses,
-        metodoInteres: condiciones.metodoInteres, cuotaMensual, totalIntereses, totalPagar, tabla,
-        ineFrente: ineFrente64 || undefined, ineReverso: ineReverso64 || undefined,
+        clienteNombre: cliente.nombre, clienteCurp: cliente.curp,
+        clienteClaveElector: cliente.claveElector, clienteDomicilio: cliente.domicilio,
+        monto: condiciones.monto, tasaMensual: condiciones.tasaMensual,
+        plazoMeses: condiciones.plazoMeses, metodoInteres: condiciones.metodoInteres,
+        cuotaMensual, totalIntereses, totalPagar, tabla,
+        ineFrente: ineFrente64 || undefined,
+        ineReverso: ineReverso64 || undefined,
+        fechaIso: condiciones.fechaDisposicion,
       }
-      const pdfBlob = await generarPagarePDF(pdfData)
-      const pdfFile = new File([pdfBlob], `${folio}.pdf`, { type: 'application/pdf' })
-      const pdfPath = `${folio}/pagare.pdf`
-      await supabase.storage.from('pagares-docs').upload(pdfPath, pdfFile, { upsert: true })
-      const { error: dbErr } = await supabase.from('pagares').insert({
-        folio, cliente_nombre: cliente.nombre.toUpperCase(), cliente_curp: cliente.curp.toUpperCase(),
-        cliente_clave_elector: cliente.claveElector.toUpperCase(), cliente_domicilio: cliente.domicilio.toUpperCase(),
+      const pdfBlob = await generarPagarePDF(payload as any)
+      const pdfFile = new File([pdfBlob], `${folio}.pdf`, { type: "application/pdf" })
+      await supabase.storage.from("pagares-docs").upload(`${folio}/pagare.pdf`, pdfFile, { upsert: true })
+      const docxRes = await fetch("/api/pagares/docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!docxRes.ok) throw new Error("Error generando Word")
+      const docxBlob = await docxRes.blob()
+      const docxFile = new File([docxBlob], `${folio}.docx`, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })
+      await supabase.storage.from("pagares-docs").upload(`${folio}/pagare.docx`, docxFile, { upsert: true })
+      const { error: dbErr } = await supabase.from("pagares").insert({
+        folio, cliente_nombre: cliente.nombre, cliente_curp: cliente.curp,
+        cliente_clave_elector: cliente.claveElector, cliente_domicilio: cliente.domicilio,
         cliente_fecha_nac: cliente.fechaNac || null, cliente_sexo: cliente.sexo || null,
         ine_frente_path: ineFrentePath || null, ine_reverso_path: ineReversoPath || null,
-        monto: condiciones.monto, tasa_mensual: condiciones.tasaMensual, plazo_meses: condiciones.plazoMeses,
-        metodo_interes: condiciones.metodoInteres, fecha_disposicion: condiciones.fechaDisposicion,
-        lugar_firma: condiciones.lugar, tabla_amortizacion: tabla,
-        total_capital: condiciones.monto, total_intereses: totalIntereses,
-        total_pagar: totalPagar, cuota_mensual: cuotaMensual, status: 'activo', pdf_path: pdfPath,
+        monto: condiciones.monto, tasa_mensual: condiciones.tasaMensual,
+        plazo_meses: condiciones.plazoMeses, metodo_interes: condiciones.metodoInteres,
+        fecha_disposicion: condiciones.fechaDisposicion, lugar_firma: condiciones.lugar,
+        tabla_amortizacion: tabla, total_capital: condiciones.monto,
+        total_intereses: totalIntereses, total_pagar: totalPagar,
+        cuota_mensual: cuotaMensual, status: "activo", pdf_path: `${folio}/pagare.pdf`,
       })
       if (dbErr) throw dbErr
-      const url = URL.createObjectURL(pdfBlob)
-      const a = document.createElement('a'); a.href = url; a.download = `pagare_${folio}.pdf`; a.click()
-      URL.revokeObjectURL(url)
+      const dlPDF = document.createElement("a")
+      dlPDF.href = URL.createObjectURL(pdfBlob)
+      dlPDF.download = `pagare_${folio}.pdf`
+      dlPDF.click()
+      setTimeout(() => {
+        const dlDocx = document.createElement("a")
+        dlDocx.href = URL.createObjectURL(docxBlob)
+        dlDocx.download = `pagare_${folio}.docx`
+        dlDocx.click()
+      }, 800)
       onSaved()
     } catch (e: any) {
-      setError(e.message ?? 'Error al generar el pagaré')
+      setError(e.message ?? "Error al generar el pagaré")
     } finally {
       setLoading(false)
     }
