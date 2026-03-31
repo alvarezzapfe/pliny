@@ -393,12 +393,13 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
 
   useEffect(() => {
     (async () => {
-      const [{ data:b }, { data:s }, { data:o }] = await Promise.all([
+      const [{ data:b }, { data:lender }, { data:s }, { data:o }] = await Promise.all([
         supabase.from("borrowers_profile").select("*").eq("owner_id", user.id).maybeSingle(),
+        supabase.from("lenders_profile").select("*").eq("owner_id", user.id).maybeSingle(),
         supabase.from("solicitudes").select("id,destino,descripcion,monto,status,created_at,plazo_meses").eq("borrower_id", user.id).order("created_at",{ascending:false}).limit(20),
         supabase.from("ofertas").select("id,monto_ofertado,tasa_anual,status,created_at").eq("otorgante_id", user.id).order("created_at",{ascending:false}).limit(10),
       ]);
-      setBorrower(b); setSolicitudes(s??[]); setOfertas(o??[]);
+      setBorrower(b ?? lender); setSolicitudes(s??[]); setOfertas(o??[]);
       setLoading(false);
     })();
   }, [user.id]);
@@ -511,7 +512,7 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                             ["Email", borrower.email],
                             ["Teléfono", borrower.phone_national ? `+${borrower.phone_country||"52"} ${borrower.phone_national}` : null],
                             ["CURP", borrower.curp],
-                            ["RFC", borrower.rfc],
+                            ["RFC", borrower.rfc || borrower.company_rfc],
                             ["Tipo", borrower.persona_type],
                             ["Onboarding", borrower.onboarding_done ? "✓ Completo" : `Paso ${borrower.onboarding_step||0}`],
                             ["KYC", borrower.kyc_status || "—"],
