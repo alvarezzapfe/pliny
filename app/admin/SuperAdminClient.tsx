@@ -56,12 +56,12 @@ type Solicitud = {
   monto: number; plazo_meses: number; status: string; created_at: string;
   owner_email?: string;
 };
-type View = "usuarios" | "solicitudes" | "leads" | "metricas";
+type View = "usuarios" | "solicitudes" | "leads" | "metricas" | "pagares";
 
 function PlanBadge({ plan, large }: { plan: string; large?: boolean }) {
   const cfg = PLAN_CONFIG[plan as keyof typeof PLAN_CONFIG] ?? PLAN_CONFIG.free;
   return (
-    <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:large?12:11, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:cfg.bg, color:cfg.color, border:`1px solid ${cfg.border}`, borderRadius:999, padding:large?"4px 12px":"2px 8px", whiteSpace:"nowrap", boxShadow:cfg.glow?`0 0 12px ${cfg.glow}`:"none" }}>
+    <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:large?12:11, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:cfg.bg, color:cfg.color, border:`1.5px solid ${cfg.border}`, borderRadius:8, padding:large?"5px 12px":"4px 10px", whiteSpace:"nowrap", boxShadow:cfg.glow?`0 0 12px ${cfg.glow}`:"none" }}>
       <span style={{ width:5, height:5, borderRadius:"50%", background:cfg.dot, display:"inline-block", flexShrink:0 }}/>
       {cfg.label}
     </span>
@@ -71,7 +71,7 @@ function RoleBadge({ role }: { role: string | null }) {
   if (!role) return <span style={{ fontSize:11, color:"#CBD5E1" }}>—</span>;
   const cfg = ROLE_CONFIG[role as keyof typeof ROLE_CONFIG];
   if (!cfg) return <span style={{ fontSize:11, color:"#94A3B8" }}>{role}</span>;
-  return <span style={{ fontSize:11, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:cfg.bg, color:cfg.color, border:`1px solid ${cfg.border}`, borderRadius:999, padding:"2px 8px", whiteSpace:"nowrap" }}>{cfg.label}</span>;
+  return <span style={{ fontSize:11, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:cfg.bg, color:cfg.color, border:`1px solid ${cfg.border}`, borderRadius:8, padding:"4px 10px", whiteSpace:"nowrap", display:"inline-flex", alignItems:"center", gap:5, width:"fit-content" }}><span style={{ width:5, height:5, borderRadius:"50%", background:cfg.color, display:"inline-block", opacity:.7, flexShrink:0 }}/>{cfg.label}</span>;
 }
 function StatusBadge({ status }: { status: string }) {
   const cfg = SOL_STATUS_CONFIG[status] ?? { bg:"#F8FAFC", color:"#475569" };
@@ -871,6 +871,7 @@ export default function SuperAdminClient() {
     { key:"solicitudes", label:"Solicitudes", icon:"M2 2h12v2H2zM2 6h9M2 10h7M10 9l2 2 4-4",        count:solicitudes.length || null },
     { key:"leads",       label:"Leads",       icon:"M4 2h8l2 2v10H2V4z",                            count:leads.length },
     { key:"metricas",    label:"Métricas",    icon:"M2 12L6 7l3 3 3-4 2 2",                         count:null },
+    { key:"pagares",     label:"Pagarés",     icon:"M4 2h8l2 3v11H4V2zM7 7h4M7 10h4M7 13h2",          count:null },
   ];
 
   const CSS = `
@@ -884,17 +885,19 @@ export default function SuperAdminClient() {
     .fade{animation:fadeUp .3s cubic-bezier(.16,1,.3,1) both;}
     .mono{font-family:'Geist Mono',monospace;}
     .card{background:#fff;border:1px solid #E8EDF5;border-radius:14px;}
-    .tr{display:grid;align-items:center;padding:10px 16px;border-bottom:1px solid #F1F5F9;transition:background .1s;}
+    .tr{display:grid;align-items:center;padding:13px 20px;border-bottom:1px solid #F1F5F9;transition:background .1s;}
     .tr:last-child{border-bottom:none;}
     .tr.clickable:hover{background:#F8FAFF;cursor:pointer;}
-    .nav-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;transition:all .15s;border:none;background:transparent;width:100%;font-family:'Geist',sans-serif;text-align:left;}
+    
+    .nav-btn{display:flex;align-items:center;gap:10px;padding:12px 12px;border-radius:10px;cursor:pointer;transition:all .15s;border:none;background:transparent;width:100%;font-family:'Geist',sans-serif;text-align:left;}
     .nav-btn:hover{background:rgba(255,255,255,.06);}
     .nav-btn.active{background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);}
-    .fsel{height:32px;border-radius:8px;border:1.5px solid #E2E8F0;background:#F8FAFC;padding:0 10px;font-size:11px;color:#374151;font-family:'Geist',sans-serif;outline:none;cursor:pointer;}
+    .fsel{height:34px;border-radius:9px;border:1.5px solid #E2E8F0;background:#F8FAFC;padding:0 10px;font-size:11px;color:#374151;font-family:'Geist',sans-serif;outline:none;cursor:pointer;}
     .fsel:focus{border-color:#3B82F6;}
-    .finp{height:32px;border-radius:8px;border:1.5px solid #E2E8F0;background:#F8FAFC;padding:0 10px 0 28px;font-size:11px;color:#374151;font-family:'Geist',sans-serif;outline:none;width:100%;}
+    .finp{height:34px;border-radius:9px;border:1.5px solid #E2E8F0;background:#fff;padding:0 12px 0 32px;font-size:12px;color:#374151;font-family:'Geist',sans-serif;outline:none;width:100%;}
     .finp:focus{border-color:#3B82F6;background:#fff;}
     ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#E2E8F0;border-radius:999px;}
+    .user-avatar{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#EEF2FF,#E0E7FF);border:1px solid #C7D2FE;display:grid;place-items:center;flex-shrink:0;font-size:12px;font-weight:800;color:#4338CA;font-family:"Geist Mono",monospace;}
   `;
 
   return (
@@ -983,14 +986,14 @@ export default function SuperAdminClient() {
               { label:"Conversión", val:`${metrics.conversion}%`,color:"#9A3412", icon:"M2 12L6 7l3 3 3-4 2 2" },
               { label:"Leads",      val:metrics.leads_total,     color:"#5B21B6", icon:"M4 2h8l2 2v10H2V4z" },
             ].map(k => (
-              <div key={k.label} className="card" style={{ padding:"11px 13px" }}>
+              <div key={k.label} className="card" style={{ padding:"14px 16px", transition:"box-shadow .2s" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                   <div className="mono" style={{ fontSize:9, color:"#94A3B8", letterSpacing:".08em" }}>{k.label.toUpperCase()}</div>
                   <div style={{ width:22, height:22, borderRadius:6, background:`${k.color}14`, display:"grid", placeItems:"center" }}>
                     <Ic d={k.icon} s={10} c={k.color}/>
                   </div>
                 </div>
-                <div style={{ fontSize:22, fontWeight:900, letterSpacing:"-0.04em", color:k.color }}>{loading?"—":k.val}</div>
+                <div style={{ fontSize:26, fontWeight:900, letterSpacing:"-0.05em", lineHeight:1, color:k.color }}>{loading?"—":k.val}</div>
               </div>
             ))}
           </div>
@@ -998,7 +1001,7 @@ export default function SuperAdminClient() {
           {/* USUARIOS */}
           {view==="usuarios" && (
             <div className="card fade" style={{ overflow:"hidden" }}>
-              <div style={{ padding:"10px 14px", borderBottom:"1px solid #E8EDF5", display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+              <div style={{ padding:"14px 18px", borderBottom:"1px solid #E8EDF5", display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
                 <div style={{ position:"relative", flex:"1 1 180px" }}>
                   <div style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }}>
                     <Ic d="M10 10l4 4M2 7a5 5 0 1010 0A5 5 0 002 7z" s={11} c="#94A3B8"/>
@@ -1025,7 +1028,7 @@ export default function SuperAdminClient() {
                   </button>
                 )}
               </div>
-              <div className="tr" style={{ gridTemplateColumns:"2.5fr 100px 90px 80px 90px 60px 60px 90px", background:"#F8FAFC", cursor:"default" }}>
+              <div className="tr" style={{ gridTemplateColumns:"minmax(0,2fr) 150px 120px 95px 110px 70px 70px 110px", background:"#FAFBFC", cursor:"default", borderBottom:"2px solid #E8EDF5" }}>
                 {["Email","Rol","Plan","Registro","Último acceso","Sols.","Ofertas",""].map(h => (
                   <div key={h} className="mono" style={{ fontSize:9, color:"#94A3B8", letterSpacing:".06em" }}>{h.toUpperCase()}</div>
                 ))}
@@ -1038,20 +1041,23 @@ export default function SuperAdminClient() {
               ) : filtered.length===0 ? (
                 <div style={{ padding:40, textAlign:"center", fontSize:13, color:"#94A3B8" }}>Sin resultados</div>
               ) : filtered.map(u => (
-                <div key={u.id} className="tr clickable" style={{ gridTemplateColumns:"2.5fr 100px 90px 80px 90px 60px 60px 90px" }} onClick={()=>setViewing(u)}>
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:12, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.email}</div>
-                    <div className="mono" style={{ fontSize:9, color:"#CBD5E1", marginTop:1 }}>{u.id.slice(0,8)}…</div>
+                <div key={u.id} className="tr clickable" style={{ gridTemplateColumns:"minmax(0,2fr) 150px 120px 95px 110px 70px 70px 110px" }} onClick={()=>setViewing(u)}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, minWidth:0 }}>
+                    <div className="user-avatar">{u.email[0].toUpperCase()}</div>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", color:"#0F172A" }}>{u.email}</div>
+                      <div className="mono" style={{ fontSize:9, color:"#CBD5E1", marginTop:2 }}>{u.id.slice(0,8)}…</div>
+                    </div>
                   </div>
-                  <RoleBadge role={u.role}/>
-                  <PlanBadge plan={u.plan}/>
-                  <div className="mono" style={{ fontSize:10, color:"#94A3B8" }}>{fmtDateShort(u.created_at)}</div>
-                  <div className="mono" style={{ fontSize:10, color:u.last_sign_in?"#475569":"#CBD5E1" }}>{u.last_sign_in?fmtDateShort(u.last_sign_in):"—"}</div>
-                  <div className="mono" style={{ fontSize:12, fontWeight:u.solicitudes_count>0?700:400, color:u.solicitudes_count>0?"#0F172A":"#CBD5E1" }}>{u.solicitudes_count}</div>
-                  <div className="mono" style={{ fontSize:12, fontWeight:u.ofertas_count>0?700:400, color:u.ofertas_count>0?"#0F172A":"#CBD5E1" }}>{u.ofertas_count}</div>
-                  <div style={{ display:"flex", gap:4 }} onClick={e=>e.stopPropagation()}>
-                    <button onClick={()=>setViewing(u)} style={{ height:26, padding:"0 8px", borderRadius:6, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:10, fontWeight:600, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>Ver</button>
-                    <button onClick={()=>setEditing(u)} style={{ height:26, padding:"0 8px", borderRadius:6, border:"none", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", color:"#fff", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif" }}>Edit</button>
+                  <div style={{paddingRight:8}}><RoleBadge role={u.role}/></div>
+                  <div style={{paddingRight:8}}><PlanBadge plan={u.plan}/></div>
+                  <div className="mono" style={{ fontSize:11, color:"#64748B" }}>{fmtDateShort(u.created_at)}</div>
+                  <div className="mono" style={{ fontSize:11, color:u.last_sign_in?"#475569":"#CBD5E1" }}>{u.last_sign_in?fmtDateShort(u.last_sign_in):"—"}</div>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"center" }}><span className="mono" style={{ fontSize:13, fontWeight:u.solicitudes_count>0?800:400, color:u.solicitudes_count>0?"#0C1E4A":"#CBD5E1", background:u.solicitudes_count>0?"#EEF2FF":"transparent", borderRadius:6, padding:u.solicitudes_count>0?"2px 8px":"0" }}>{u.solicitudes_count}</span></div>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"center" }}><span className="mono" style={{ fontSize:13, fontWeight:u.ofertas_count>0?800:400, color:u.ofertas_count>0?"#0C1E4A":"#CBD5E1", background:u.ofertas_count>0?"#EEF2FF":"transparent", borderRadius:6, padding:u.ofertas_count>0?"2px 8px":"0" }}>{u.ofertas_count}</span></div>
+                  <div style={{ display:"flex", gap:6, justifyContent:"flex-end" }} onClick={e=>e.stopPropagation()}>
+                    <button onClick={()=>setViewing(u)} style={{ height:28, padding:"0 12px", borderRadius:8, border:"1.5px solid #E2E8F0", background:"#fff", color:"#334155", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", letterSpacing:"-.01em", transition:"all .15s" }} onMouseEnter={e=>{e.currentTarget.style.borderColor="#94A3B8";e.currentTarget.style.background="#F8FAFC";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#E2E8F0";e.currentTarget.style.background="#fff";}}>Ver</button>
+                    <button onClick={()=>setEditing(u)} style={{ height:28, padding:"0 12px", borderRadius:8, border:"none", background:"#0C1E4A", color:"#fff", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'Geist',sans-serif", letterSpacing:"-.01em", transition:"all .15s", boxShadow:"0 1px 4px rgba(12,30,74,.25)" }} onMouseEnter={e=>{e.currentTarget.style.background="#1B3F8A";e.currentTarget.style.boxShadow="0 3px 10px rgba(12,30,74,.35)";}} onMouseLeave={e=>{e.currentTarget.style.background="#0C1E4A";e.currentTarget.style.boxShadow="0 1px 4px rgba(12,30,74,.25)";}}>Edit</button>
                   </div>
                 </div>
               ))}
@@ -1061,7 +1067,7 @@ export default function SuperAdminClient() {
           {/* SOLICITUDES GLOBAL */}
           {view==="solicitudes" && (
             <div className="card fade" style={{ overflow:"hidden" }}>
-              <div style={{ padding:"10px 14px", borderBottom:"1px solid #E8EDF5", display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+              <div style={{ padding:"14px 18px", borderBottom:"1px solid #E8EDF5", display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
                 <div style={{ position:"relative", flex:"1 1 200px" }}>
                   <div style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }}>
                     <Ic d="M10 10l4 4M2 7a5 5 0 1010 0A5 5 0 002 7z" s={11} c="#94A3B8"/>
@@ -1125,7 +1131,7 @@ export default function SuperAdminClient() {
           {/* LEADS */}
           {view==="leads" && (
             <div className="card fade" style={{ overflow:"hidden" }}>
-              <div className="tr" style={{ gridTemplateColumns:"1.5fr 80px 1.5fr 110px 1fr 100px", background:"#F8FAFC", cursor:"default" }}>
+              <div className="tr" style={{ gridTemplateColumns:"1.5fr 110px 1.5fr 130px 1fr 120px", background:"#FAFBFC", cursor:"default", borderBottom:"2px solid #E8EDF5" }}>
                 {["Empresa","Plan","Email","Teléfono","Notas","Fecha"].map(h=>(
                   <div key={h} className="mono" style={{ fontSize:9, color:"#94A3B8", letterSpacing:".06em" }}>{h.toUpperCase()}</div>
                 ))}
@@ -1133,12 +1139,12 @@ export default function SuperAdminClient() {
               {leads.length===0 ? (
                 <div style={{ padding:40, textAlign:"center", fontSize:13, color:"#94A3B8" }}>Sin leads aún</div>
               ) : leads.map(l=>(
-                <div key={l.id} className="tr" style={{ gridTemplateColumns:"1.5fr 80px 1.5fr 110px 1fr 100px" }}>
+                <div key={l.id} className="tr" style={{ gridTemplateColumns:"1.5fr 110px 1.5fr 130px 1fr 120px" }}>
                   <div>
                     <div style={{ fontSize:12, fontWeight:700 }}>{l.company}</div>
                     <div style={{ fontSize:11, color:"#94A3B8" }}>{l.name}</div>
                   </div>
-                  <PlanBadge plan={l.plan}/>
+                  <div><PlanBadge plan={l.plan}/></div>
                   <div style={{ fontSize:12, color:"#475569", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.email}</div>
                   <div className="mono" style={{ fontSize:11, color:"#64748B" }}>{l.phone||"—"}</div>
                   <div style={{ fontSize:11, color:"#94A3B8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.notes||"—"}</div>
@@ -1203,6 +1209,16 @@ export default function SuperAdminClient() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* PAGARÉS */}
+          {view==="pagares" && (
+            <div className="fade" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <iframe
+                src="/admin/pagares"
+                style={{ width:"100%", height:"calc(100vh - 180px)", border:"none", borderRadius:16, background:"#fff" }}
+              />
             </div>
           )}
         </div>

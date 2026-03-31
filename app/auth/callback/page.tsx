@@ -4,43 +4,55 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+async function routeUser(userId: string, router: ReturnType<typeof useRouter>) {
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!roleRow?.role) {
+    router.replace("/onboarding/role");
+    return;
+  }
+
+  if (roleRow.role === "solicitante") {
+    const { data: borrower } = await supabase
+      .from("borrowers_profile")
+      .select("onboarding_done")
+      .eq("owner_id", userId)
+      .maybeSingle();
+
+    if (borrower?.onboarding_done) {
+      router.replace("/solicitante");
+    } else {
+      router.replace("/onboarding/solicitante");
+    }
+    return;
+  }
+
+  router.replace("/dashboard");
+}
+
 export default function AuthCallbackPage() {
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    // Check existing session immediately (handles OAuth redirect)
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        const user = session.user;
-
-        const { data: roleRow } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (!roleRow?.role) {
-          router.replace("/onboarding/role");
-          return;
-        }
-
-        if (roleRow.role === "solicitante") {
-          const { data: borrower } = await supabase
-            .from("borrowers_profile")
-            .select("onboarding_done")
-            .eq("owner_id", user.id)
-            .maybeSingle();
-
-          if (borrower?.onboarding_done) {
-            router.replace("/solicitante");
-          } else {
-            router.replace("/onboarding/solicitante");
-          }
-          return;
-        }
-
-        router.replace("/dashboard");
+        routeUser(session.user.id, router);
       }
     });
+
+    // Also listen for auth state changes (handles email/password)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+        routeUser(session.user.id, router);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [router]);
 
   return (

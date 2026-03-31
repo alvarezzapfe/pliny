@@ -51,22 +51,14 @@ export default function RoleSelectPage() {
     if (!user) { router.replace("/login"); return; }
 
     // Guarda el rol en user_roles
-    const { error: insertErr } = await supabase
+    const { error: upsertErr } = await supabase
       .from("user_roles")
-      .insert({ user_id: user.id, role: selected });
+      .upsert({ user_id: user.id, role: selected }, { onConflict: "user_id" });
 
-    if (insertErr) {
-      // Si ya existe (race condition) intenta update
-      const { error: updateErr } = await supabase
-        .from("user_roles")
-        .update({ role: selected })
-        .eq("user_id", user.id);
-
-      if (updateErr) {
-        setError("No se pudo guardar el rol. Intenta de nuevo.");
-        setLoading(false);
-        return;
-      }
+    if (upsertErr) {
+      setError("No se pudo guardar el rol. Intenta de nuevo.");
+      setLoading(false);
+      return;
     }
 
     // Actualiza sesión local
