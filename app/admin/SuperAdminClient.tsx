@@ -508,11 +508,11 @@ function UserProfile({ user, onClose, onEdit }: { user:User; onClose:()=>void; o
                         <div style={{ fontSize:9, fontWeight:700, color:"#94A3B8", fontFamily:"'Geist Mono',monospace", marginBottom:10, letterSpacing:".06em" }}>DATOS PERSONALES</div>
                         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                           {([
-                            ["Nombre", [borrower.first_name, borrower.last_name].filter(Boolean).join(" ") || null],
+                            ["Nombre", [borrower.first_name || borrower.legal_rep_first_names, borrower.last_name || borrower.legal_rep_last_name_paternal].filter(Boolean).join(" ") || null],
                             ["Email", borrower.email],
                             ["Teléfono", borrower.phone_national ? `+${borrower.phone_country||"52"} ${borrower.phone_national}` : null],
                             ["CURP", borrower.curp],
-                            ["RFC", borrower.rfc || borrower.company_rfc],
+                            ["RFC", borrower.rfc || borrower.company_rfc || null],
                             ["Tipo", borrower.persona_type],
                             ["Onboarding", borrower.onboarding_done ? "✓ Completo" : `Paso ${borrower.onboarding_step||0}`],
                             ["KYC", borrower.kyc_status || "—"],
