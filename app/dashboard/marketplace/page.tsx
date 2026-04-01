@@ -292,37 +292,40 @@ export default function MarketplacePage() {
           <div style={{ fontSize:12, color:"#94A3B8" }}>Vuelve pronto — nuevas solicitudes llegan diariamente</div>
         </div>
       ) : (
-        <div className="card fade d3" style={{ overflow:"hidden" }}>
-          <div style={{ padding:"12px 18px", borderBottom:"1px solid #E8EDF5", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <div style={{ fontSize:13, fontWeight:700 }}>Solicitudes</div>
-            <span className="mono" style={{ fontSize:11, color:"#94A3B8" }}>{filtered.length} resultados</span>
-          </div>
-          <div className="tr" style={{ gridTemplateColumns:"24px minmax(160px,1fr) 90px 60px 100px 95px 85px 130px", background:"#F8FAFC", cursor:"default", paddingTop:8, paddingBottom:8 }}>
-            {["","Destino","Monto","Plazo","Sector","Garantía","Fact.",""].map((h,i)=><div key={i} className="mono" style={{ fontSize:10, color:"#94A3B8", letterSpacing:".06em" }}>{h}</div>)}
-          </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:12 }}>
           {filtered.map(s=>{
             const gColor = GARANTIA_COLOR[s.garantia_tipo]??GARANTIA_COLOR.sin_garantia;
             const yaOferto = misOfertas.includes(s.id);
             const isOpen = expanded===s.id;
             return (
               <React.Fragment key={s.id}>
-                <div className="tr" onClick={()=>setExpanded(isOpen?null:s.id)} style={{ gridTemplateColumns:"24px minmax(160px,1fr) 90px 60px 100px 95px 85px 130px", background:isOpen?"#EEF2FF":"white" }}>
-                  <div style={{ fontSize:11, color:"#94A3B8" }}>{isOpen?"▼":"▶"}</div>
-                  <div><div style={{ fontSize:13, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.destino||"—"}</div><div className="mono" style={{ fontSize:10, color:"#94A3B8" }}>{fmtDate(s.created_at)}</div></div>
-                  <div className="mono" style={{ fontSize:12, fontWeight:700 }}>{fmt(s.monto)}</div>
-                  <div style={{ fontSize:12, color:"#64748B" }}>{s.plazo_meses}m</div>
-                  <div style={{ fontSize:11, color:"#475569", textTransform:"capitalize" }}>{s.fin_sector||"—"}</div>
-                  <span style={{ fontSize:10, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:gColor.bg, color:gColor.color, border:`1px solid ${gColor.border}`, borderRadius:999, padding:"2px 8px", display:"inline-block" }}>{(s.garantia_tipo||"—").replace("_"," ")}</span>
-                  <div style={{ fontSize:11, color:"#64748B" }}>{FACTURACION_LABEL[s.fin_facturacion_anual]||"—"}</div>
-                  <div style={{ display:"flex", gap:5, alignItems:"center" }} onClick={e=>e.stopPropagation()}>
-                    <button onClick={()=>handleConectar(s)} style={{ height:28, padding:"0 8px", borderRadius:7, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:11, fontWeight:600, cursor:"pointer" }}>Chat</button>
+                <div onClick={()=>setExpanded(isOpen?null:s.id)}
+                  style={{ background:"#fff", border:`1.5px solid ${isOpen?"#1B3A6B":"#E8EDF5"}`, borderRadius:14, padding:"16px", cursor:"pointer", transition:"all .15s", boxShadow:isOpen?"0 4px 16px rgba(27,58,107,.12)":"none" }}>
+                  {/* Header */}
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+                    <div>
+                      <div style={{ fontSize:14, fontWeight:700, color:"#0B1F4B", marginBottom:2 }}>{s.destino||"Sin destino"}</div>
+                      <div style={{ fontSize:11, color:"#94A3B8", fontFamily:"monospace" }}>{fmtDate(s.created_at)}</div>
+                    </div>
+                    <div style={{ fontSize:18, fontWeight:900, color:"#0B1F4B", fontFamily:"monospace" }}>{fmt(s.monto)}</div>
+                  </div>
+                  {/* Tags */}
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
+                    <span style={{ fontSize:10, fontWeight:700, fontFamily:"monospace", background:"#F1F5F9", color:"#475569", borderRadius:999, padding:"3px 8px", border:"1px solid #E2E8F0" }}>{s.plazo_meses}m</span>
+                    {s.fin_sector&&<span style={{ fontSize:10, fontWeight:700, fontFamily:"monospace", background:"#F1F5F9", color:"#475569", borderRadius:999, padding:"3px 8px", border:"1px solid #E2E8F0", textTransform:"capitalize" }}>{s.fin_sector}</span>}
+                    <span style={{ fontSize:10, fontWeight:700, fontFamily:"monospace", background:gColor.bg, color:gColor.color, border:`1px solid ${gColor.border}`, borderRadius:999, padding:"3px 8px" }}>{(s.garantia_tipo||"—").replace("_"," ")}</span>
+                    {s.fin_facturacion_anual&&<span style={{ fontSize:10, fontWeight:700, fontFamily:"monospace", background:"#F0FDF9", color:"#065F46", border:"1px solid #A7F3D0", borderRadius:999, padding:"3px 8px" }}>Fact. {FACTURACION_LABEL[s.fin_facturacion_anual]||s.fin_facturacion_anual}</span>}
+                  </div>
+                  {/* Actions */}
+                  <div style={{ display:"flex", gap:6, alignItems:"center" }} onClick={e=>e.stopPropagation()}>
+                    <button onClick={()=>handleConectar(s)} style={{ flex:1, height:32, borderRadius:8, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:12, fontWeight:600, cursor:"pointer" }}>💬 Chat</button>
                     {yaOferto
-                      ?<span style={{ fontSize:10, fontWeight:800, color:"#059669", fontFamily:"'Geist Mono',monospace", background:"#ECFDF5", border:"1px solid #A7F3D0", borderRadius:7, padding:"3px 8px" }}>✓</span>
-                      :<button onClick={()=>handleOfertar(s)} style={{ height:28, padding:"0 10px", borderRadius:7, border:"none", background:"linear-gradient(135deg,#0B1F4B,#1B3A6B)", color:"#fff", fontSize:11, fontWeight:700, cursor:"pointer" }}>Ofertar</button>
+                      ?<div style={{ flex:1, height:32, borderRadius:8, background:"#ECFDF5", border:"1px solid #A7F3D0", display:"flex", alignItems:"center", justifyContent:"center" }}><span style={{ fontSize:11, fontWeight:700, color:"#059669" }}>✓ Oferta enviada</span></div>
+                      :<button onClick={()=>handleOfertar(s)} style={{ flex:1, height:32, borderRadius:8, border:"none", background:"linear-gradient(135deg,#0B1F4B,#1B3A6B)", color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Ofertar</button>
                     }
                   </div>
                 </div>
-                {isOpen&&<ExpandedRow s={s} plan={plan} ofertasMes={ofertasMes} chatsMes={chatsMes} yaOferto={yaOferto} onOfertar={handleOfertar} onConectar={handleConectar} onClose={()=>setExpanded(null)}/>}
+                {isOpen&&<div style={{ gridColumn:"1/-1" }}><ExpandedRow s={s} plan={plan} ofertasMes={ofertasMes} chatsMes={chatsMes} yaOferto={yaOferto} onOfertar={handleOfertar} onConectar={handleConectar} onClose={()=>setExpanded(null)}/></div>}
               </React.Fragment>
             );
           })}
