@@ -338,7 +338,7 @@ export default function MarketplacePage() {
         </div>
         ) : (
         <div className="card" style={{ overflow:"hidden" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"24px minmax(140px,1fr) 90px 60px 100px 95px 85px 130px", padding:"8px 16px", background:"#F8FAFC", borderBottom:"1px solid #E8EDF5" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"24px minmax(140px,1fr) 90px 60px 100px 110px 95px 130px", padding:"8px 16px", background:"#F8FAFC", borderBottom:"1px solid #E8EDF5" }}>
             {["","Destino","Monto","Plazo","Sector","Garantía","Fact.",""].map((h,i)=><div key={i} style={{ fontSize:10, color:"#94A3B8", fontFamily:"monospace", letterSpacing:".06em", fontWeight:700 }}>{h}</div>)}
           </div>
           {filtered.map(s=>{
@@ -347,13 +347,13 @@ export default function MarketplacePage() {
             const isOpen = expanded===s.id;
             return (
               <React.Fragment key={s.id}>
-                <div onClick={()=>setExpanded(isOpen?null:s.id)} style={{ display:"grid", gridTemplateColumns:"24px minmax(140px,1fr) 90px 60px 100px 95px 85px 130px", alignItems:"center", padding:"13px 16px", borderBottom:"1px solid #F1F5F9", cursor:"pointer", background:isOpen?"#EEF2FF":"white", transition:"background .1s" }}>
+                <div onClick={()=>setExpanded(isOpen?null:s.id)} style={{ display:"grid", gridTemplateColumns:"24px minmax(140px,1fr) 90px 60px 100px 110px 95px 130px", alignItems:"center", padding:"13px 16px", borderBottom:"1px solid #F1F5F9", cursor:"pointer", background:isOpen?"#EEF2FF":"white", transition:"background .1s" }}>
                   <div style={{ fontSize:11, color:"#94A3B8" }}>{isOpen?"▼":"▶"}</div>
                   <div><div style={{ fontSize:13, fontWeight:600 }}>{s.destino||"—"}</div><div style={{ fontSize:10, color:"#94A3B8", fontFamily:"monospace" }}>{fmtDate(s.created_at)}</div></div>
                   <div style={{ fontSize:12, fontWeight:700, fontFamily:"monospace" }}>{fmt(s.monto)}</div>
                   <div style={{ fontSize:12, color:"#64748B" }}>{s.plazo_meses}m</div>
                   <div style={{ fontSize:11, color:"#475569", textTransform:"capitalize" }}>{s.fin_sector||"—"}</div>
-                  <span style={{ fontSize:10, fontWeight:700, fontFamily:"monospace", background:gColor.bg, color:gColor.color, border:`1px solid ${gColor.border}`, borderRadius:999, padding:"2px 7px", display:"inline-block" }}>{(s.garantia_tipo||"—").replace("_"," ")}</span>
+                  <span style={{ fontSize:10, fontWeight:700, fontFamily:"monospace", background:gColor.bg, color:gColor.color, border:`1px solid ${gColor.border}`, borderRadius:999, padding:"2px 8px", display:"inline-block", whiteSpace:"nowrap" }}>{(s.garantia_tipo||"—").replace("_"," ")}</span>
                   <div style={{ fontSize:11, color:"#64748B" }}>{FACTURACION_LABEL[s.fin_facturacion_anual]||"—"}</div>
                   <div style={{ display:"flex", gap:5 }} onClick={e=>e.stopPropagation()}>
                     <button onClick={()=>handleConectar(s)} style={{ height:28, padding:"0 8px", borderRadius:7, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:11, fontWeight:600, cursor:"pointer" }}>Chat</button>
