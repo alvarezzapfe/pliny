@@ -167,6 +167,7 @@ export default function MarketplacePage() {
   const [sort,        setSort]        = useState<"fecha"|"monto_asc"|"monto_desc">("fecha");
   const [filtros, setFiltros] = useState({ sector:"", garantia:"", monto_min:"", monto_max:"", plazo:"" });
   const [search, setSearch] = useState("");
+  const [vista, setVista] = useState<"cards"|"tabla">("cards");
   const LIMIT = 4;
 
   useEffect(()=>{
@@ -249,6 +250,10 @@ export default function MarketplacePage() {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <PlanBadge plan={plan} ofertasMes={ofertasMes} chatsMes={chatsMes}/>
+          <div style={{ display:"flex", borderRadius:8, border:"1px solid #E2E8F0", overflow:"hidden" }}>
+            <button onClick={()=>setVista("cards")} style={{ height:36, padding:"0 12px", border:"none", background:vista==="cards"?"#0B1F4B":"#F8FAFC", color:vista==="cards"?"#fff":"#64748B", fontSize:12, fontWeight:600, cursor:"pointer" }}>⊞ Tarjetas</button>
+            <button onClick={()=>setVista("tabla")} style={{ height:36, padding:"0 12px", border:"none", background:vista==="tabla"?"#0B1F4B":"#F8FAFC", color:vista==="tabla"?"#fff":"#64748B", fontSize:12, fontWeight:600, cursor:"pointer" }}>☰ Tabla</button>
+          </div>
           <select className="fsel" value={sort} onChange={e=>setSort(e.target.value as any)}>
             <option value="fecha">Más recientes</option>
             <option value="monto_desc">Mayor monto</option>
@@ -292,6 +297,7 @@ export default function MarketplacePage() {
           <div style={{ fontSize:12, color:"#94A3B8" }}>Vuelve pronto — nuevas solicitudes llegan diariamente</div>
         </div>
       ) : (
+        {vista==="cards" ? (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:12 }}>
           {filtered.map(s=>{
             const gColor = GARANTIA_COLOR[s.garantia_tipo]??GARANTIA_COLOR.sin_garantia;
@@ -330,6 +336,39 @@ export default function MarketplacePage() {
             );
           })}
         </div>
+        ) : (
+        <div className="card" style={{ overflow:"hidden" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"24px minmax(140px,1fr) 90px 60px 100px 95px 85px 130px", padding:"8px 16px", background:"#F8FAFC", borderBottom:"1px solid #E8EDF5" }}>
+            {["","Destino","Monto","Plazo","Sector","Garantía","Fact.",""].map((h,i)=><div key={i} style={{ fontSize:10, color:"#94A3B8", fontFamily:"monospace", letterSpacing:".06em", fontWeight:700 }}>{h}</div>)}
+          </div>
+          {filtered.map(s=>{
+            const gColor = GARANTIA_COLOR[s.garantia_tipo]??GARANTIA_COLOR.sin_garantia;
+            const yaOferto = misOfertas.includes(s.id);
+            const isOpen = expanded===s.id;
+            return (
+              <React.Fragment key={s.id}>
+                <div onClick={()=>setExpanded(isOpen?null:s.id)} style={{ display:"grid", gridTemplateColumns:"24px minmax(140px,1fr) 90px 60px 100px 95px 85px 130px", alignItems:"center", padding:"13px 16px", borderBottom:"1px solid #F1F5F9", cursor:"pointer", background:isOpen?"#EEF2FF":"white", transition:"background .1s" }}>
+                  <div style={{ fontSize:11, color:"#94A3B8" }}>{isOpen?"▼":"▶"}</div>
+                  <div><div style={{ fontSize:13, fontWeight:600 }}>{s.destino||"—"}</div><div style={{ fontSize:10, color:"#94A3B8", fontFamily:"monospace" }}>{fmtDate(s.created_at)}</div></div>
+                  <div style={{ fontSize:12, fontWeight:700, fontFamily:"monospace" }}>{fmt(s.monto)}</div>
+                  <div style={{ fontSize:12, color:"#64748B" }}>{s.plazo_meses}m</div>
+                  <div style={{ fontSize:11, color:"#475569", textTransform:"capitalize" }}>{s.fin_sector||"—"}</div>
+                  <span style={{ fontSize:10, fontWeight:700, fontFamily:"monospace", background:gColor.bg, color:gColor.color, border:`1px solid ${gColor.border}`, borderRadius:999, padding:"2px 7px", display:"inline-block" }}>{(s.garantia_tipo||"—").replace("_"," ")}</span>
+                  <div style={{ fontSize:11, color:"#64748B" }}>{FACTURACION_LABEL[s.fin_facturacion_anual]||"—"}</div>
+                  <div style={{ display:"flex", gap:5 }} onClick={e=>e.stopPropagation()}>
+                    <button onClick={()=>handleConectar(s)} style={{ height:28, padding:"0 8px", borderRadius:7, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#475569", fontSize:11, fontWeight:600, cursor:"pointer" }}>Chat</button>
+                    {yaOferto
+                      ?<span style={{ fontSize:10, fontWeight:800, color:"#059669", background:"#ECFDF5", border:"1px solid #A7F3D0", borderRadius:7, padding:"3px 8px" }}>✓</span>
+                      :<button onClick={()=>handleOfertar(s)} style={{ height:28, padding:"0 8px", borderRadius:7, border:"none", background:"linear-gradient(135deg,#0B1F4B,#1B3A6B)", color:"#fff", fontSize:11, fontWeight:700, cursor:"pointer" }}>Ofertar</button>
+                    }
+                  </div>
+                </div>
+                {isOpen&&<ExpandedRow s={s} plan={plan} ofertasMes={ofertasMes} chatsMes={chatsMes} yaOferto={yaOferto} onOfertar={handleOfertar} onConectar={handleConectar} onClose={()=>setExpanded(null)}/>}
+              </React.Fragment>
+            );
+          })}
+        </div>
+        )}
       )}
       {showPaywall&&<PaywallModal onClose={()=>setShowPaywall(false)} reason={paywallReason}/>}
       {ofertando&&userId&&<OfertaModal solicitud={ofertando} userId={userId} onClose={()=>setOfertando(null)} onSent={handleSent}/>}
