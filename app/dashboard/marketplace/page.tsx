@@ -297,7 +297,7 @@ export default function MarketplacePage() {
             <div style={{ fontSize:13, fontWeight:700 }}>Solicitudes</div>
             <span className="mono" style={{ fontSize:11, color:"#94A3B8" }}>{filtered.length} resultados</span>
           </div>
-          <div className="tr" style={{ gridTemplateColumns:"28px 1fr 90px 70px 110px 100px 90px 140px", background:"#F8FAFC", cursor:"default", paddingTop:8, paddingBottom:8 }}>
+          <div className="tr" style={{ gridTemplateColumns:"24px minmax(160px,1fr) 90px 60px 100px 95px 85px 130px", background:"#F8FAFC", cursor:"default", paddingTop:8, paddingBottom:8 }}>
             {["","Destino","Monto","Plazo","Sector","Garantía","Fact.",""].map((h,i)=><div key={i} className="mono" style={{ fontSize:10, color:"#94A3B8", letterSpacing:".06em" }}>{h}</div>)}
           </div>
           {filtered.map(s=>{
@@ -306,7 +306,7 @@ export default function MarketplacePage() {
             const isOpen = expanded===s.id;
             return (
               <React.Fragment key={s.id}>
-                <div className="tr" onClick={()=>setExpanded(isOpen?null:s.id)} style={{ gridTemplateColumns:"28px 1fr 90px 70px 110px 100px 90px 140px", background:isOpen?"#EEF2FF":"white" }}>
+                <div className="tr" onClick={()=>setExpanded(isOpen?null:s.id)} style={{ gridTemplateColumns:"24px minmax(160px,1fr) 90px 60px 100px 95px 85px 130px", background:isOpen?"#EEF2FF":"white" }}>
                   <div style={{ fontSize:11, color:"#94A3B8" }}>{isOpen?"▼":"▶"}</div>
                   <div><div style={{ fontSize:13, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.destino||"—"}</div><div className="mono" style={{ fontSize:10, color:"#94A3B8" }}>{fmtDate(s.created_at)}</div></div>
                   <div className="mono" style={{ fontSize:12, fontWeight:700 }}>{fmt(s.monto)}</div>
