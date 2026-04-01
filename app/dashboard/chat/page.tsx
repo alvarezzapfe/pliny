@@ -194,7 +194,7 @@ function ChatInner() {
   );
 
   return (
-    <div style={{ height:"100vh", background:"#F8FAFC", fontFamily:"'Geist',sans-serif", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ height:"calc(100vh - 60px)", background:"#F8FAFC", fontFamily:"'Geist',sans-serif", display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <style>{CSS}</style>
 
       <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
@@ -258,7 +258,7 @@ function ChatInner() {
         </div>
 
         {/* ── CHAT AREA ── */}
-        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:"#F8FAFC" }}>
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:"#F8FAFC", minHeight:0 }}>
           {!activeConv ? (
             <div style={{ flex:1, display:"grid", placeItems:"center" }}>
               <div style={{ textAlign:"center" }}>
@@ -288,7 +288,7 @@ function ChatInner() {
               </div>
 
               {/* Messages */}
-              <div style={{ flex:1, overflowY:"auto", padding:"20px 24px", display:"flex", flexDirection:"column", gap:4 }}>
+              <div style={{ flex:1, overflowY:"auto", padding:"20px 24px", minHeight:0, display:"flex", flexDirection:"column", gap:4 }}>
                 {msgsLoading ? (
                   <div style={{ display:"flex", justifyContent:"center", padding:40 }}>
                     <svg style={{ animation:"spin .7s linear infinite" }} width={18} height={18} viewBox="0 0 16 16" fill="none" stroke="#94A3B8" strokeWidth="2"><path d="M8 2a6 6 0 016 6"/></svg>
