@@ -234,7 +234,7 @@ export default function MarketplacePage() {
     .card{background:#fff;border:1px solid #E8EDF5;border-radius:14px;}
     .fsel{height:38px;border-radius:9px;border:1.5px solid #E2E8F0;background:#F8FAFC;padding:0 12px;font-size:12px;color:#374151;font-family:'Geist',sans-serif;outline:none;cursor:pointer;}
     .finp{height:38px;border-radius:9px;border:1.5px solid #E2E8F0;background:#F8FAFC;padding:0 12px;font-size:12px;color:#374151;font-family:'Geist',sans-serif;outline:none;width:100%;}
-    .tr{display:grid;align-items:center;padding:11px 18px;border-bottom:1px solid #F1F5F9;cursor:pointer;transition:background .1s;}
+    .tr{display:grid;align-items:center;padding:16px 18px;border-bottom:1px solid #E8EDF5;cursor:pointer;transition:background .1s;}
     .tr:hover{background:#F8FAFF;}
     .spinner{animation:spin .7s linear infinite;}
   `;
