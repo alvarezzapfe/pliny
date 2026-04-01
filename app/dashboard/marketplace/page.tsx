@@ -368,7 +368,6 @@ export default function MarketplacePage() {
             );
           })}
         </div>
-        )}
       )}
       {showPaywall&&<PaywallModal onClose={()=>setShowPaywall(false)} reason={paywallReason}/>}
       {ofertando&&userId&&<OfertaModal solicitud={ofertando} userId={userId} onClose={()=>setOfertando(null)} onSent={handleSent}/>}
