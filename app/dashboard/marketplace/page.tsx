@@ -338,8 +338,8 @@ export default function MarketplacePage() {
         </div>
         ) : (
         <div className="card" style={{ overflow:"hidden" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"24px minmax(140px,1fr) 90px 60px 100px 110px 95px 130px", padding:"8px 16px", background:"#F8FAFC", borderBottom:"1px solid #E8EDF5" }}>
-            {["","Destino","Monto","Plazo","Sector","Garantía","Fact.",""].map((h,i)=><div key={i} style={{ fontSize:10, color:"#94A3B8", fontFamily:"monospace", letterSpacing:".06em", fontWeight:700 }}>{h}</div>)}
+          <div style={{ display:"grid", gridTemplateColumns:"minmax(160px,1.5fr) 90px 60px 100px 110px 95px 130px", padding:"8px 16px", background:"#F8FAFC", borderBottom:"1px solid #E8EDF5" }}>
+            {["Destino","Monto","Plazo","Sector","Garantía","Fact.",""].map((h,i)=><div key={i} style={{ fontSize:10, color:"#94A3B8", fontFamily:"monospace", letterSpacing:".06em", fontWeight:700 }}>{h}</div>)}
           </div>
           {filtered.map(s=>{
             const gColor = GARANTIA_COLOR[s.garantia_tipo]??GARANTIA_COLOR.sin_garantia;
@@ -347,9 +347,8 @@ export default function MarketplacePage() {
             const isOpen = expanded===s.id;
             return (
               <React.Fragment key={s.id}>
-                <div onClick={()=>setExpanded(isOpen?null:s.id)} style={{ display:"grid", gridTemplateColumns:"24px minmax(140px,1fr) 90px 60px 100px 110px 95px 130px", alignItems:"center", padding:"13px 16px", borderBottom:"1px solid #F1F5F9", cursor:"pointer", background:isOpen?"#EEF2FF":"white", transition:"background .1s" }}>
-                  <div style={{ fontSize:11, color:"#94A3B8" }}>{isOpen?"▼":"▶"}</div>
-                  <div><div style={{ fontSize:13, fontWeight:600 }}>{s.destino||"—"}</div><div style={{ fontSize:10, color:"#94A3B8", fontFamily:"monospace" }}>{fmtDate(s.created_at)}</div></div>
+                <div onClick={()=>setExpanded(isOpen?null:s.id)} style={{ display:"grid", gridTemplateColumns:"minmax(160px,1.5fr) 90px 60px 100px 110px 95px 130px", alignItems:"center", padding:"13px 16px", borderBottom:"1px solid #F1F5F9", cursor:"pointer", background:isOpen?"#EEF2FF":"white", transition:"background .1s" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}><span style={{ fontSize:10, color:"#94A3B8" }}>{isOpen?"▼":"▶"}</span><div><div style={{ fontSize:13, fontWeight:600 }}>{s.destino||"—"}</div><div style={{ fontSize:10, color:"#94A3B8", fontFamily:"monospace" }}>{fmtDate(s.created_at)}</div></div></div>
                   <div style={{ fontSize:12, fontWeight:700, fontFamily:"monospace" }}>{fmt(s.monto)}</div>
                   <div style={{ fontSize:12, color:"#64748B" }}>{s.plazo_meses}m</div>
                   <div style={{ fontSize:11, color:"#475569", textTransform:"capitalize" }}>{s.fin_sector||"—"}</div>
