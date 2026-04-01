@@ -297,7 +297,7 @@ export default function MarketplacePage() {
           <div style={{ fontSize:12, color:"#94A3B8" }}>Vuelve pronto — nuevas solicitudes llegan diariamente</div>
         </div>
       ) : (
-        {vista==="cards" ? (
+        vista==="cards" ? (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:12 }}>
           {filtered.map(s=>{
             const gColor = GARANTIA_COLOR[s.garantia_tipo]??GARANTIA_COLOR.sin_garantia;
