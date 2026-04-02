@@ -327,7 +327,7 @@ export default function Home() {
         <div className="nav-inner">
           <a href="/" className="logo-mark">
             <img src="/plinius.png" alt="" style={{ height:24, width:"auto", filter:"brightness(0) invert(1)", opacity:.92 }} onError={(e:React.SyntheticEvent<HTMLImageElement>)=>{ e.currentTarget.style.display="none"; }}/>
-            <div><div className="logo-text">Plinius</div><div className="logo-sub">CRÉDITO</div></div>
+            <div className="logo-sub">Credit</div>
           </a>
           <nav className="nav-links">
             {NAV.map(n=>(
