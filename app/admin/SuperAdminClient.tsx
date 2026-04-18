@@ -1,4 +1,6 @@
 "use client";
+import { OnboardingAdminTab } from "@/components/onboarding/OnboardingAdminTab";
+import { ProductoAdmin } from "@/components/admin/ProductoAdmin";
 
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -56,7 +58,7 @@ type Solicitud = {
   monto: number; plazo_meses: number; status: string; created_at: string;
   owner_email?: string;
 };
-type View = "usuarios" | "solicitudes" | "leads" | "metricas" | "pagares";
+type View = "usuarios" | "solicitudes" | "leads" | "metricas" | "pagares" | "onboarding" | "verificaciones" | "producto" | "contratos";
 
 function PlanBadge({ plan, large }: { plan: string; large?: boolean }) {
   const cfg = PLAN_CONFIG[plan as keyof typeof PLAN_CONFIG] ?? PLAN_CONFIG.free;
@@ -948,6 +950,10 @@ export default function SuperAdminClient() {
     { key:"leads",       label:"Leads",       icon:"M4 2h8l2 2v10H2V4z",                            count:leads.length },
     { key:"metricas",    label:"Métricas",    icon:"M2 12L6 7l3 3 3-4 2 2",                         count:null },
     { key:"pagares",     label:"Pagarés",     icon:"M4 2h8l2 3v11H4V2zM7 7h4M7 10h4M7 13h2",          count:null },
+    { key:"onboarding",  label:"Onboarding",  icon:"M8 2a3 3 0 110 6 3 3 0 010-6zM2 14c0-3.3 2.7-6 6-6s6 2.7 6 6", count:null },
+    { key:"verificaciones", label:"Verificaciones", icon:"M2 8l4 4 8-8M8 2a6 6 0 100 12", count:null },
+    { key:"producto", label:"Producto", icon:"M2 2h12v2H2zM3 6h10l-1 8H4L3 6zM6 6V4a2 2 0 014 0v2", count:null },
+    { key:"contratos", label:"Contratos", icon:"M4 2h8l2 2v12H4V2zM8 2v4h4M6 9h6M6 12h4", count:null },
   ];
 
   const CSS = `
@@ -1289,6 +1295,26 @@ export default function SuperAdminClient() {
           )}
 
           {/* PAGARÉS */}
+          {view==="onboarding" && (
+            <OnboardingAdminTab adminSecret={process.env.NEXT_PUBLIC_ADMIN_SECRET ?? ""} />
+          )}
+          {view==="producto" && <ProductoAdmin />}
+          {view==="contratos" && (
+            <div className="fade" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <iframe
+                src="/admin/contratos"
+                style={{ width:"100%", height:"calc(100vh - 180px)", border:"none", borderRadius:16, background:"#fff" }}
+              />
+            </div>
+          )}
+          {view==="verificaciones" && (
+            <div className="fade" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <iframe
+                src="/admin/verificaciones"
+                style={{ width:"100%", height:"calc(100vh - 180px)", border:"none", borderRadius:16, background:"#fff" }}
+              />
+            </div>
+          )}
           {view==="pagares" && (
             <div className="fade" style={{ display:"flex", flexDirection:"column", gap:14 }}>
               <iframe
