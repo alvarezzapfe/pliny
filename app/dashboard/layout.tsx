@@ -21,6 +21,7 @@ const NAV = [
   { href: "/dashboard/reportes",      label: "Reportes",     icon: "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2" },
   { href: "/dashboard/datos",         label: "Datos",        icon: "M8 2a6 6 0 100 12M8 6v2.5M8 11h.01" },
   { href: "/dashboard/marketplace",   label: "Marketplace",  icon: "M2 2h12v8H2zM5 14h6M8 10v4" },
+  { href: "/dashboard/fondeo",        label: "Fondeo",       icon: "M2 14h12M3 10h2v4H3zM7 7h2v7H7zM11 4h2v10h-2zM8 2l3 2-3 2-3-2z", special: "fondeo" },
   { href: "/dashboard/calculadora",   label: "Calculadora",  icon: "M3 2h10a1 1 0 011 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zM3 9h2v2H3zM7 9h2v2H7zM11 9h2v2H11zM3 13h2v2H3zM7 13h2v2H7zM11 13h2v2H11z" },
   { href: "/dashboard/applicants",    label: "Onboarding",   icon: "M8 2a3 3 0 110 6 3 3 0 010-6zM2 14c0-3.3 2.7-6 6-6s6 2.7 6 6M11 8l2 2M13 8l-2 2", special: "onboarding" },
   { href: "/dashboard/chat",          label: "Mensajes",     icon: "M2 2h12v8a2 2 0 01-2 2H4a2 2 0 01-2-2V2zM6 14h4M8 12v2" },
@@ -121,6 +122,9 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         .nl.plan  { background: rgba(251,191,36,.06); color: rgba(251,191,36,.8); }
         .nl.plan:hover { background: rgba(251,191,36,.12); color: #FBB924; }
         .nl.plan.on    { background: rgba(251,191,36,.18); color: #FBB924; font-weight: 700; }
+        .nl.fondeo { background: rgba(59,130,246,.06); color: rgba(59,130,246,.8); }
+        .nl.fondeo:hover { background: rgba(59,130,246,.12); color: #3B82F6; }
+        .nl.fondeo.on    { background: rgba(59,130,246,.18); color: #3B82F6; font-weight: 700; }
         .cb {
           display: flex; align-items: center; justify-content: center;
           background: rgba(255,255,255,.07); border: none;
@@ -153,10 +157,11 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         <nav style={{ flex: 1, padding: "10px 8px", display: "flex", flexDirection: "column", gap: 1, overflowY: "auto", position: "relative", zIndex: 1 }}>
           {NAV.map(n => {
             const active = n.href === "/dashboard" ? pathname === n.href : pathname?.startsWith(n.href);
-            const isCalc = n.href === "/dashboard/calculadora";
-            const isOnb  = n.special === "onboarding";
-            const isPlan = n.special === "plan";
-            const cls = `nl${isCalc ? " calc" : ""}${isOnb ? " onboarding" : ""}${isPlan ? " plan" : ""}${active ? " on" : ""}`;
+            const isCalc   = n.href === "/dashboard/calculadora";
+            const isOnb    = n.special === "onboarding";
+            const isPlan   = n.special === "plan";
+            const isFondeo = n.special === "fondeo";
+            const cls = `nl${isCalc ? " calc" : ""}${isOnb ? " onboarding" : ""}${isPlan ? " plan" : ""}${isFondeo ? " fondeo" : ""}${active ? " on" : ""}`;
             return (
               <Link key={n.href} href={n.href}
                 className={cls}
