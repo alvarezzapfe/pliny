@@ -11,6 +11,7 @@ interface Pagare {
   cuota_mensual: number; total_intereses: number; total_pagar: number
   tabla_amortizacion: any[]; fecha_disposicion: string; lugar_firma: string
   status: string; pdf_path: string | null; ine_frente_path: string | null; ine_reverso_path: string | null
+  tasa_iva?: number; total_iva?: number
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -35,26 +36,28 @@ function ExpandedRow({ p, onUpdated }: { p: Pagare; onUpdated: () => void }) {
     cliente_clave_elector: p.cliente_clave_elector ?? '', cliente_domicilio: p.cliente_domicilio,
     monto: p.monto, tasa_mensual: p.tasa_mensual, plazo_meses: p.plazo_meses,
     metodo_interes: p.metodo_interes, fecha_disposicion: p.fecha_disposicion,
-    lugar_firma: p.lugar_firma, status: p.status,
+    lugar_firma: p.lugar_firma, status: p.status, tasa_iva: p.tasa_iva ?? 16,
   })
   const [saving, setSaving] = useState(false)
   const [regen, setRegen] = useState(false)
   const [msg, setMsg] = useState('')
 
-  function calcTabla(monto: number, tasa: number, plazo: number, metodo: string, fechaBase: string) {
+  function calcTabla(monto: number, tasa: number, plazo: number, metodo: string, fechaBase: string, tasaIva = 16) {
     const rows: any[] = []; let saldo = monto; const cap = monto / plazo; const base = new Date(fechaBase)
     for (let i = 1; i <= plazo; i++) {
       const interes = metodo === 'flat' ? monto * (tasa / 100) : saldo * (tasa / 100)
-      const cuota = cap + interes; const venc = new Date(base); venc.setMonth(venc.getMonth() + i)
-      rows.push({ n: i, fecha: `${venc.getDate()} de ${MESES[venc.getMonth()]} de ${venc.getFullYear()}`, capital: cap, interes, cuota, saldo: Math.max(0, saldo - cap) })
+      const iva = interes * (tasaIva / 100)
+      const cuota = cap + interes + iva; const venc = new Date(base); venc.setMonth(venc.getMonth() + i)
+      rows.push({ n: i, fecha: `${venc.getDate()} de ${MESES[venc.getMonth()]} de ${venc.getFullYear()}`, capital: cap, interes, iva, cuota, saldo: Math.max(0, saldo - cap) })
       saldo -= cap
     }
     return rows
   }
 
-  const tabla = calcTabla(form.monto, form.tasa_mensual, form.plazo_meses, form.metodo_interes, form.fecha_disposicion)
+  const tabla = calcTabla(form.monto, form.tasa_mensual, form.plazo_meses, form.metodo_interes, form.fecha_disposicion, form.tasa_iva)
   const totalIntereses = tabla.reduce((s, r) => s + r.interes, 0)
-  const totalPagar = form.monto + totalIntereses
+  const totalIva = tabla.reduce((s, r) => s + (r.iva ?? 0), 0)
+  const totalPagar = form.monto + totalIntereses + totalIva
   const cuotaMensual = tabla[0]?.cuota ?? 0
   const vencimiento = tabla[tabla.length - 1]?.fecha ?? ''
   const fechaLeg = fechaLegible(form.fecha_disposicion)
@@ -69,7 +72,8 @@ function ExpandedRow({ p, onUpdated }: { p: Pagare; onUpdated: () => void }) {
         metodo_interes: form.metodo_interes, fecha_disposicion: form.fecha_disposicion,
         lugar_firma: form.lugar_firma, status: form.status,
         tabla_amortizacion: tabla, total_capital: form.monto,
-        total_intereses: totalIntereses, total_pagar: totalPagar, cuota_mensual: cuotaMensual,
+        total_intereses: totalIntereses, total_iva: totalIva, total_pagar: totalPagar,
+        cuota_mensual: cuotaMensual, tasa_iva: form.tasa_iva,
       }).eq('id', p.id)
       if (error) throw error
       setMsg('✓ Guardado'); onUpdated()
@@ -127,11 +131,12 @@ function ExpandedRow({ p, onUpdated }: { p: Pagare; onUpdated: () => void }) {
               <Field label="Método"><select className={inputCls} value={form.metodo_interes} onChange={e => setForm(f => ({ ...f, metodo_interes: e.target.value }))}><option value="flat">Flat</option><option value="saldo">Sobre saldo</option></select></Field>
               <Field label="Fecha disposición"><input type="date" className={inputCls} value={form.fecha_disposicion} onChange={e => setForm(f => ({ ...f, fecha_disposicion: e.target.value }))} /></Field>
               <Field label="Lugar"><input className={inputCls} value={form.lugar_firma} onChange={e => setForm(f => ({ ...f, lugar_firma: e.target.value }))} /></Field>
+              <Field label="IVA sobre intereses (%)"><input type="number" className={inputCls} value={form.tasa_iva} step={1} onChange={e => setForm(f => ({ ...f, tasa_iva: Number(e.target.value) }))} /></Field>
             </div>
             <div className="space-y-3">
               <p className="text-xs font-bold text-[#1B3A6B] uppercase tracking-wide border-b border-[#1B3A6B]/20 pb-1">Resumen</p>
               <div className="bg-[#EBF0FA] rounded-xl p-3 space-y-1.5">
-                {[['Cuota mensual', `$${fmt(cuotaMensual)}`],['Total intereses', `$${fmt(totalIntereses)}`],['Total a pagar', `$${fmt(totalPagar)}`],['Vencimiento', vencimiento]].map(([k,v]) => (
+                {[['Cuota mensual', `$${fmt(cuotaMensual)}`],['Total intereses', `$${fmt(totalIntereses)}`],['IVA (intereses)', `$${fmt(totalIva)}`],['Total a pagar', `$${fmt(totalPagar)}`],['Vencimiento', vencimiento]].map(([k,v]) => (
                   <div key={k} className="flex justify-between text-xs"><span className="text-gray-500">{k}</span><span className="font-semibold text-[#1B3A6B]">{v}</span></div>
                 ))}
               </div>
@@ -155,9 +160,9 @@ function ExpandedRow({ p, onUpdated }: { p: Pagare; onUpdated: () => void }) {
             <p className="text-xs font-bold text-[#1B3A6B] uppercase tracking-wide mb-2">Tabla de Amortización</p>
             <div className="overflow-x-auto rounded-xl border border-gray-100">
               <table className="w-full text-xs">
-                <thead><tr className="bg-[#1B3A6B] text-white">{['#','Vencimiento','Capital','Interés','Cuota','Saldo'].map(h => <th key={h} className="px-3 py-2 text-right first:text-center font-semibold">{h}</th>)}</tr></thead>
-                <tbody>{tabla.map((r,i) => (<tr key={r.n} className={i%2===0?'bg-white':'bg-[#F5F7FA]'}><td className="px-3 py-1.5 text-center text-gray-500">{r.n}</td><td className="px-3 py-1.5 text-gray-600">{r.fecha}</td><td className="px-3 py-1.5 text-right">${fmt(r.capital)}</td><td className="px-3 py-1.5 text-right text-orange-600">${fmt(r.interes)}</td><td className="px-3 py-1.5 text-right font-bold text-[#1B3A6B]">${fmt(r.cuota)}</td><td className="px-3 py-1.5 text-right text-gray-400">${fmt(r.saldo)}</td></tr>))}</tbody>
-                <tfoot><tr className="bg-[#EBF0FA] font-bold"><td colSpan={2} className="px-3 py-1.5">TOTALES</td><td className="px-3 py-1.5 text-right">${fmt(form.monto)}</td><td className="px-3 py-1.5 text-right text-orange-600">${fmt(totalIntereses)}</td><td className="px-3 py-1.5 text-right text-[#1B3A6B]">${fmt(totalPagar)}</td><td className="px-3 py-1.5 text-right">—</td></tr></tfoot>
+                <thead><tr className="bg-[#1B3A6B] text-white">{['#','Vencimiento','Capital','Interés','IVA','Cuota','Saldo'].map(h => <th key={h} className="px-3 py-2 text-right first:text-center font-semibold">{h}</th>)}</tr></thead>
+                <tbody>{tabla.map((r,i) => (<tr key={r.n} className={i%2===0?'bg-white':'bg-[#F5F7FA]'}><td className="px-3 py-1.5 text-center text-gray-500">{r.n}</td><td className="px-3 py-1.5 text-gray-600">{r.fecha}</td><td className="px-3 py-1.5 text-right">${fmt(r.capital)}</td><td className="px-3 py-1.5 text-right text-orange-600">${fmt(r.interes)}</td><td className="px-3 py-1.5 text-right text-purple-600">${fmt(r.iva ?? 0)}</td><td className="px-3 py-1.5 text-right font-bold text-[#1B3A6B]">${fmt(r.cuota)}</td><td className="px-3 py-1.5 text-right text-gray-400">${fmt(r.saldo)}</td></tr>))}</tbody>
+                <tfoot><tr className="bg-[#EBF0FA] font-bold"><td colSpan={2} className="px-3 py-1.5">TOTALES</td><td className="px-3 py-1.5 text-right">${fmt(form.monto)}</td><td className="px-3 py-1.5 text-right text-orange-600">${fmt(totalIntereses)}</td><td className="px-3 py-1.5 text-right text-purple-600">${fmt(totalIva)}</td><td className="px-3 py-1.5 text-right text-[#1B3A6B]">${fmt(totalPagar)}</td><td className="px-3 py-1.5 text-right">—</td></tr></tfoot>
               </table>
             </div>
           </div>
@@ -174,6 +179,7 @@ export default function PagaresPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'generador' | 'cartera'>('generador')
 
   async function fetchPagares() {
     setLoading(true)
@@ -195,10 +201,19 @@ export default function PagaresPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div><h1 className="text-2xl font-bold text-gray-900">Pagarés</h1><p className="text-sm text-gray-500 mt-0.5">Créditos simples personales</p></div>
-          <button onClick={() => setShowWizard(true)} className="bg-[#1B3A6B] hover:bg-[#14306B] text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2"><span>+</span> Nuevo Pagaré</button>
+          {activeTab === 'generador' && <button onClick={() => setShowWizard(true)} className="bg-[#1B3A6B] hover:bg-[#14306B] text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2"><span>+</span> Nuevo Pagaré</button>}
         </div>
+        <div className="flex gap-2 mb-6 border-b border-gray-200">
+          {([['generador','📄 Generador de Pagarés'],['cartera','📊 Cartera de Crédito']] as const).map(([key, label]) => (
+            <button key={key} onClick={() => setActiveTab(key)}
+              className={`px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                activeTab === key ? 'border-[#1B3A6B] text-[#1B3A6B] bg-white' : 'border-transparent text-gray-400 hover:text-gray-600'
+              }`}>{label}</button>
+          ))}
+        </div>
+        {activeTab === 'generador' && <>
         <div className="grid grid-cols-4 gap-4 mb-6">
           {[{label:'Total pagarés',value:pagares.length,sub:'todos los estados'},{label:'Activos',value:pagares.filter(p=>p.status==='activo').length,sub:'en curso',accent:true},{label:'Cartera activa',value:`$${fmt(totalMonto)}`,sub:'capital vigente'},{label:'Flujo mensual',value:`$${fmt(totalCuotas)}`,sub:'cuotas mes actual'}].map(k => (
             <div key={k.label} className={`rounded-xl p-4 border ${k.accent ? 'bg-[#EBF0FA] border-[#1B3A6B]/20' : 'bg-white border-gray-100'}`}>
@@ -246,7 +261,44 @@ export default function PagaresPage() {
             </table>
           )}
         </div>
+        </> }
       </div>
+        {activeTab === 'cartera' && (
+          <div>
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              {[{label:'Total cartera',value:`$${fmt(pagares.filter(p=>p.status==='activo').reduce((s,p)=>s+(p.monto??0),0))}`,sub:'capital activo'},{label:'Pagarés activos',value:pagares.filter(p=>p.status==='activo').length,sub:'en curso'},{label:'Total intereses',value:`$${fmt(pagares.filter(p=>p.status==='activo').reduce((s,p)=>s+(p.total_intereses??0),0))}`,sub:'por cobrar'},{label:'Flujo mensual',value:`$${fmt(pagares.filter(p=>p.status==='activo').reduce((s,p)=>s+(p.cuota_mensual??0),0))}`,sub:'cuotas mes actual'}].map(k => (
+                <div key={k.label} className="bg-white rounded-xl p-4 border border-gray-100">
+                  <p className="text-xs text-gray-500 font-medium">{k.label}</p>
+                  <p className="text-xl font-bold mt-1 text-[#1B3A6B]">{k.value}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{k.sub}</p>
+                </div>
+              ))}
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <table className="w-full">
+                <thead><tr className="border-b border-gray-100 bg-[#1B3A6B] text-white">{['Folio','Cliente','Monto','Intereses','IVA','Total a Pagar','Cuota','Status'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">{h}</th>)}</tr></thead>
+                <tbody>
+                  {pagares.map((p,i) => {
+                    const st = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.borrador
+                    return (
+                      <tr key={p.id} className={`border-b border-gray-50 ${i%2===0?'bg-white':'bg-gray-50'}`}>
+                        <td className="px-4 py-3"><span className="font-mono text-xs font-bold text-[#1B3A6B] bg-[#EBF0FA] px-2 py-0.5 rounded">{p.folio}</span></td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800 max-w-[140px] truncate">{p.cliente_nombre}</td>
+                        <td className="px-4 py-3 text-sm font-bold">${fmt(p.monto)}</td>
+                        <td className="px-4 py-3 text-sm text-orange-600">${fmt(p.total_intereses)}</td>
+                        <td className="px-4 py-3 text-sm text-purple-600">${fmt((p as any).total_iva ?? 0)}</td>
+                        <td className="px-4 py-3 text-sm font-bold text-[#1B3A6B]">${fmt(p.total_pagar)}</td>
+                        <td className="px-4 py-3 text-sm">${fmt(p.cuota_mensual)}</td>
+                        <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-1 rounded-full ${st.color}`}>{st.label}</span></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot><tr className="bg-[#EBF0FA] font-bold"><td colSpan={2} className="px-4 py-3 text-sm">TOTALES</td><td className="px-4 py-3 text-sm">${fmt(pagares.reduce((s,p)=>s+(p.monto??0),0))}</td><td className="px-4 py-3 text-sm text-orange-600">${fmt(pagares.reduce((s,p)=>s+(p.total_intereses??0),0))}</td><td className="px-4 py-3 text-sm text-purple-600">${fmt(pagares.reduce((s,p)=>s+((p as any).total_iva??0),0))}</td><td className="px-4 py-3 text-sm text-[#1B3A6B]">${fmt(pagares.reduce((s,p)=>s+(p.total_pagar??0),0))}</td><td colSpan={2} className="px-4 py-3">—</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+        )}
       {showWizard && <PagaresWizard onClose={() => setShowWizard(false)} onSaved={() => { setShowWizard(false); fetchPagares() }} />}
     </div>
   )

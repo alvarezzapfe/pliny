@@ -13,7 +13,7 @@ const BLANCO    = [255, 255, 255] as [number,number,number]
 
 export interface CuotaAmortizacion {
   n: number; fecha: string; capital: number
-  interes: number; cuota: number; saldo: number
+  interes: number; iva?: number; cuota: number; saldo: number
 }
 
 export interface PagareData {
@@ -22,7 +22,7 @@ export interface PagareData {
   clienteClaveElector: string; clienteDomicilio: string
   monto: number; tasaMensual: number; plazoMeses: number
   metodoInteres: 'flat' | 'saldo'; cuotaMensual: number
-  totalIntereses: number; totalPagar: number
+  totalIntereses: number; totalIva?: number; totalPagar: number
   tabla: CuotaAmortizacion[]
   ineFrente?: string; ineReverso?: string
 }

@@ -170,8 +170,6 @@ export default function CreateClientWizard({ open, onClose, onCreated }: {
   return (
     <div style={{ position:"fixed", inset:0, zIndex:50, display:"grid", placeItems:"center", background:"rgba(2,6,23,.55)", backdropFilter:"blur(4px)", padding:16, fontFamily:"'Geist',sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap');
-        *,*::before,*::after{box-sizing:border-box;}
         @keyframes slideUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
         @keyframes scaleIn{from{opacity:0;transform:scale(.98);}to{opacity:1;transform:scale(1);}}
         @keyframes spin{to{transform:rotate(360deg)}}

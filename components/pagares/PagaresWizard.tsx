@@ -9,7 +9,7 @@ interface ClienteForm {
 }
 interface CondicionesForm {
   monto: number; tasaMensual: number; plazoMeses: number
-  metodoInteres: 'flat' | 'saldo'; fechaDisposicion: string; lugar: string
+  metodoInteres: 'flat' | 'saldo'; fechaDisposicion: string; lugar: string; tasaIva: number
 }
 interface INEFiles {
   frente: File | null; reverso: File | null
@@ -23,17 +23,18 @@ function fmt(n: number) {
   return n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function calcAmortizacion(monto: number, tasa: number, plazo: number, metodo: 'flat' | 'saldo', fechaBase: string): CuotaAmortizacion[] {
+function calcAmortizacion(monto: number, tasa: number, plazo: number, metodo: 'flat' | 'saldo', fechaBase: string, tasaIva = 16): CuotaAmortizacion[] {
   const rows: CuotaAmortizacion[] = []
   let saldo = monto
   const capitalMensual = monto / plazo
   const base = new Date(fechaBase)
   for (let i = 1; i <= plazo; i++) {
     const interes = metodo === 'flat' ? monto * (tasa / 100) : saldo * (tasa / 100)
-    const cuota = capitalMensual + interes
+    const iva = interes * (tasaIva / 100)
+    const cuota = capitalMensual + interes + iva
     const venc = new Date(base)
     venc.setMonth(venc.getMonth() + i)
-    rows.push({ n: i, fecha: `${venc.getDate()} de ${MESES[venc.getMonth()]} de ${venc.getFullYear()}`, capital: capitalMensual, interes, cuota, saldo: Math.max(0, saldo - capitalMensual) })
+    rows.push({ n: i, fecha: `${venc.getDate()} de ${MESES[venc.getMonth()]} de ${venc.getFullYear()}`, capital: capitalMensual, interes, iva, cuota, saldo: Math.max(0, saldo - capitalMensual) })
     saldo -= capitalMensual
   }
   return rows
@@ -93,11 +94,12 @@ export default function PagaresWizard({ onClose, onSaved }: { onClose: () => voi
   const [cliente, setCliente] = useState<ClienteForm>({ nombre: '', curp: '', claveElector: '', domicilio: '', fechaNac: '', sexo: '' })
   const [ine, setIne] = useState<INEFiles>({ frente: null, reverso: null, frentePreview: '', reversoPreview: '' })
   const today = new Date().toISOString().split('T')[0]
-  const [condiciones, setCondiciones] = useState<CondicionesForm>({ monto: 10000, tasaMensual: 11, plazoMeses: 6, metodoInteres: 'flat', fechaDisposicion: today, lugar: 'Ciudad de México' })
+  const [condiciones, setCondiciones] = useState<CondicionesForm>({ monto: 10000, tasaMensual: 11, plazoMeses: 6, metodoInteres: 'flat', fechaDisposicion: today, lugar: 'Ciudad de México', tasaIva: 16 })
 
-  const tabla = calcAmortizacion(condiciones.monto, condiciones.tasaMensual, condiciones.plazoMeses, condiciones.metodoInteres, condiciones.fechaDisposicion)
+  const tabla = calcAmortizacion(condiciones.monto, condiciones.tasaMensual, condiciones.plazoMeses, condiciones.metodoInteres, condiciones.fechaDisposicion, condiciones.tasaIva ?? 16)
   const totalIntereses = tabla.reduce((s, r) => s + r.interes, 0)
-  const totalPagar = condiciones.monto + totalIntereses
+  const totalIva = tabla.reduce((s, r) => s + (r.iva ?? 0), 0)
+  const totalPagar = condiciones.monto + totalIntereses + totalIva
   const cuotaMensual = tabla[0]?.cuota ?? 0
   const vencimiento = tabla[tabla.length - 1]?.fecha ?? ''
   const fechaLeg = fechaLegible(condiciones.fechaDisposicion)
@@ -179,8 +181,8 @@ export default function PagaresWizard({ onClose, onSaved }: { onClose: () => voi
         plazo_meses: condiciones.plazoMeses, metodo_interes: condiciones.metodoInteres,
         fecha_disposicion: condiciones.fechaDisposicion, lugar_firma: condiciones.lugar,
         tabla_amortizacion: tabla, total_capital: condiciones.monto,
-        total_intereses: totalIntereses, total_pagar: totalPagar,
-        cuota_mensual: cuotaMensual, status: "activo", pdf_path: `${folio}/pagare.pdf`,
+        total_intereses: totalIntereses, total_iva: totalIva, total_pagar: totalPagar,
+        cuota_mensual: cuotaMensual, tasa_iva: condiciones.tasaIva ?? 16, status: "activo", pdf_path: `${folio}/pagare.pdf`,
       })
       if (dbErr) throw dbErr
       const dlPDF = document.createElement("a")
@@ -236,6 +238,7 @@ export default function PagaresWizard({ onClose, onSaved }: { onClose: () => voi
           <div className="col-span-2 bg-[#EBF0FA] rounded-xl p-4 grid grid-cols-3 gap-4 mt-2">
             <div className="text-center"><p className="text-xs text-gray-500 mb-1">Cuota mensual</p><p className="text-lg font-bold text-[#1B3A6B]">${fmt(cuotaMensual)}</p></div>
             <div className="text-center"><p className="text-xs text-gray-500 mb-1">Total intereses</p><p className="text-lg font-bold text-orange-600">${fmt(totalIntereses)}</p></div>
+            <div className="text-center"><p className="text-xs text-gray-500 mb-1">IVA (intereses)</p><p className="text-lg font-bold text-purple-600">${fmt(totalIva)}</p></div>
             <div className="text-center"><p className="text-xs text-gray-500 mb-1">Total a pagar</p><p className="text-lg font-bold text-gray-800">${fmt(totalPagar)}</p></div>
           </div>
         </div>
@@ -250,7 +253,7 @@ export default function PagaresWizard({ onClose, onSaved }: { onClose: () => voi
             <table className="w-full text-sm">
               <thead><tr className="bg-[#1B3A6B] text-white">{['#','Vencimiento','Capital','Interés','Cuota Total','Saldo'].map(h => <th key={h} className="px-3 py-2 text-right first:text-center font-semibold text-xs">{h}</th>)}</tr></thead>
               <tbody>{tabla.map((r, i) => (<tr key={r.n} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F5F7FA]'}><td className="px-3 py-2 text-center text-gray-500">{r.n}</td><td className="px-3 py-2 text-gray-600">{r.fecha}</td><td className="px-3 py-2 text-right">${fmt(r.capital)}</td><td className="px-3 py-2 text-right text-orange-600">${fmt(r.interes)}</td><td className="px-3 py-2 text-right font-bold text-[#1B3A6B]">${fmt(r.cuota)}</td><td className="px-3 py-2 text-right text-gray-400">${fmt(r.saldo)}</td></tr>))}</tbody>
-              <tfoot><tr className="bg-[#EBF0FA] font-bold"><td colSpan={2} className="px-3 py-2 text-sm">TOTALES</td><td className="px-3 py-2 text-right">${fmt(condiciones.monto)}</td><td className="px-3 py-2 text-right text-orange-600">${fmt(totalIntereses)}</td><td className="px-3 py-2 text-right text-[#1B3A6B]">${fmt(totalPagar)}</td><td className="px-3 py-2 text-right">—</td></tr></tfoot>
+              <tfoot><tr className="bg-[#EBF0FA] font-bold"><td colSpan={2} className="px-3 py-2 text-sm">TOTALES</td><td className="px-3 py-2 text-right">${fmt(condiciones.monto)}</td><td className="px-3 py-2 text-right text-orange-600">${fmt(totalIntereses)}</td><td className="px-3 py-2 text-right text-purple-600">${fmt(totalIva)}</td><td className="px-3 py-2 text-right text-[#1B3A6B]">${fmt(totalPagar)}</td><td className="px-3 py-2 text-right">—</td></tr></tfoot>
             </table>
           </div>
         </div>
