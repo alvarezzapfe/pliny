@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PlanProvider, usePlan } from "@/lib/PlanContext";
 
 function Icon({ d, size = 15 }: { d: string; size?: number }) {
   return (
@@ -15,14 +16,15 @@ function Icon({ d, size = 15 }: { d: string; size?: number }) {
 
 const NAV = [
   { href: "/dashboard",               label: "Dashboard",    icon: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z" },
-  { href: "/dashboard/solicitudes",   label: "Solicitudes",  icon: "M8 2v12M2 8h12" },
   { href: "/dashboard/clientes",      label: "Clientes",     icon: "M5.5 7.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM1 14s.5-4 4.5-4M11 10l2 2 2-2" },
   { href: "/dashboard/cartera",       label: "Cartera",      icon: "M2 12L6 7l3 3 3-4 2 2" },
   { href: "/dashboard/reportes",      label: "Reportes",     icon: "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2" },
   { href: "/dashboard/datos",         label: "Datos",        icon: "M8 2a6 6 0 100 12M8 6v2.5M8 11h.01" },
   { href: "/dashboard/marketplace",   label: "Marketplace",  icon: "M2 2h12v8H2zM5 14h6M8 10v4" },
   { href: "/dashboard/calculadora",   label: "Calculadora",  icon: "M3 2h10a1 1 0 011 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zM3 9h2v2H3zM7 9h2v2H7zM11 9h2v2H11zM3 13h2v2H3zM7 13h2v2H7zM11 13h2v2H11z" },
+  { href: "/dashboard/applicants",    label: "Onboarding",   icon: "M8 2a3 3 0 110 6 3 3 0 010-6zM2 14c0-3.3 2.7-6 6-6s6 2.7 6 6M11 8l2 2M13 8l-2 2", special: "onboarding" },
   { href: "/dashboard/chat",          label: "Mensajes",     icon: "M2 2h12v8a2 2 0 01-2 2H4a2 2 0 01-2-2V2zM6 14h4M8 12v2" },
+  { href: "/dashboard/plan",           label: "Mi Plan",      icon: "M2 2h12v2H2zM2 6h8M2 10h5M11 9l2 2 3-3", special: "plan" },
 ];
 
 const BOTTOM = [
@@ -33,10 +35,49 @@ const BOTTOM = [
 const W_OPEN  = 240;
 const W_CLOSE = 64;
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+
+const PLAN_META: Record<string, { label: string; color: string; bg: string; border: string; dot: string }> = {
+  free:  { label: "FREE",  color: "#94A3B8", bg: "rgba(148,163,184,.10)", border: "rgba(148,163,184,.20)", dot: "#94A3B8" },
+  basic: { label: "BASIC", color: "#38BDF8", bg: "rgba(56,189,248,.10)",  border: "rgba(56,189,248,.22)",  dot: "#38BDF8" },
+  pro:   { label: "PRO",   color: "#00E5A0", bg: "rgba(0,229,160,.10)",   border: "rgba(0,229,160,.22)",   dot: "#00E5A0" },
+};
+
+function PlanDot({ plan }: { plan: string }) {
+  const m = PLAN_META[plan] ?? PLAN_META.free;
+  return (
+    <div title={m.label} style={{ width: 8, height: 8, borderRadius: "50%", background: m.dot, boxShadow: `0 0 6px ${m.dot}`, animation: "blink 2.5s ease-in-out infinite" }} />
+  );
+}
+
+function PlanWidget({ plan, since }: { plan: string; since: string | null }) {
+  const m = PLAN_META[plan] ?? PLAN_META.free;
+  const sinceStr = since ? new Date(since).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }) : null;
+  return (
+    <div style={{ padding: "10px 11px", background: m.bg, border: `1px solid ${m.border}`, borderRadius: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: sinceStr ? 6 : 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: m.dot, display: "inline-block", animation: "blink 2.5s ease-in-out infinite", flexShrink: 0 }} />
+          <span style={{ fontSize: 10, fontFamily: "'Geist Mono',monospace", color: m.color, letterSpacing: ".10em", fontWeight: 700 }}>{m.label}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#00E5A0", display: "inline-block", animation: "blink 2.5s ease-in-out infinite" }} />
+          <span style={{ fontSize: 9, fontFamily: "'Geist Mono',monospace", color: "rgba(0,229,160,.7)", letterSpacing: ".06em" }}>AL CORRIENTE</span>
+        </div>
+      </div>
+      {sinceStr && (
+        <div style={{ fontSize: 9, color: "rgba(238,242,255,.28)", fontFamily: "'Geist Mono',monospace", letterSpacing: ".04em" }}>
+          Desde {sinceStr}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DashboardInner({ children }: { children: React.ReactNode }) {
   const pathname  = usePathname();
   const [open, setOpen] = useState(true);
   const W = open ? W_OPEN : W_CLOSE;
+  const planInfo = usePlan();
 
   return (
     <>
@@ -74,6 +115,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .nl.calc  { background: rgba(139,92,246,.10); color: rgba(167,139,250,.9); }
         .nl.calc:hover { background: rgba(139,92,246,.18); color: #A78BFA; }
         .nl.calc.on    { background: rgba(139,92,246,.25); color: #A78BFA; font-weight: 700; }
+        .nl.onboarding { background: rgba(0,229,160,.06); color: rgba(0,229,160,.8); }
+        .nl.onboarding:hover { background: rgba(0,229,160,.12); color: #00E5A0; }
+        .nl.onboarding.on    { background: rgba(0,229,160,.18); color: #00E5A0; font-weight: 700; }
+        .nl.plan  { background: rgba(251,191,36,.06); color: rgba(251,191,36,.8); }
+        .nl.plan:hover { background: rgba(251,191,36,.12); color: #FBB924; }
+        .nl.plan.on    { background: rgba(251,191,36,.18); color: #FBB924; font-weight: 700; }
         .cb {
           display: flex; align-items: center; justify-content: center;
           background: rgba(255,255,255,.07); border: none;
@@ -107,9 +154,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {NAV.map(n => {
             const active = n.href === "/dashboard" ? pathname === n.href : pathname?.startsWith(n.href);
             const isCalc = n.href === "/dashboard/calculadora";
+            const isOnb  = n.special === "onboarding";
+            const isPlan = n.special === "plan";
+            const cls = `nl${isCalc ? " calc" : ""}${isOnb ? " onboarding" : ""}${isPlan ? " plan" : ""}${active ? " on" : ""}`;
             return (
               <Link key={n.href} href={n.href}
-                className={`nl${isCalc ? " calc" : ""}${active ? " on" : ""}`}
+                className={cls}
                 title={!open ? n.label : undefined}
                 style={{ justifyContent: open ? "flex-start" : "center" }}>
                 <span className="ico"><Icon d={n.icon}/></span>
@@ -127,9 +177,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
           {open && (
-            <div style={{ marginTop: 8, padding: "9px 11px", background: "rgba(0,229,160,.08)", border: "1px solid rgba(0,229,160,.18)", borderRadius: 9, display: "flex", alignItems: "center", gap: 7 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00E5A0", display: "inline-block", animation: "blink 2.5s ease-in-out infinite" }}/>
-              <span style={{ fontSize: 10, fontFamily: "'Geist Mono',monospace", color: "#00E5A0", letterSpacing: ".06em" }}>Sistema activo</span>
+            <div style={{ marginTop: 8 }}>
+              <PlanWidget plan={planInfo.plan} since={planInfo.since} />
+            </div>
+          )}
+          {!open && (
+            <div style={{ display:"flex", justifyContent:"center", marginTop:8 }}>
+              <PlanDot plan={planInfo.plan} />
             </div>
           )}
         </div>
@@ -141,5 +195,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
     </>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <PlanProvider>
+      <DashboardInner>{children}</DashboardInner>
+    </PlanProvider>
   );
 }

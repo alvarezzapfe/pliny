@@ -14,10 +14,11 @@ type BorrowerProfile = {
 const NAV = [
   { href: "/solicitante", label: "Inicio", match: "exact", icon: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z" },
   { href: "/solicitante/solicitudes", label: "Solicitudes", match: "prefix", icon: "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2" },
+  { href: "/solicitante/financiamiento", label: "Financiamiento", match: "prefix", icon: "M2 8h12M8 2v12M13 5l-5 3-5-3" },
   { href: "/solicitante/ofertas", label: "Ofertas", match: "prefix", icon: "M2 2h12v8H2zM5 14h6M8 10v4" },
   { href: "/solicitante/creditos", label: "Créditos", match: "prefix", icon: "M2 12L6 7l3 3 3-4 2 2" },
   { href: "/solicitante/mensajes", label: "Mensajes", match: "prefix", icon: "M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H9l-3 2-3-2H2a1 1 0 01-1-1V4a1 1 0 011-1z" },
-  { href: "/solicitante/score", label: "Mi Score", match: "prefix", icon: "M2 12L6 7l3 3 3-4 2 2M2 15h12" },
+  { href: "/solicitante/verificacion", label: "Verificación", match: "prefix", icon: "M8 2a4 4 0 100 8M2 14c0-3 2.7-5 6-5s6 2 6 5M13 11l-3 3-1.5-1.5" },
   { href: "/solicitante/datos", label: "Mis datos", match: "prefix", icon: "M8 2a4 4 0 100 8A4 4 0 008 2zM2 14c0-2.2 2.7-4 6-4s6 1.8 6 4" },
 ];
 

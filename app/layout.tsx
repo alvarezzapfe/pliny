@@ -6,8 +6,9 @@ export const metadata: Metadata = {
   title: "Plinius — Crédito privado en México",
   description: "Infraestructura para originar, administrar y conectar crédito privado en México.",
   icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-icon.png",
+    icon: "/favicon.png",
+    apple: "/favicon.png",
+    shortcut: "/favicon.png",
   },
 };
 
