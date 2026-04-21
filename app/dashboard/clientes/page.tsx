@@ -169,7 +169,7 @@ export default function ClientesPage() {
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", left: 11, top: 9 }}><Ic d="M6.5 11a4.5 4.5 0 100-9 4.5 4.5 0 000 9zM10 10l4 4" s={14} c="#94A3B8" /></div>
           <input
-            placeholder="Buscar por raz\u00F3n social, RFC o representante..."
+            placeholder="Buscar por razón social, RFC o representante..."
             value={search} onChange={e => setSearch(e.target.value)}
             style={{ height: 36, width: 320, padding: "0 12px 0 34px", borderRadius: 9, border: "1.5px solid #E2E8F0", fontSize: 13, fontFamily: "'Geist',sans-serif", color: "#0F172A", background: "#fff", outline: "none", boxSizing: "border-box" }}
           />
@@ -179,7 +179,7 @@ export default function ClientesPage() {
           {SECTORES.filter(Boolean).map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
         </select>
         <select value={tipoFilter} onChange={e => setTipoFilter(e.target.value)} style={{ height: 36, borderRadius: 9, border: "1.5px solid #E2E8F0", padding: "0 10px", fontSize: 12, fontFamily: "'Geist',sans-serif", color: "#374151", background: "#fff", cursor: "pointer", outline: "none" }}>
-          <option value="">Tipo cr\u00E9dito</option>
+          <option value="">Tipo crédito</option>
           {TIPOS_CRED.filter(Boolean).map(t => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
         </select>
       </div>
@@ -202,7 +202,7 @@ export default function ClientesPage() {
               <Ic d="M5.5 7.5a2.5 2.5 0 100-5M1 14s.5-4 4.5-4M11 10l2 2 2-2" s={24} c="#94A3B8" />
             </div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#0F172A", marginBottom: 6 }}>
-              {filter === "Todos" && !search ? "A\u00FAn no tienes clientes" : "Sin resultados"}
+              {filter === "Todos" && !search ? "Aún no tienes clientes" : "Sin resultados"}
             </div>
             <div style={{ fontSize: 13, color: "#94A3B8", marginBottom: 16 }}>
               {filter === "Todos" && !search ? "Agrega tu primer cliente para comenzar a gestionar tu cartera." : "Intenta con otros filtros."}

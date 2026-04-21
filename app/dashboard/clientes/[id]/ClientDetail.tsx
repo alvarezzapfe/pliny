@@ -28,7 +28,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "representante", label: "Rep. Legal" },
   { key: "financieros", label: "Financieros" },
   { key: "kyc", label: "KYC" },
-  { key: "buro", label: "Bur\u00F3" },
+  { key: "buro", label: "Buró" },
   { key: "notas", label: "Notas" },
   { key: "actividad", label: "Actividad" },
 ];
@@ -219,7 +219,7 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
                 <div><strong>Raz&oacute;n social:</strong> {client.company_name ?? "—"}</div>
                 <div><strong>RFC:</strong> <span style={{ fontFamily: "'Geist Mono',monospace" }}>{client.rfc ?? "—"}</span></div>
                 <div><strong>Sector:</strong> {client.sector ?? "—"}</div>
-                <div><strong>Antig&uuml;edad:</strong> {client.anios_operando ? `${client.anios_operando} a\u00F1os` : "—"}</div>
+                <div><strong>Antig&uuml;edad:</strong> {client.anios_operando ? `${client.anios_operando} años` : "—"}</div>
               </div>
             </div>
             <div style={S.card}>
@@ -279,17 +279,17 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
         <div style={S.card}>
           <div style={S.cardTitle}>Datos Generales</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
-            <InlineField label="Raz\u00F3n social" value={client.company_name} field="company_name" onSave={saveField} />
+            <InlineField label="Razón social" value={client.company_name} field="company_name" onSave={saveField} />
             <InlineField label="RFC" value={client.rfc} field="rfc" mono onSave={saveField} />
             <InlineField label="Sector" value={client.sector} field="sector" onSave={saveField} />
             <InlineField label="Website" value={client.website} field="website" onSave={saveField} />
-            <InlineField label="A\u00F1os operando" value={client.anios_operando} field="anios_operando" type="number" onSave={saveField} />
-            <InlineField label="N\u00FAmero de empleados" value={client.numero_empleados} field="numero_empleados" type="number" onSave={saveField} />
+            <InlineField label="Años operando" value={client.anios_operando} field="anios_operando" type="number" onSave={saveField} />
+            <InlineField label="Número de empleados" value={client.numero_empleados} field="numero_empleados" type="number" onSave={saveField} />
           </div>
           <div style={{ ...S.cardTitle, marginTop: 20 }}>Direcci&oacute;n</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 24px" }}>
             <InlineField label="Calle" value={client.direccion_calle} field="direccion_calle" onSave={saveField} />
-            <InlineField label="N\u00FAmero" value={client.direccion_numero} field="direccion_numero" onSave={saveField} />
+            <InlineField label="Número" value={client.direccion_numero} field="direccion_numero" onSave={saveField} />
             <InlineField label="Colonia" value={client.direccion_colonia} field="direccion_colonia" onSave={saveField} />
             <InlineField label="C.P." value={client.direccion_cp} field="direccion_cp" onSave={saveField} />
             <InlineField label="Municipio" value={client.direccion_municipio} field="direccion_municipio" onSave={saveField} />
@@ -297,7 +297,7 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
           </div>
           <div style={{ ...S.cardTitle, marginTop: 20 }}>Contacto empresa</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
-            <InlineField label="Tel\u00E9fono" value={client.telefono_empresa} field="telefono_empresa" type="tel" onSave={saveField} />
+            <InlineField label="Teléfono" value={client.telefono_empresa} field="telefono_empresa" type="tel" onSave={saveField} />
             <InlineField label="Email" value={client.email_empresa} field="email_empresa" type="email" onSave={saveField} />
           </div>
         </div>
@@ -312,7 +312,7 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
             <InlineField label="Cargo" value={client.rep_legal_cargo} field="rep_legal_cargo" onSave={saveField} />
             <InlineField label="RFC" value={client.rep_legal_rfc} field="rep_legal_rfc" mono onSave={saveField} />
             <InlineField label="CURP" value={client.rep_legal_curp} field="rep_legal_curp" mono onSave={saveField} />
-            <InlineField label="Tel\u00E9fono" value={client.rep_legal_telefono} field="rep_legal_telefono" type="tel" onSave={saveField} />
+            <InlineField label="Teléfono" value={client.rep_legal_telefono} field="rep_legal_telefono" type="tel" onSave={saveField} />
             <InlineField label="Email" value={client.rep_legal_email} field="rep_legal_email" type="email" onSave={saveField} />
           </div>
         </div>
@@ -324,7 +324,7 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
           <div style={S.cardTitle}>Informaci&oacute;n Financiera</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
             <InlineField label="Ingresos anuales MXN" value={client.ingresos_anuales_mxn} field="ingresos_anuales_mxn" type="number" mono onSave={saveField} />
-            <InlineField label="Tipo de cr\u00E9dito" value={client.tipo_credito_solicitado} field="tipo_credito_solicitado" onSave={saveField} />
+            <InlineField label="Tipo de crédito" value={client.tipo_credito_solicitado} field="tipo_credito_solicitado" onSave={saveField} />
             <InlineField label="Monto solicitado MXN" value={client.monto_solicitado_mxn} field="monto_solicitado_mxn" type="number" mono onSave={saveField} />
             <InlineField label="Plazo (meses)" value={client.plazo_solicitado_meses} field="plazo_solicitado_meses" type="number" onSave={saveField} />
           </div>
@@ -349,7 +349,7 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {kycDocs.map(d => (
-              <KycDocCard key={d.key} label={d.label} doc={client[d.key]} onUpload={() => showToast("Upload de documentos — Pr\u00F3ximamente")} />
+              <KycDocCard key={d.key} label={d.label} doc={client[d.key]} onUpload={() => showToast("Upload de documentos — Próximamente")} />
             ))}
           </div>
         </>
