@@ -135,19 +135,15 @@ export default function SolicitudesPage() {
       {/* TOPBAR */}
       <div className="fade" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24 }}>
         <div>
-          <div style={{ fontSize:18, fontWeight:800, letterSpacing:"-.04em", lineHeight:1 }}>Solicitudes</div>
-          <div style={{ fontSize:12, color:"#94A3B8", marginTop:4 }}>Gestiona y da seguimiento a tus solicitudes de financiamiento</div>
+          <div style={{ fontSize:18, fontWeight:800, letterSpacing:"-.04em", lineHeight:1 }}>Oportunidades</div>
+          <div style={{ fontSize:12, color:"#94A3B8", marginTop:4 }}>Solicitudes de crédito que recibes de potenciales clientes</div>
         </div>
-        <Link href="/dashboard/solicitudes/nueva" className="btn-new">
-          <Ic d="M8 2v12M2 8h12" c="#fff" s={13}/>
-          Nueva solicitud
-        </Link>
       </div>
 
       {/* KPIs */}
       <div className="fade d1" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         {[
-          { label:"Total",      val:String(total),      sub:"solicitudes",   color:"#5B8DEF", pct: total > 0 ? 100 : 0 },
+          { label:"Total",      val:String(total),      sub:"oportunidades", color:"#5B8DEF", pct: total > 0 ? 100 : 0 },
           { label:"Pendientes", val:String(pendientes), sub:"en revisión",   color:"#F5A623", pct: total > 0 ? (pendientes/total)*100 : 0 },
           { label:"Aprobadas",  val:String(aprobadas),  sub:"completadas",   color:"#00E5A0", pct: total > 0 ? (aprobadas/total)*100 : 0 },
           { label:"Monto total",val:`$${(montoTotal/1000000).toFixed(1)}M`,  sub:"en evaluación", color:"#0C1E4A", pct: montoTotal > 0 ? 65 : 0 },
@@ -194,7 +190,7 @@ export default function SolicitudesPage() {
             <svg className="spinner" width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="#5B8DEF" strokeWidth="2">
               <path d="M8 2a6 6 0 016 6"/>
             </svg>
-            Cargando solicitudes...
+            Cargando oportunidades...
           </div>
         )}
 
@@ -206,16 +202,12 @@ export default function SolicitudesPage() {
             </div>
             <div style={{ textAlign:"center" }}>
               <div style={{ fontSize:15, fontWeight:700, letterSpacing:"-.02em", color:"#0F172A", marginBottom:6 }}>
-                {filter === "Todas" ? "Sin solicitudes todavía" : `Sin solicitudes ${FILTER_LABELS[filter].toLowerCase()}s`}
+                {filter === "Todas" ? "Sin oportunidades aún" : `Sin oportunidades ${FILTER_LABELS[filter].toLowerCase()}s`}
               </div>
               <div style={{ fontSize:13, color:"#94A3B8", maxWidth:"38ch", lineHeight:1.6 }}>
-                Crea tu primera solicitud. El sistema guiará el proceso en 3 pasos.
+                Aquí aparecerán las solicitudes de crédito que recibas de borrowers.
               </div>
             </div>
-            <Link href="/dashboard/solicitudes/nueva" className="btn-new" style={{ marginTop:4 }}>
-              <Ic d="M8 2v12M2 8h12" c="#fff" s={12}/>
-              Crear primera solicitud
-            </Link>
           </div>
         )}
 

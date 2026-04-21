@@ -29,10 +29,10 @@ export default function DashboardOtorgante() {
   const [profile,    setProfile]    = useState<any>(null);
   const [userEmail,  setUserEmail]  = useState<string | null>(null);
   const [kpis, setKpis] = useState({
-    solicitudesActivas: null as number | null,
-    creditosOtorgados:  null as number | null,
-    montoEnCartera:     null as number | null,
-    solicitudesRecientes: [] as any[],
+    oportunidadesActivas: null as number | null,
+    creditosOtorgados:   null as number | null,
+    montoEnCartera:      null as number | null,
+    oportunidadesRecientes: [] as any[],
   });
 
   useEffect(() => {
@@ -76,10 +76,10 @@ export default function DashboardOtorgante() {
       const montoCartera = (credData ?? []).reduce((s: number, c: any) => s + (c.saldo_actual ?? 0), 0);
 
       setKpis({
-        solicitudesActivas: solActivas ?? 0,
-        creditosOtorgados:  (credData ?? []).length,
-        montoEnCartera:     montoCartera,
-        solicitudesRecientes: recientes ?? [],
+        oportunidadesActivas: solActivas ?? 0,
+        creditosOtorgados:   (credData ?? []).length,
+        montoEnCartera:      montoCartera,
+        oportunidadesRecientes: recientes ?? [],
       });
 
       setLoading(false);
@@ -147,7 +147,9 @@ export default function DashboardOtorgante() {
             <span style={{ width:5,height:5,borderRadius:"50%",background:"currentColor",display:"inline-block" }}/>
             {profileOk ? "Perfil completo" : "Perfil incompleto"}
           </span>
-          <Link href="/dashboard/solicitudes" className="btn-p">+ Nueva solicitud</Link>
+          <Link href="/dashboard/datos" className="btn-g" style={{ fontSize:11, padding:"7px 14px" }}>
+            {profileOk ? "Ver perfil" : "Completar perfil"} →
+          </Link>
         </div>
       </div>
 
@@ -204,9 +206,9 @@ export default function DashboardOtorgante() {
       <div className="fade d2" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:14 }}>
         {[
           {
-            label: "Solicitudes activas",
-            val:   kpis.solicitudesActivas,
-            sub:   "Enviadas · en revisión · ofertadas",
+            label: "Oportunidades",
+            val:   kpis.oportunidadesActivas,
+            sub:   "Pendientes · en revisión · ofertadas",
             color: "#5B8DEF",
             icon:  "M4 2h8v12H4zM6 6h4M6 9h4",
           },
@@ -241,7 +243,7 @@ export default function DashboardOtorgante() {
             }
             <div style={{ fontSize:11,color:"#94A3B8",marginTop:6 }}>{k.sub}</div>
             <div style={{ height:3,background:"#F1F5F9",borderRadius:999,marginTop:10,overflow:"hidden" }}>
-              <div style={{ width: kpis.solicitudesActivas ? "60%" : "0%", height:"100%", background:k.color, borderRadius:999, transition:"width .8s" }}/>
+              <div style={{ width: kpis.oportunidadesActivas ? "60%" : "0%", height:"100%", background:k.color, borderRadius:999, transition:"width .8s" }}/>
             </div>
           </div>
         ))}
@@ -250,12 +252,12 @@ export default function DashboardOtorgante() {
       {/* ── LOWER GRID ── */}
       <div className="fade d3" style={{ display:"grid", gridTemplateColumns:"1fr 260px", gap:12 }}>
 
-        {/* Solicitudes recientes */}
+        {/* Oportunidades recientes */}
         <div className="card" style={{ padding:0, overflow:"hidden" }}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px",borderBottom:"1px solid #E8EDF5" }}>
             <div>
-              <div style={{ fontSize:13,fontWeight:700 }}>Solicitudes recientes</div>
-              <div style={{ fontSize:11,color:"#94A3B8",marginTop:1 }}>Últimas operaciones</div>
+              <div style={{ fontSize:13,fontWeight:700 }}>Oportunidades recientes</div>
+              <div style={{ fontSize:11,color:"#94A3B8",marginTop:1 }}>Últimas solicitudes recibidas</div>
             </div>
             <Link href="/dashboard/solicitudes" className="btn-g" style={{ fontSize:11,padding:"6px 12px" }}>Ver todas →</Link>
           </div>
@@ -263,15 +265,15 @@ export default function DashboardOtorgante() {
           {loading ? (
             <div style={{ padding:"24px 16px", display:"flex", alignItems:"center", gap:10 }}>
               <svg className="spinner" width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="#5B8DEF" strokeWidth="2"><path d="M8 2a6 6 0 016 6"/></svg>
-              <span style={{ fontSize:12,color:"#94A3B8" }}>Cargando solicitudes...</span>
+              <span style={{ fontSize:12,color:"#94A3B8" }}>Cargando oportunidades...</span>
             </div>
-          ) : kpis.solicitudesRecientes.length === 0 ? (
+          ) : kpis.oportunidadesRecientes.length === 0 ? (
             <div style={{ padding:"36px 20px",display:"flex",flexDirection:"column",alignItems:"center",gap:10,textAlign:"center" }}>
               <div style={{ width:44,height:44,borderRadius:12,background:"#F1F5F9",display:"grid",placeItems:"center" }}>
                 <Ic d="M4 2h8v12H4zM6 6h4M6 9h4M6 12h2" s={20} c="#94A3B8"/>
               </div>
-              <div style={{ fontSize:13,fontWeight:600,color:"#475569" }}>Sin solicitudes aún</div>
-              <div style={{ fontSize:12,color:"#94A3B8" }}>Aquí aparecerán las solicitudes cuando lleguen.</div>
+              <div style={{ fontSize:13,fontWeight:600,color:"#475569" }}>Sin oportunidades aún</div>
+              <div style={{ fontSize:12,color:"#94A3B8" }}>Aquí aparecerán las solicitudes de crédito que recibas de borrowers.</div>
             </div>
           ) : (
             <>
@@ -280,7 +282,7 @@ export default function DashboardOtorgante() {
                   <div key={h} className="mono" style={{ fontSize:10,color:"#94A3B8",letterSpacing:".06em" }}>{h}</div>
                 ))}
               </div>
-              {kpis.solicitudesRecientes.map((s: any) => {
+              {kpis.oportunidadesRecientes.map((s: any) => {
                 const pill = STATUS_PILL[s.status] ?? { label: s.status, cls:"p-blue" };
                 return (
                   <div key={s.id} className="tr" style={{ gridTemplateColumns:"1fr 90px 90px 90px" }}>
@@ -299,8 +301,8 @@ export default function DashboardOtorgante() {
         <div className="card" style={{ display:"flex", flexDirection:"column", gap:6 }}>
           <div style={{ fontSize:13,fontWeight:700,marginBottom:6 }}>Acciones rápidas</div>
           <Link href="/dashboard/solicitudes" className="qa prim">
-            <div className="qa-ico" style={{ background:"rgba(255,255,255,.12)" }}><Ic d="M8 2v12M2 8h12" c="#fff" s={12}/></div>
-            Solicitudes
+            <div className="qa-ico" style={{ background:"rgba(255,255,255,.12)" }}><Ic d="M4 2h8v12H4zM6 6h4M6 9h4" c="#fff" s={12}/></div>
+            Oportunidades
           </Link>
           <Link href="/dashboard/reportes" className="qa">
             <div className="qa-ico" style={{ background:"#FFFBEB" }}><Ic d="M4 2h8v12H4zM6 6h4M6 9h4M6 12h2" c="#F5A623" s={12}/></div>
