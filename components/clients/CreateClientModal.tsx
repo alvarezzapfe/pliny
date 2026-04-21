@@ -1,3 +1,4 @@
+// @deprecated — replaced by ClientWizard.tsx in components/clients/ClientWizard.tsx. Kept for reference, safe to delete in future cleanup.
 "use client";
 
 import React, { useState, useMemo } from "react";

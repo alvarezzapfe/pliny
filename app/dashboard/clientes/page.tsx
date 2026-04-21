@@ -1,382 +1,255 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import CreateClientModal from "@/components/clients/CreateClientModal";
-import EditClientModal from "@/components/clients/EditClientModal";
+import ClientWizard from "@/components/clients/ClientWizard";
 
-function Ic({ d, s = 14, c = "currentColor", sw = 1.4 }: { d: string; s?: number; c?: string; sw?: number }) {
-  return (
-    <svg width={s} height={s} viewBox="0 0 16 16" fill="none"
-      stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-      <path d={d} />
-    </svg>
-  );
+function Ic({ d, s = 14, c = "currentColor" }: { d: string; s?: number; c?: string }) {
+  return <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>;
 }
 
-type ClientStatus = "Active" | "Onboarding" | "Paused" | "Risk Hold";
-type BuroStatus = "not_connected" | "processing" | "ok" | "error";
+type Client = Record<string, any>;
+type StatusKey = "Todos" | "Active" | "Onboarding" | "Paused" | "Risk Hold";
 
-type ClientRow = {
-  id: string;
-  company_name: string;
-  rfc: string;
-  status: ClientStatus;
-  created_at: string;
-  client_connectors?: any;
-  client_profiles?: any;
+const STATUS_S: Record<string, { bg: string; color: string; border: string; label: string }> = {
+  Active:      { bg: "#F0FDF9", color: "#065F46", border: "#A7F3D0", label: "Activo" },
+  Onboarding:  { bg: "#EFF6FF", color: "#1E40AF", border: "#BFDBFE", label: "Onboarding" },
+  Paused:      { bg: "#FFFBEB", color: "#92400E", border: "#FDE68A", label: "Pausado" },
+  "Risk Hold": { bg: "#FFF1F2", color: "#9F1239", border: "#FECDD3", label: "Risk Hold" },
 };
 
-function normalizeJoin(cc: any) {
-  if (!cc) return null;
-  if (Array.isArray(cc)) return cc[0] ?? null;
-  return cc;
-}
-
-function completitud(c: ClientRow): number {
-  const cc = normalizeJoin(c.client_connectors);
-  const cp = normalizeJoin(c.client_profiles);
-  let score = 0;
-  if (c.company_name) score += 20;
-  if (c.rfc)          score += 20;
-  if (cp?.contact_email || cp?.billing_email) score += 20;
-  if (cp?.contact_phone) score += 10;
-  if (cc?.buro_status === "ok")  score += 20;
-  if (cc?.sat_status === "connected" || cc?.sat_status === "uploaded") score += 10;
-  return Math.min(score, 100);
-}
-
-function scoreColor(pct: number) {
-  if (pct >= 80) return { bar: "#00E5A0", text: "#065F46", bg: "#F0FDF9" };
-  if (pct >= 50) return { bar: "#F59E0B", text: "#92400E", bg: "#FFFBEB" };
-  return { bar: "#F43F5E", text: "#881337", bg: "#FFF1F2" };
-}
-
-const STATUS_STYLES: Record<string, { bg: string; color: string; border: string; dot: string }> = {
-  "Active":    { bg:"#F0FDF9", color:"#065F46", border:"#D1FAE5", dot:"#00E5A0" },
-  "Onboarding":{ bg:"#EFF6FF", color:"#1E40AF", border:"#BFDBFE", dot:"#3B82F6" },
-  "Paused":    { bg:"#F8FAFC", color:"#475569", border:"#E2E8F0", dot:"#94A3B8" },
-  "Risk Hold": { bg:"#FFFBEB", color:"#92400E", border:"#FDE68A", dot:"#F59E0B" },
+const SECTOR_COLORS: Record<string, { bg: string; color: string }> = {
+  comercio:      { bg: "#EFF6FF", color: "#1E40AF" },
+  manufactura:   { bg: "#FFF7ED", color: "#92400E" },
+  servicios:     { bg: "#F0FDF9", color: "#065F46" },
+  agro:          { bg: "#ECFDF5", color: "#047857" },
+  construccion:  { bg: "#FFFBEB", color: "#854D0E" },
+  tecnologia:    { bg: "#FDF4FF", color: "#7E22CE" },
+  salud:         { bg: "#FFF1F2", color: "#9F1239" },
 };
 
-const BURO_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  "ok":            { bg:"#F0FDF9", color:"#065F46", label:"Verificado" },
-  "processing":    { bg:"#EFF6FF", color:"#1E40AF", label:"Procesando" },
-  "error":         { bg:"#FFF1F2", color:"#881337", label:"Error" },
-  "not_connected": { bg:"#F8FAFC", color:"#64748B", label:"Sin consulta" },
-};
+const FILTER_TABS: StatusKey[] = ["Todos", "Active", "Onboarding", "Paused", "Risk Hold"];
+const SECTORES = ["","comercio","manufactura","servicios","agro","construccion","tecnologia","salud","educacion","transporte","energia","otro"];
+const TIPOS_CRED = ["","capital_trabajo","expansion","refinanciamiento","maquinaria","inventario","otro"];
+
+function fmt(n: number | null) {
+  if (n == null) return "\u2014";
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
+  return `$${n.toLocaleString("es-MX")}`;
+}
+
+function ago(d: string) {
+  const ms = Date.now() - new Date(d).getTime();
+  const m = Math.floor(ms / 60000);
+  if (m < 60) return `hace ${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `hace ${h}h`;
+  return `hace ${Math.floor(h / 24)}d`;
+}
+
+function scoreColor(s: number | null) {
+  if (s == null) return "#CBD5E1";
+  if (s >= 80) return "#059669";
+  if (s >= 60) return "#F59E0B";
+  return "#EF4444";
+}
 
 export default function ClientesPage() {
   const router = useRouter();
-  const [open, setOpen]       = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [selected, setSelected] = useState<ClientRow | null>(null);
-  const [rows, setRows]       = useState<ClientRow[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
-  const [q, setQ]             = useState("");
-  const [filter, setFilter]   = useState<ClientStatus | "All">("All");
-  const [buroCalling, setBuroCalling] = useState<string | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [filter, setFilter] = useState<StatusKey>("Todos");
+  const [search, setSearch] = useState("");
+  const [sectorFilter, setSectorFilter] = useState("");
+  const [tipoFilter, setTipoFilter] = useState("");
 
   async function load() {
     setLoading(true);
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) { setLoading(false); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setLoading(false); return; }
 
-    const { data } = await supabase
-      .from("clients")
-      .select(`id, company_name, rfc, status, created_at,
-        client_connectors(buro_status, buro_score, sat_status),
-        client_profiles(contact_email, contact_phone, billing_email)`)
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    setRows((data ?? []) as ClientRow[]);
+    const res = await fetch("/api/clients", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (res.ok) {
+      const j = await res.json();
+      setClients(j.clients ?? []);
+    }
     setLoading(false);
   }
 
   useEffect(() => { load(); }, []);
 
-  const stats = useMemo(() => ({
-    total:      rows.length,
-    active:     rows.filter(r => r.status === "Active").length,
-    sinBuro:    rows.filter(r => normalizeJoin(r.client_connectors)?.buro_status !== "ok").length,
-    avgScore:   rows.length ? Math.round(rows.reduce((a,r) => a + completitud(r), 0) / rows.length) : 0,
-  }), [rows]);
-
   const filtered = useMemo(() => {
-    const qq = q.trim().toLowerCase();
-    return rows.filter(r =>
-      (filter === "All" || r.status === filter) &&
-      (!qq || r.company_name.toLowerCase().includes(qq) || r.rfc.toLowerCase().includes(qq))
-    );
-  }, [rows, q, filter]);
-
-  async function consultarBuro(clientId: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    setBuroCalling(clientId);
-    try {
-      await fetch(`/api/buro/check`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId }),
-      });
-      await load();
-    } finally {
-      setBuroCalling(null);
+    let list = clients;
+    if (filter !== "Todos") list = list.filter(c => c.status === filter);
+    if (sectorFilter) list = list.filter(c => c.sector === sectorFilter);
+    if (tipoFilter) list = list.filter(c => c.tipo_credito_solicitado === tipoFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(c =>
+        (c.company_name ?? "").toLowerCase().includes(q) ||
+        (c.rfc ?? "").toLowerCase().includes(q) ||
+        (c.rep_legal_nombre ?? "").toLowerCase().includes(q)
+      );
     }
-  }
+    return list;
+  }, [clients, filter, search, sectorFilter, tipoFilter]);
+
+  const total = clients.length;
+  const active = clients.filter(c => c.status === "Active").length;
+  const onboarding = clients.filter(c => c.status === "Onboarding").length;
+  const avgScore = (() => {
+    const withScore = clients.map(c => c.client_connectors?.[0]?.buro_score).filter((s): s is number => s != null);
+    return withScore.length ? Math.round(withScore.reduce((a, b) => a + b, 0) / withScore.length) : null;
+  })();
 
   return (
-    <div style={{ fontFamily:"'Geist',sans-serif", color:"#0F172A" }}>
+    <div style={{ fontFamily: "'Geist',sans-serif", color: "#0F172A" }}>
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-        .fade{animation:fadeUp .45s cubic-bezier(.16,1,.3,1) both;}
-        .d1{animation-delay:.05s;}.d2{animation-delay:.12s;}.d3{animation-delay:.20s;}
-        .card{background:#fff;border:1px solid #E8EDF5;border-radius:14px;}
-        .mono{font-family:'Geist Mono',monospace;}
-        .spinner{animation:spin .7s linear infinite;}
-        .shimmer{background:linear-gradient(90deg,#F1F5F9 25%,#E8EDF5 50%,#F1F5F9 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;}
-
-        .search-inp{height:38px;background:#F8FAFC;border:1px solid #E8EDF5;border-radius:10px;padding:0 12px 0 36px;font-family:'Geist',sans-serif;font-size:13px;color:#0F172A;outline:none;width:100%;max-width:260px;min-width:160px;transition:border-color .15s,box-shadow .15s;}
-        .search-inp::placeholder{color:#94A3B8;}
-        .search-inp:focus{border-color:#5B8DEF;background:#fff;box-shadow:0 0 0 3px rgba(91,141,239,.10);}
-
-        .filter-btn{padding:6px 13px;border-radius:8px;border:1px solid #E8EDF5;background:#fff;font-family:'Geist',sans-serif;font-size:12px;font-weight:500;color:#475569;cursor:pointer;transition:all .14s;white-space:nowrap;}
-        .filter-btn:hover{background:#F4F6FB;border-color:#C7D4F0;}
-        .filter-btn.active{background:#0C1E4A;color:#fff;border-color:#0C1E4A;font-weight:600;}
-
-        .btn-primary{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#0C1E4A,#1B3F8A);color:#fff;border:none;border-radius:10px;font-family:'Geist',sans-serif;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;box-shadow:0 2px 12px rgba(12,30,74,.22);transition:opacity .15s,transform .15s;}
-        .btn-primary:hover{opacity:.88;transform:translateY(-1px);}
-
-        .cl-table{width:100%;border-collapse:collapse;}
-        .cl-table thead th{font-family:'Geist Mono',monospace;font-size:10px;color:#64748B;letter-spacing:.07em;text-transform:uppercase;padding:8px 16px;background:#FAFBFF;border-bottom:1px solid #E8EDF5;text-align:left;font-weight:500;}
-        .cl-table tbody tr{border-bottom:1px solid #F1F5F9;transition:background .12s;cursor:pointer;}
-        .cl-table tbody tr:last-child{border-bottom:none;}
-        .cl-table tbody tr:hover,.cl-table tbody tr:focus-visible{background:#FAFBFF;outline:none;}
-        .cl-table tbody tr:focus-visible{box-shadow:inset 0 0 0 2px #5B8DEF;}
-        .cl-table td{padding:12px 16px;vertical-align:middle;}
-        .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
-
-        @media(max-width:900px){
-          .cl-table,.cl-table thead,.cl-table tbody,.cl-table tr,.cl-table th,.cl-table td{display:block;}
-          .cl-table thead{display:none;}
-          .cl-table tbody tr{padding:14px 16px;border-bottom:1px solid #E8EDF5;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;}
-          .cl-table td{padding:0;}
-          .cl-table td.col-empresa{width:100%;margin-bottom:4px;}
-          .cl-table td.col-acciones{width:100%;margin-top:6px;padding-top:8px;border-top:1px solid #F1F5F9;}
-          .filter-btn{min-height:44px;padding:10px 16px;}
-          .action-btn{min-height:44px;padding:10px 12px;}
-          .search-inp{min-height:44px;}
-        }
-
-        .status-pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 9px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:600;border:1px solid;}
-        .buro-pill{display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:3px 9px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:500;}
-
-        .action-btn{display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:5px 10px;font-family:'Geist',sans-serif;font-size:11px;font-weight:600;border:1px solid #E8EDF5;background:#F8FAFC;color:#475569;cursor:pointer;transition:all .13s;}
-        .action-btn:hover{background:#EEF2FF;border-color:#C7D4F0;color:#1B3F8A;}
-        .action-btn.danger:hover{background:#FFF1F2;border-color:#FECDD3;color:#881337;}
+        .fade{animation:fadeUp .4s cubic-bezier(.16,1,.3,1) both;}
+        .d1{animation-delay:.05s;}.d2{animation-delay:.10s;}
+        .trow{display:grid;grid-template-columns:1fr 110px 140px 110px 100px 100px 90px 44px;align-items:center;padding:12px 16px;border-bottom:1px solid #F1F5F9;transition:background .12s;cursor:pointer;}
+        .trow:last-child{border-bottom:none;}
+        .trow:hover{background:#FAFBFF;}
       `}</style>
 
-      <CreateClientModal open={open} onClose={() => setOpen(false)} onCreated={load} />
-      <EditClientModal
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        client={selected ? { id: selected.id, name: selected.company_name, email: null, phone: null } : null}
-        onUpdated={load}
-      />
+      <ClientWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onCreated={load} />
 
-      {/* HEADER */}
-      <div className="fade" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24 }}>
+      {/* Header */}
+      <div className="fade" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize:18, fontWeight:800, letterSpacing:"-.04em", lineHeight:1 }}>Empresas</div>
-          <div style={{ fontSize:12, color:"#64748B", marginTop:4 }}>Clientes registrados y su estado de completitud</div>
+          <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.04em", marginBottom: 4 }}>Clientes</h1>
+          <p style={{ fontSize: 13, color: "#64748B" }}>Cartera de empresas evaluadas y acreditadas</p>
         </div>
-        <button className="btn-primary" onClick={() => setOpen(true)}>
-          <Ic d="M8 2v12M2 8h12" c="#fff" s={13}/> Nuevo cliente
+        <button onClick={() => setWizardOpen(true)} style={{ height: 40, padding: "0 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#0C1E4A,#1B3F8A)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Geist',sans-serif", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 12px rgba(12,30,74,.22)" }}>
+          <Ic d="M8 2v12M2 8h12" c="#fff" s={13} /> Nuevo cliente
         </button>
       </div>
 
       {/* KPIs */}
-      <div className="fade d1" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:12, marginBottom:20 }}>
+      <div className="fade d1" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
         {[
-          { label:"Total clientes", val:String(stats.total),   sub:"registrados",          color:"#5B8DEF", icon:"M8 2a4 4 0 100 8A4 4 0 008 2zM2 14c0-2.2 2.7-4 6-4s6 1.8 6 4" },
-          { label:"Activos",        val:String(stats.active),  sub:"en operación",         color:"#00E5A0", icon:"M3 8l3.5 3.5L13 4" },
-          { label:"Sin Buró",       val:String(stats.sinBuro), sub:"requieren consulta",   color:"#F59E0B", icon:"M8 2a6 6 0 100 12A6 6 0 008 2zM8 5v3l2 2" },
-          { label:"Score promedio", val:`${stats.avgScore}%`,  sub:"completitud perfil",   color: scoreColor(stats.avgScore).bar, icon:"M2 8h12M8 2l4 6-4 6", pct: stats.avgScore },
+          { label: "Total clientes", val: total, color: "#5B8DEF", icon: "M5.5 7.5a2.5 2.5 0 100-5M1 14s.5-4 4.5-4M11 10l2 2 2-2" },
+          { label: "Activos", val: active, color: "#00E5A0", icon: "M4 8l3.5 3.5L13 4" },
+          { label: "En onboarding", val: onboarding, color: "#3B82F6", icon: "M8 2a6 6 0 100 12M8 6v2.5M8 11h.01" },
+          { label: "Score promedio", val: avgScore ?? "\u2014", color: "#F5A623", icon: "M2 12L6 7l3 3 3-4 2 2" },
         ].map(k => (
-          <div key={k.label} className="card" style={{ padding:"16px 18px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-              <div className="mono" style={{ fontSize:10, color:"#64748B", letterSpacing:".09em", textTransform:"uppercase" }}>{k.label}</div>
-              <div style={{ width:28, height:28, borderRadius:8, background:`${k.color}18`, display:"grid", placeItems:"center" }} aria-hidden="true">
-                <Ic d={k.icon} s={14} c={k.color}/>
+          <div key={k.label} style={{ background: "#fff", border: "1px solid #E8EDF5", borderRadius: 14, padding: "16px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8", fontFamily: "'Geist Mono',monospace", letterSpacing: ".08em", textTransform: "uppercase" }}>{k.label}</div>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: `${k.color}18`, display: "grid", placeItems: "center" }}>
+                <Ic d={k.icon} s={13} c={k.color} />
               </div>
             </div>
-            <div style={{ fontSize:24, fontWeight:800, letterSpacing:"-.05em", color:"#0F172A", lineHeight:1 }}>{k.val}</div>
-            <div style={{ fontSize:11, color:"#64748B", marginTop:5 }}>{k.sub}</div>
-            {"pct" in k && (
-              <div style={{ height:3, background:"#F1F5F9", borderRadius:999, marginTop:12, overflow:"hidden" }} role="progressbar" aria-valuenow={k.pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${k.label}: ${k.pct}%`}>
-                <div style={{ height:"100%", width:`${k.pct}%`, background:k.color, borderRadius:999 }}/>
-              </div>
-            )}
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.04em", color: "#0F172A" }}>{k.val}</div>
           </div>
         ))}
       </div>
 
-      {/* TABLE */}
-      <div className="card fade d2" style={{ overflow:"hidden" }}>
-        {/* Toolbar */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:"1px solid #E8EDF5", gap:12, flexWrap:"wrap" }}>
-          <div role="group" aria-label="Filtrar por estatus" style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-            {(["All","Active","Onboarding","Paused","Risk Hold"] as const).map(f => (
-              <button key={f} className={`filter-btn${filter===f?" active":""}`} aria-pressed={filter===f} onClick={() => setFilter(f)}>
-                {f === "All" ? "Todos" : f}
-              </button>
-            ))}
-          </div>
-          <div style={{ position:"relative" }}>
-            <label htmlFor="client-search" className="sr-only">Buscar empresa o RFC</label>
-            <div style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:"#94A3B8", pointerEvents:"none" }} aria-hidden="true">
-              <Ic d="M11 11l3 3M7 2a5 5 0 100 10A5 5 0 007 2z" s={13}/>
-            </div>
-            <input id="client-search" className="search-inp" placeholder="Buscar empresa o RFC..." value={q} onChange={e => setQ(e.target.value)}/>
-          </div>
+      {/* Filtros */}
+      <div className="fade d2" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 5 }}>
+          {FILTER_TABS.map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{
+              padding: "6px 13px", borderRadius: 8, fontSize: 12, fontWeight: filter === f ? 700 : 500,
+              cursor: "pointer", fontFamily: "'Geist',sans-serif", border: "1.5px solid",
+              background: filter === f ? "#0C1E4A" : "#fff", color: filter === f ? "#fff" : "#64748B",
+              borderColor: filter === f ? "#0C1E4A" : "#E2E8F0",
+            }}>
+              {f === "Todos" ? "Todos" : STATUS_S[f]?.label ?? f}
+            </button>
+          ))}
+        </div>
+        <div style={{ position: "relative" }}>
+          <div style={{ position: "absolute", left: 11, top: 9 }}><Ic d="M6.5 11a4.5 4.5 0 100-9 4.5 4.5 0 000 9zM10 10l4 4" s={14} c="#94A3B8" /></div>
+          <input
+            placeholder="Buscar por raz\u00F3n social, RFC o representante..."
+            value={search} onChange={e => setSearch(e.target.value)}
+            style={{ height: 36, width: 320, padding: "0 12px 0 34px", borderRadius: 9, border: "1.5px solid #E2E8F0", fontSize: 13, fontFamily: "'Geist',sans-serif", color: "#0F172A", background: "#fff", outline: "none", boxSizing: "border-box" }}
+          />
+        </div>
+        <select value={sectorFilter} onChange={e => setSectorFilter(e.target.value)} style={{ height: 36, borderRadius: 9, border: "1.5px solid #E2E8F0", padding: "0 10px", fontSize: 12, fontFamily: "'Geist',sans-serif", color: "#374151", background: "#fff", cursor: "pointer", outline: "none" }}>
+          <option value="">Sector</option>
+          {SECTORES.filter(Boolean).map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+        </select>
+        <select value={tipoFilter} onChange={e => setTipoFilter(e.target.value)} style={{ height: 36, borderRadius: 9, border: "1.5px solid #E2E8F0", padding: "0 10px", fontSize: 12, fontFamily: "'Geist',sans-serif", color: "#374151", background: "#fff", cursor: "pointer", outline: "none" }}>
+          <option value="">Tipo cr\u00E9dito</option>
+          {TIPOS_CRED.filter(Boolean).map(t => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
+        </select>
+      </div>
+
+      {/* Tabla */}
+      <div style={{ background: "#fff", border: "1px solid #E8EDF5", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 140px 110px 100px 100px 90px 44px", padding: "10px 16px", background: "#FAFBFF", borderBottom: "1px solid #E8EDF5" }}>
+          {["Empresa", "Sector", "Representante", "Monto", "Estatus", "Score", "Actividad", ""].map(h => (
+            <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", fontFamily: "'Geist Mono',monospace", letterSpacing: ".06em", textTransform: "uppercase" }}>{h}</div>
+          ))}
         </div>
 
-        {/* Table */}
-        <table className="cl-table" aria-label="Lista de clientes" aria-busy={loading}>
-          <thead>
-            <tr>
-              <th scope="col">Empresa</th>
-              <th scope="col">Estatus</th>
-              <th scope="col">Score</th>
-              <th scope="col">Buró</th>
-              <th scope="col">SAT</th>
-              <th scope="col">Alta</th>
-              <th scope="col">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Loading skeleton */}
-            {loading && Array.from({ length: 6 }).map((_,i) => (
-              <tr key={i} style={{ cursor:"default" }}>
-                {[200,80,60,80,60,70,90].map((w,j) => (
-                  <td key={j}><div className="shimmer" style={{ height:14, width:w, borderRadius:6 }}/></td>
-                ))}
-              </tr>
-            ))}
+        {loading && (
+          <div style={{ padding: "48px 24px", textAlign: "center", color: "#94A3B8", fontSize: 13 }}>Cargando clientes...</div>
+        )}
 
-            {/* Empty */}
-            {!loading && filtered.length === 0 && (
-              <tr>
-                <td colSpan={7} style={{ padding:"56px 24px", textAlign:"center", color:"#64748B", fontSize:13 }}>
-                  No hay clientes. <button onClick={() => setOpen(true)} style={{ color:"#1B3F8A", background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>Crear el primero →</button>
-                </td>
-              </tr>
+        {!loading && filtered.length === 0 && (
+          <div style={{ padding: "60px 24px", textAlign: "center" }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: "#F1F5F9", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
+              <Ic d="M5.5 7.5a2.5 2.5 0 100-5M1 14s.5-4 4.5-4M11 10l2 2 2-2" s={24} c="#94A3B8" />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#0F172A", marginBottom: 6 }}>
+              {filter === "Todos" && !search ? "A\u00FAn no tienes clientes" : "Sin resultados"}
+            </div>
+            <div style={{ fontSize: 13, color: "#94A3B8", marginBottom: 16 }}>
+              {filter === "Todos" && !search ? "Agrega tu primer cliente para comenzar a gestionar tu cartera." : "Intenta con otros filtros."}
+            </div>
+            {filter === "Todos" && !search && (
+              <button onClick={() => setWizardOpen(true)} style={{ height: 38, padding: "0 18px", borderRadius: 9, border: "none", background: "linear-gradient(135deg,#0C1E4A,#1B3F8A)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Geist',sans-serif" }}>
+                Nuevo cliente
+              </button>
             )}
-
-            {/* Rows */}
-            {!loading && filtered.map(c => {
-              const cc    = normalizeJoin(c.client_connectors);
-              const buro  = cc?.buro_status ?? "not_connected";
-              const sat   = cc?.sat_status  ?? "not_connected";
-              const score = completitud(c);
-              const sc    = scoreColor(score);
-              const st    = STATUS_STYLES[c.status] || STATUS_STYLES["Paused"];
-              const bs    = BURO_STYLES[buro]       || BURO_STYLES["not_connected"];
-              const satLabel = sat === "connected" ? "Conectado" : sat === "uploaded" ? "Subido" : sat === "processing" ? "Procesando" : "Sin conectar";
-
-              return (
-                <tr key={c.id} tabIndex={0} role="link"
-                  onClick={() => router.push(`/dashboard/clientes/${c.id}`)}
-                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(`/dashboard/clientes/${c.id}`); } }}>
-                  {/* Empresa */}
-                  <td className="col-empresa">
-                    <div style={{ fontSize:13, fontWeight:600, color:"#0F172A", marginBottom:2 }}>{c.company_name}</div>
-                    <div className="mono" style={{ fontSize:10, color:"#64748B" }}>{c.rfc}</div>
-                  </td>
-
-                  {/* Estatus */}
-                  <td>
-                    <span className="status-pill" style={{ background:st.bg, color:st.color, borderColor:st.border }}>
-                      <span style={{ width:5, height:5, borderRadius:"50%", background:st.dot, display:"inline-block" }} aria-hidden="true"/>
-                      {c.status}
-                    </span>
-                  </td>
-
-                  {/* Score completitud */}
-                  <td>
-                    <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-                      <div style={{ flex:1, height:5, background:"#F1F5F9", borderRadius:999, overflow:"hidden", maxWidth:52 }} role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={100} aria-label={`Completitud ${score}%`}>
-                        <div style={{ height:"100%", width:`${score}%`, background:sc.bar, borderRadius:999 }}/>
-                      </div>
-                      <span className="mono" style={{ fontSize:10, fontWeight:700, color:sc.text }}>{score}%</span>
-                    </div>
-                  </td>
-
-                  {/* Buró */}
-                  <td>
-                    <span className="buro-pill" style={{ background:bs.bg, color:bs.color }}>
-                      {buro === "ok" && cc?.buro_score ? `${cc.buro_score} pts` : bs.label}
-                    </span>
-                  </td>
-
-                  {/* SAT */}
-                  <td>
-                    <span className="mono" style={{ fontSize:10, color: sat === "connected" ? "#065F46" : "#64748B", fontWeight: sat === "connected" ? 600 : 400 }}>
-                      {satLabel}
-                    </span>
-                  </td>
-
-                  {/* Alta */}
-                  <td className="mono" style={{ fontSize:11, color:"#64748B" }}>
-                    {c.created_at?.slice(0,10)}
-                  </td>
-
-                  {/* Acciones */}
-                  <td className="col-acciones" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
-                    <div style={{ display:"flex", gap:5 }}>
-                      <button className="action-btn" aria-label={`Editar ${c.company_name}`} onClick={e => { e.stopPropagation(); setSelected(c); setEditOpen(true); }}>
-                        <Ic d="M11 2l3 3-9 9H2v-3L11 2z" s={11}/> Editar
-                      </button>
-                      <button
-                        className="action-btn"
-                        disabled={buroCalling === c.id}
-                        onClick={e => consultarBuro(c.id, e)}
-                        aria-label={`Consultar Buró de ${c.company_name}`}
-                        style={{ padding:"5px 8px" }}>
-                        {buroCalling === c.id
-                          ? <svg className="spinner" width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="#5B8DEF" strokeWidth="2" aria-hidden="true"><path d="M8 2a6 6 0 016 6"/></svg>
-                          : <Ic d="M13 8A5 5 0 103 8M13 8l-2-2M13 8l-2 2" s={11}/>
-                        }
-                      </button>
-                      <Link href={`/dashboard/clientes/${c.id}`} className="action-btn" style={{ textDecoration:"none" }} aria-label={`Ver detalle de ${c.company_name}`} onClick={e => e.stopPropagation()}>
-                        <Ic d="M3 8h10M8 4l4 4-4 4" s={11}/>
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Legend */}
-      <div className="fade d3" style={{ marginTop:12, display:"flex", gap:16, flexWrap:"wrap", padding:"0 2px" }}>
-        {[
-          { color:"#00E5A0", label:"Score ≥ 80% — Perfil completo" },
-          { color:"#F59E0B", label:"Score 50–79% — Datos parciales" },
-          { color:"#F43F5E", label:"Score < 50% — Requiere atención" },
-        ].map(l => (
-          <div key={l.label} style={{ display:"flex", alignItems:"center", gap:6, fontSize:11, color:"#64748B" }}>
-            <span style={{ width:8, height:8, borderRadius:"50%", background:l.color, display:"inline-block" }}/>
-            {l.label}
           </div>
-        ))}
+        )}
+
+        {!loading && filtered.map(c => {
+          const st = STATUS_S[c.status] ?? STATUS_S.Onboarding;
+          const sc = c.client_connectors?.[0]?.buro_score ?? null;
+          const sec = SECTOR_COLORS[c.sector] ?? { bg: "#F8FAFC", color: "#475569" };
+          return (
+            <div key={c.id} className="trow" onClick={() => router.push(`/dashboard/clientes/${c.id}`)}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A" }}>{c.company_name}</div>
+                {c.rfc && <div style={{ fontSize: 10, fontFamily: "'Geist Mono',monospace", color: "#94A3B8", marginTop: 2 }}>{c.rfc}</div>}
+              </div>
+              <div>
+                {c.sector && <span style={{ fontSize: 10, fontWeight: 600, background: sec.bg, color: sec.color, borderRadius: 6, padding: "2px 8px" }}>{c.sector}</span>}
+              </div>
+              <div style={{ fontSize: 12, color: "#475569" }}>{c.rep_legal_nombre ?? "\u2014"}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, fontFamily: "'Geist Mono',monospace" }}>{fmt(c.monto_solicitado_mxn)}</div>
+              <div>
+                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'Geist Mono',monospace", background: st.bg, color: st.color, border: `1px solid ${st.border}`, borderRadius: 999, padding: "3px 9px", letterSpacing: ".04em" }}>
+                  {st.label}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 14, fontWeight: 800, fontFamily: "'Geist Mono',monospace", color: scoreColor(sc) }}>{sc ?? "\u2014"}</span>
+                {sc != null && (
+                  <div style={{ width: 40, height: 4, background: "#F1F5F9", borderRadius: 999, overflow: "hidden" }}>
+                    <div style={{ width: `${Math.min(sc, 100)}%`, height: "100%", background: scoreColor(sc), borderRadius: 999 }} />
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: "#94A3B8" }}>{c.updated_at ? ago(c.updated_at) : c.created_at ? ago(c.created_at) : "\u2014"}</div>
+              <Link href={`/dashboard/clientes/${c.id}`} onClick={e => e.stopPropagation()} style={{ width: 28, height: 28, borderRadius: 7, background: "#F8FAFC", border: "1px solid #E8EDF5", display: "grid", placeItems: "center", color: "#94A3B8", textDecoration: "none" }}>
+                <Ic d="M3 8h10M8 4l4 4-4 4" s={12} />
+              </Link>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

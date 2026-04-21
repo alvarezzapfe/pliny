@@ -1,3 +1,4 @@
+// @deprecated — replaced by ClientWizard.tsx in components/clients/ClientWizard.tsx. Kept for reference, safe to delete in future cleanup.
 // components/clients/EditClientModal.tsx
 "use client";
 

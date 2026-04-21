@@ -1,7 +1,4 @@
-import ClientDashboard from "./ClientDashboard";
-
-import SatPullPanel from "@/components/sat/SatPullPanel";
-import SatMetricsCard from "@/components/sat/SatMetricsCard";
+import ClientDetail from "./ClientDetail";
 
 export default async function Page({
   params,
@@ -9,5 +6,5 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <ClientDashboard clientId={decodeURIComponent(id)} />;
+  return <ClientDetail clientId={decodeURIComponent(id)} />;
 }
