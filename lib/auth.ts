@@ -1,4 +1,4 @@
-export type Role = "admin" | "super_admin" | "client" | "otorgante" | "solicitante";
+export type Role = "admin" | "super_admin" | "client" | "otorgante" | "solicitante" | "fondeador";
 
 export type Session = {
   role: Role;
@@ -9,7 +9,7 @@ export type Session = {
   demo?: boolean;
 
   // rol de negocio (para cliente)
-  userRole?: "otorgante" | "solicitante";
+  userRole?: "otorgante" | "solicitante" | "fondeador";
   onboardingDone?: boolean;
 
   // opcional si luego quieres trackearla (no es seguridad real)
@@ -89,7 +89,7 @@ export function requireSuperAdminSession(): Session | null {
   return s;
 }
 
-export function getUserRole(): "otorgante" | "solicitante" | null {
+export function getUserRole(): "otorgante" | "solicitante" | "fondeador" | null {
   const s = getSession();
   return s?.userRole ?? null;
 }

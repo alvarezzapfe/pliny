@@ -57,13 +57,16 @@ export default function LoginPage() {
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
       if (authErr || !data.user) { setError(authErr?.message ?? "No se pudo iniciar sesión."); setLoading(false); return; }
       const { data: roleRow } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id).maybeSingle();
-      const userRole = (roleRow?.role ?? null) as "otorgante"|"solicitante"|null;
+      const userRole = (roleRow?.role ?? null) as "otorgante"|"solicitante"|"fondeador"|null;
       setSession({ role:"client", email:cleanEmail, customerId:data.user.id, createdAt:new Date().toISOString(), userRole:userRole??undefined });
       if (!userRole) { router.push("/onboarding/role"); return; }
       if (userRole === "solicitante") {
         const { data: borrower } = await supabase.from("borrowers_profile").select("onboarding_done").eq("owner_id", data.user.id).maybeSingle();
         setLoading(false);
         router.push(borrower?.onboarding_done ? "/solicitante" : "/onboarding/solicitante");
+      } else if (userRole === "fondeador") {
+        setLoading(false);
+        router.push("/fondeador");
       } else {
         setLoading(false);
         router.push("/dashboard");
@@ -72,220 +75,150 @@ export default function LoginPage() {
   };
 
   const CSS = `
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap');
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
 
-    @keyframes meshA { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(40px,-30px) scale(1.06);} 66%{transform:translate(-25px,20px) scale(.97);} }
-    @keyframes meshB { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(-30px,25px) scale(1.04);} 66%{transform:translate(20px,-15px) scale(.98);} }
-    @keyframes meshC { 0%,100%{transform:translate(0,0);} 50%{transform:translate(15px,-20px);} }
     @keyframes fadeUp { from{opacity:0;transform:translateY(16px);} to{opacity:1;transform:translateY(0);} }
     @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.2;} }
     @keyframes spin { to{transform:rotate(360deg);} }
-    @keyframes shimmer { from{background-position:-200% 0;} to{background-position:200% 0;} }
-    @keyframes borderGlow { 0%,100%{border-color:rgba(139,92,246,.3);} 50%{border-color:rgba(6,182,212,.4);} }
-    @keyframes float { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
+    @keyframes gridPulse { 0%,100%{opacity:.3;} 50%{opacity:.5;} }
 
     .login-wrap {
       min-height: 100svh;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      font-family: 'DM Sans', system-ui, sans-serif;
+      font-family: 'Geist', system-ui, sans-serif;
     }
 
     /* ── LEFT PANEL ── */
     .left {
-      position: relative;
-      overflow: hidden;
-      background: #060B18;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 36px 48px;
+      position: relative; overflow: hidden;
+      background: radial-gradient(ellipse 160% 110% at 20% 0%, #1B3F8A 0%, #0C1E4A 55%, #091530 100%);
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 40px 52px;
     }
-    .mesh-orb {
-      position: absolute;
-      border-radius: 50%;
-      pointer-events: none;
-      filter: blur(1px);
-    }
-    .orb-1 { top:-15%; left:-10%; width:70vw; height:70vw; max-width:600px; max-height:600px; background:radial-gradient(circle,rgba(139,92,246,.22) 0%,transparent 65%); animation:meshA 20s ease-in-out infinite; }
-    .orb-2 { bottom:-10%; right:-5%; width:55vw; height:55vw; max-width:500px; max-height:500px; background:radial-gradient(circle,rgba(79,142,247,.18) 0%,transparent 65%); animation:meshB 26s ease-in-out infinite; }
-    .orb-3 { top:20%; right:10%; width:35vw; height:35vw; max-width:320px; max-height:320px; background:radial-gradient(circle,rgba(6,182,212,.10) 0%,transparent 65%); animation:meshC 18s ease-in-out infinite; }
     .grid-lines {
       position: absolute; inset: 0; pointer-events: none;
-      background-image: linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px), linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
-      background-size: 52px 52px;
-      mask-image: radial-gradient(ellipse 100% 80% at 40% 30%, #000 30%, transparent 75%);
-      -webkit-mask-image: radial-gradient(ellipse 100% 80% at 40% 30%, #000 30%, transparent 75%);
+      background-image:
+        radial-gradient(circle 1px, rgba(255,255,255,.12) 1px, transparent 1px);
+      background-size: 32px 32px;
+      animation: gridPulse 6s ease-in-out infinite;
+      mask-image: radial-gradient(ellipse 80% 70% at 40% 35%, #000 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 70% at 40% 35%, #000 20%, transparent 70%);
     }
-    .grain {
-      position: absolute; inset: 0; pointer-events: none; opacity: .025;
+
+    .left-content { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 40px 0; }
+
+    .logo-mark { display: flex; align-items: center; gap: 10px; text-decoration: none; position: relative; z-index: 1; }
+    .logo-text { font-size: 18px; font-weight: 800; color: #EEF2FF; letter-spacing: -0.04em; }
+    .logo-sub  { font-family: 'Geist Mono', monospace; font-size: 9px; color: #00E5A0; letter-spacing: .14em; margin-top: 2px; }
+
+    .hero-h1 { font-size: clamp(28px,3.5vw,42px); font-weight: 900; line-height: 1.08; letter-spacing: -0.045em; color: #EEF2FF; margin-bottom: 20px; }
+
+    .user-types { display: flex; flex-direction: column; gap: 14px; margin-bottom: 40px; }
+    .user-type {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 14px; color: rgba(238,242,255,.65); line-height: 1.5;
     }
-
-    .left-content { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 60px 0 40px; }
-
-    .logo-mark { display: flex; align-items: center; gap: 10px; text-decoration: none; margin-bottom: 72px; }
-    .logo-text { font-size: 17px; font-weight: 800; color: #F0F4FF; letter-spacing: -0.04em; }
-    .logo-sub  { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #00E5A0; letter-spacing: .14em; margin-top: 2px; }
-
-    .hero-badge {
-      display: inline-flex; align-items: center; gap: 8px;
-      border: 1px solid rgba(139,92,246,.3); background: rgba(139,92,246,.07);
-      border-radius: 999px; padding: 5px 14px 5px 10px;
-      margin-bottom: 28px; width: fit-content;
-      animation: borderGlow 4s ease-in-out infinite;
+    .user-type-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: grid; place-items: center; flex-shrink: 0;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10);
     }
-    .hero-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #00E5A0; animation: blink 2s ease-in-out infinite; }
-    .hero-badge span { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(240,244,255,.65); letter-spacing: .08em; }
-
-    .hero-h1 { font-size: clamp(34px,4.5vw,58px); font-weight: 800; line-height: 1.02; letter-spacing: -0.05em; color: #F0F4FF; margin-bottom: 18px; }
-    .hero-h1 .grad { background: linear-gradient(135deg,#A78BFA,#60A5FA,#22D3EE); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .hero-sub { font-size: 15px; color: rgba(240,244,255,.5); line-height: 1.75; max-width: 38ch; margin-bottom: 44px; }
 
     .stats-row { display: flex; gap: 28px; }
-    .stat { }
-    .stat-val { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; color: #F0F4FF; letter-spacing: -0.04em; line-height: 1; margin-bottom: 4px; }
-    .stat-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: rgba(240,244,255,.3); letter-spacing: .1em; text-transform: uppercase; }
+    .stat-val { font-family: 'Geist Mono', monospace; font-size: 22px; font-weight: 700; color: #EEF2FF; letter-spacing: -0.04em; line-height: 1; margin-bottom: 4px; }
+    .stat-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: rgba(238,242,255,.3); letter-spacing: .1em; text-transform: uppercase; }
     .stat-divider { width: 1px; background: rgba(255,255,255,.08); }
 
     .left-footer { position: relative; z-index: 1; }
-    .feature-pills { display: flex; gap: 8px; flex-wrap: wrap; }
-    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(240,244,255,.35); letter-spacing: .06em; }
-    .pill-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(240,244,255,.25); }
+    .reg-badge {
+      font-family: 'Geist Mono', monospace; font-size: 9px; color: rgba(238,242,255,.25);
+      letter-spacing: .08em; border: 1px solid rgba(255,255,255,.08);
+      border-radius: 999px; padding: 5px 14px; display: inline-flex; align-items: center; gap: 6px;
+    }
 
     /* ── RIGHT PANEL ── */
     .right {
-      background: #F4F6FB;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 32px;
-      position: relative;
-    }
-    .right::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(139,92,246,.03) 0%, transparent 50%, rgba(6,182,212,.03) 100%);
-      pointer-events: none;
+      background: #FAFBFF;
+      display: flex; align-items: center; justify-content: center;
+      padding: 48px 40px; position: relative;
     }
 
     .form-card {
-      width: 100%;
-      max-width: 420px;
-      position: relative;
-      z-index: 1;
+      width: 100%; max-width: 400px;
+      position: relative; z-index: 1;
       animation: fadeUp .5s cubic-bezier(.16,1,.3,1) both;
     }
 
-    .form-header { margin-bottom: 32px; }
-    .form-title { font-size: 26px; font-weight: 800; color: #0D1426; letter-spacing: -0.045em; margin-bottom: 6px; }
-    .form-sub { font-size: 14px; color: rgba(13,20,38,.45); line-height: 1.6; }
-
-    .live-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 4px 10px; border-radius: 999px;
-      background: rgba(0,229,160,.08); border: 1px solid rgba(0,229,160,.2);
-      font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #059669;
-      letter-spacing: .1em; margin-bottom: 20px;
-    }
-    .live-dot { width: 5px; height: 5px; border-radius: 50%; background: #00E5A0; animation: blink 2s ease-in-out infinite; }
+    .form-header { margin-bottom: 36px; }
+    .form-title { font-size: 28px; font-weight: 900; color: #0C1E4A; letter-spacing: -0.04em; margin-bottom: 6px; }
+    .form-sub { font-size: 14px; color: #64748B; line-height: 1.6; }
 
     .google-btn {
-      width: 100%;
-      height: 48px;
-      border-radius: 12px;
-      border: 1.5px solid rgba(13,20,38,.12);
-      background: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 14px;
-      font-weight: 600;
-      color: #0D1426;
-      cursor: pointer;
-      transition: all .18s;
-      box-shadow: 0 1px 4px rgba(13,20,38,.06);
-      margin-bottom: 20px;
+      width: 100%; height: 48px; border-radius: 12px;
+      border: 1.5px solid #E2E8F0; background: #fff;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      font-family: 'Geist', sans-serif; font-size: 14px; font-weight: 600; color: #0F172A;
+      cursor: pointer; transition: all .18s;
+      box-shadow: 0 1px 4px rgba(0,0,0,.04); margin-bottom: 24px;
     }
-    .google-btn:hover { border-color: rgba(13,20,38,.22); box-shadow: 0 4px 14px rgba(13,20,38,.1); transform: translateY(-1px); }
+    .google-btn:hover { border-color: #CBD5E1; box-shadow: 0 4px 14px rgba(0,0,0,.08); transform: translateY(-1px); }
     .google-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 
-    .divider { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-    .divider-line { flex: 1; height: 1px; background: rgba(13,20,38,.08); }
-    .divider-text { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(13,20,38,.3); letter-spacing: .08em; }
+    .divider { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+    .divider-line { flex: 1; height: 1px; background: #E2E8F0; }
+    .divider-text { font-family: 'Geist Mono', monospace; font-size: 10px; color: #94A3B8; letter-spacing: .08em; }
 
-    .field { margin-bottom: 14px; }
-    .field-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(13,20,38,.45); letter-spacing: .1em; text-transform: uppercase; display: block; margin-bottom: 7px; }
+    .field { margin-bottom: 16px; }
+    .field-label { font-family: 'Geist Mono', monospace; font-size: 10px; color: #64748B; letter-spacing: .1em; text-transform: uppercase; display: block; margin-bottom: 8px; }
     .field-wrap { position: relative; }
-    .field-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); pointer-events: none; color: rgba(13,20,38,.3); }
+    .field-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #94A3B8; }
     .field-inp {
-      width: 100%;
-      height: 46px;
-      border-radius: 11px;
-      border: 1.5px solid rgba(13,20,38,.1);
-      background: #fff;
-      padding: 0 14px 0 40px;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 14px;
-      color: #0D1426;
-      outline: none;
-      transition: border-color .18s, box-shadow .18s;
-      box-shadow: 0 1px 3px rgba(13,20,38,.05);
+      width: 100%; height: 44px; border-radius: 10px;
+      border: 1.5px solid #E2E8F0; background: #fff;
+      padding: 0 14px 0 42px;
+      font-family: 'Geist', sans-serif; font-size: 14px; color: #0F172A;
+      outline: none; transition: border-color .18s, box-shadow .18s;
     }
-    .field-inp:focus { border-color: #7C3AED; box-shadow: 0 0 0 3px rgba(124,58,237,.1); }
-    .field-inp::placeholder { color: rgba(13,20,38,.28); }
+    .field-inp:focus { border-color: #1B3F8A; box-shadow: 0 0 0 3px rgba(27,63,138,.08); }
+    .field-inp::placeholder { color: #CBD5E1; }
     .field-inp.has-error { border-color: #DC2626; box-shadow: 0 0 0 3px rgba(220,38,38,.08); }
-    .pass-toggle { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: rgba(13,20,38,.35); padding: 4px; border-radius: 6px; transition: color .15s; }
-    .pass-toggle:hover { color: #0D1426; }
+    .pass-toggle { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #94A3B8; padding: 4px; border-radius: 6px; transition: color .15s; }
+    .pass-toggle:hover { color: #0F172A; }
 
-    .forgot { font-size: 12px; color: rgba(13,20,38,.4); text-decoration: none; display: block; text-align: right; margin-top: -6px; margin-bottom: 20px; transition: color .15s; }
-    .forgot:hover { color: #7C3AED; }
+    .forgot { font-size: 12px; color: #94A3B8; text-decoration: none; display: block; text-align: right; margin-top: -8px; margin-bottom: 20px; transition: color .15s; }
+    .forgot:hover { color: #0C1E4A; text-decoration: underline; }
 
     .error-box {
       display: flex; align-items: center; gap: 8px;
-      background: rgba(220,38,38,.05); border: 1px solid rgba(220,38,38,.15);
+      background: #FFF1F2; border: 1px solid #FECDD3;
       border-radius: 10px; padding: 10px 13px;
-      font-size: 13px; color: #DC2626; margin-bottom: 16px;
+      font-size: 13px; color: #9F1239; margin-bottom: 16px;
     }
 
     .submit-btn {
-      width: 100%;
-      height: 48px;
-      border-radius: 12px;
-      border: none;
-      background: linear-gradient(135deg, #7C3AED 0%, #1D4ED8 50%, #0891B2 100%);
-      color: #fff;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      letter-spacing: -0.01em;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+      width: 100%; height: 48px; border-radius: 12px; border: none;
+      background: linear-gradient(135deg, #0C1E4A 0%, #1B3F8A 100%);
+      color: #fff; font-family: 'Geist', sans-serif; font-size: 14px; font-weight: 700;
+      cursor: pointer; letter-spacing: -0.01em;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
       transition: all .18s;
-      box-shadow: 0 4px 16px rgba(124,58,237,.3);
-      position: relative;
-      overflow: hidden;
-      margin-bottom: 20px;
+      box-shadow: 0 4px 16px rgba(12,30,74,.25);
+      position: relative; overflow: hidden; margin-bottom: 24px;
     }
-    .submit-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.12) 0%,transparent 60%); pointer-events:none; }
-    .submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,.4); }
+    .submit-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.08) 0%,transparent 60%); pointer-events:none; }
+    .submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(12,30,74,.35); }
     .submit-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 
-    .form-footer { text-align: center; font-size: 13px; color: rgba(13,20,38,.45); }
-    .form-footer a { color: #7C3AED; text-decoration: none; font-weight: 600; }
+    .form-footer { text-align: center; font-size: 13px; color: #64748B; }
+    .form-footer a { color: #0C1E4A; text-decoration: none; font-weight: 700; }
     .form-footer a:hover { text-decoration: underline; }
 
-    .admin-link { display: block; text-align: center; margin-top: 24px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(13,20,38,.22); letter-spacing: .06em; text-decoration: none; transition: color .15s; }
-    .admin-link:hover { color: rgba(13,20,38,.45); }
+    .admin-link { display: block; text-align: center; margin-top: 28px; font-family: 'Geist Mono', monospace; font-size: 10px; color: rgba(13,20,38,.18); letter-spacing: .06em; text-decoration: none; transition: color .15s; }
+    .admin-link:hover { color: rgba(13,20,38,.4); }
 
-    @keyframes spin { to{transform:rotate(360deg);} }
     .spinner { animation: spin .7s linear infinite; }
 
     @media (max-width: 768px) {
@@ -303,39 +236,37 @@ export default function LoginPage() {
 
       {/* ── LEFT ── */}
       <div className="left">
-        <div className="mesh-orb orb-1"/>
-        <div className="mesh-orb orb-2"/>
-        <div className="mesh-orb orb-3"/>
         <div className="grid-lines"/>
-        <svg className="grain" viewBox="0 0 200 200">
-          <filter id="g"><feTurbulence type="fractalNoise" baseFrequency=".72" numOctaves="4" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
-          <rect width="100%" height="100%" filter="url(#g)"/>
-        </svg>
 
         {/* Logo */}
         <a href="/" className="logo-mark">
-          <img src="/plinius.png" alt="" style={{height:24,filter:"brightness(0) invert(1)",opacity:.9}} onError={e=>(e.currentTarget.style.display="none")}/>
-          <div>
-            <div className="logo-text">Plinius</div>
-            <div className="logo-sub">CREDIT OS</div>
-          </div>
+          <img src="/plinius_newlogo.png" alt="Plinius" style={{height:52,width:"auto"}} onError={e=>(e.currentTarget.style.display="none")}/>
         </a>
 
         <div className="left-content">
-          <div className="hero-badge">
-            <span className="dot"/>
-            <span>LIVE · CRÉDITO PRIVADO · MÉXICO</span>
-          </div>
-
           <h1 className="hero-h1">
-            Infraestructura<br/>
-            de crédito para<br/>
-            <span className="grad">instituciones.</span>
+            Credit OS para<br/>
+            el M&eacute;xico<br/>
+            Financiero
           </h1>
 
-          <p className="hero-sub">
-            Cartera, riesgo y marketplace en un solo lugar. Estándares institucionales desde el día uno.
-          </p>
+          <div className="user-types">
+            {[
+              { icon: "M3 2h10v12H3zM6 5h4M6 8h4M6 11h2", label: "Solicitantes", desc: "Busca cr\u00E9dito para tu empresa" },
+              { icon: "M2 14h12M4 14V6l4-4 4 4v8M7 11h2v3H7z", label: "Otorgantes", desc: "Escala tu cartera con infraestructura" },
+              { icon: "M2 12L6 7l3 3 3-4 2 2M13 4h-3M13 4v3", label: "Fondeadores", desc: "Conecta con originadores mexicanos" },
+            ].map(u => (
+              <div key={u.label} className="user-type">
+                <div className="user-type-icon">
+                  <svg width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="#00E5A0" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d={u.icon}/></svg>
+                </div>
+                <div>
+                  <span style={{fontWeight:700,color:"#EEF2FF"}}>{u.label}</span>
+                  <span style={{color:"rgba(238,242,255,.45)"}}> &mdash; {u.desc}</span>
+                </div>
+              </div>
+            ))}
+          </div>
 
           <div className="stats-row">
             {[
@@ -345,7 +276,7 @@ export default function LoginPage() {
             ].map((s,i)=>(
               <React.Fragment key={s.label}>
                 {i>0&&<div className="stat-divider"/>}
-                <div className="stat">
+                <div>
                   <div className="stat-val">{s.val}</div>
                   <div className="stat-label">{s.label}</div>
                 </div>
@@ -355,11 +286,10 @@ export default function LoginPage() {
         </div>
 
         <div className="left-footer">
-          <div className="feature-pills">
-            {["Onboarding digital","Risk signals","SAT · CFDI","Reportes PDF","Marketplace","API-first"].map(t=>(
-              <span key={t} className="pill"><span className="pill-dot"/>{t}</span>
-            ))}
-          </div>
+          <span className="reg-badge">
+            <svg width={10} height={10} viewBox="0 0 16 16" fill="none" stroke="rgba(238,242,255,.3)" strokeWidth="1.4" strokeLinecap="round"><path d="M8 2a6 6 0 100 12 6 6 0 000-12zM6 8l1.5 1.5L10 6"/></svg>
+            INFRAESTRUCTURA EN FINANZAS AI, S.A.P.I. DE C.V.
+          </span>
         </div>
       </div>
 
@@ -367,14 +297,9 @@ export default function LoginPage() {
       <div className="right">
         <div className="form-card">
 
-          <div className="live-badge">
-            <span className="live-dot"/>
-            SISTEMA OPERATIVO
-          </div>
-
           <div className="form-header">
-            <h1 className="form-title">Bienvenido de nuevo</h1>
-            <p className="form-sub">Accede a tu consola de crédito.</p>
+            <h1 className="form-title">Iniciar sesi&oacute;n</h1>
+            <p className="form-sub">Accede a tu consola de cr&eacute;dito.</p>
           </div>
 
           {/* Google */}
@@ -389,7 +314,7 @@ export default function LoginPage() {
 
           <div className="divider">
             <div className="divider-line"/>
-            <span className="divider-text">O CON CORREO</span>
+            <span className="divider-text">O CONTINU&#769;A CON EMAIL</span>
             <div className="divider-line"/>
           </div>
 
@@ -440,7 +365,7 @@ export default function LoginPage() {
           </form>
 
           <p className="form-footer">
-            ¿Nuevo aquí? <Link href="/register">Crear cuenta →</Link>
+            &iquest;No tienes cuenta? <Link href="/register">Reg&iacute;strate &rarr;</Link>
           </p>
 
           <a href="/admin/login" className="admin-link">ADMIN →</a>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { setSession } from "@/lib/auth";
 
-type Role = "otorgante" | "solicitante";
+type Role = "otorgante" | "solicitante" | "fondeador";
 
 export default function RoleSelectPage() {
   const router = useRouter();
@@ -31,8 +31,8 @@ export default function RoleSelectPage() {
         .maybeSingle()
         .then(({ data: roleRow }) => {
           if (roleRow?.role) {
-            // Ya tiene rol, manda a donde corresponde
             if (roleRow.role === "solicitante") router.replace("/solicitante");
+            else if (roleRow.role === "fondeador") router.replace("/fondeador");
             else router.replace("/dashboard");
           }
         });
@@ -73,6 +73,8 @@ export default function RoleSelectPage() {
     // Ruta por rol
     if (selected === "solicitante") {
       router.push("/onboarding/solicitante");
+    } else if (selected === "fondeador") {
+      router.push("/onboarding/fondeador");
     } else {
       router.push("/dashboard");
     }
@@ -127,7 +129,7 @@ export default function RoleSelectPage() {
           border: 1px solid rgba(255,255,255,0.15);
           box-shadow: 0 32px 100px rgba(0,0,0,0.40), 0 8px 32px rgba(0,0,0,0.20);
           padding: 40px 36px;
-          width: 100%; max-width: 500px;
+          width: 100%; max-width: 520px;
           position: relative; z-index: 1;
           animation: cardIn 0.5s cubic-bezier(.16,1,.3,1) both;
         }
@@ -144,6 +146,7 @@ export default function RoleSelectPage() {
         .role-card:hover { border-color: #5B8DEF; background: #F0F5FF; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(91,141,239,0.12); }
         .role-card.selected-otorgante { border-color: #1B3F8A; background: #EEF3FF; box-shadow: 0 0 0 4px rgba(27,63,138,0.10); }
         .role-card.selected-solicitante { border-color: #00C87A; background: #EDFDF5; box-shadow: 0 0 0 4px rgba(0,200,122,0.10); }
+        .role-card.selected-fondeador { border-color: #1E40AF; background: #EFF6FF; box-shadow: 0 0 0 4px rgba(30,64,175,0.10); }
 
         .role-icon {
           width: 48px; height: 48px; border-radius: 14px;
@@ -152,6 +155,7 @@ export default function RoleSelectPage() {
         }
         .icon-otorgante { background: linear-gradient(135deg,#EEF3FF,#D8E6FF); }
         .icon-solicitante { background: linear-gradient(135deg,#EDFDF5,#C6F7E2); }
+        .icon-fondeador { background: linear-gradient(135deg,#EFF6FF,#BFDBFE); }
 
         .check-badge {
           position: absolute; top: 14px; right: 14px;
@@ -166,6 +170,7 @@ export default function RoleSelectPage() {
         }
         .check-otorgante { background: #1B3F8A; }
         .check-solicitante { background: #00C87A; }
+        .check-fondeador { background: #1E40AF; }
 
         .btn-confirm {
           height: 52px; width: 100%;
@@ -232,20 +237,24 @@ export default function RoleSelectPage() {
             className={`role-card${selected === "otorgante" ? " selected-otorgante" : ""}`}
             onClick={() => setSelected("otorgante")}
           >
-            <div className={`check-badge check-otorgante`}>
+            <div className="check-badge check-otorgante">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M2.5 6l2.5 2.5 4.5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <div className="role-icon icon-otorgante">🏦</div>
+            <div className="role-icon icon-otorgante">
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#1B3F8A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7" fill="none"/>
+              </svg>
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A", marginBottom: 4, letterSpacing: "-0.02em" }}>
               Soy Otorgante
             </div>
             <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.55 }}>
-              Ofrezco crédito. Quiero analizar expedientes, monitorear cartera y generar reportes de riesgo.
+              Ofrezco cr&eacute;dito. Quiero analizar expedientes, monitorear cartera y generar reportes de riesgo.
             </div>
             <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
-              {["Análisis de riesgo","Cartera","Covenants","Reportes"].map(t => (
+              {["An\u00E1lisis de riesgo","Cartera","Covenants","Reportes"].map(t => (
                 <span key={t} style={{ fontSize: 10, fontWeight: 600, color: "#1B3F8A", background: "#EEF3FF", borderRadius: 999, padding: "3px 8px", fontFamily: "'Geist Mono',monospace" }}>{t}</span>
               ))}
             </div>
@@ -256,21 +265,53 @@ export default function RoleSelectPage() {
             className={`role-card${selected === "solicitante" ? " selected-solicitante" : ""}`}
             onClick={() => setSelected("solicitante")}
           >
-            <div className={`check-badge check-solicitante`}>
+            <div className="check-badge check-solicitante">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M2.5 6l2.5 2.5 4.5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <div className="role-icon icon-solicitante">🏢</div>
+            <div className="role-icon icon-solicitante">
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 00-8 0v2"/><line x1="12" y1="11" x2="12" y2="15"/><line x1="10" y1="13" x2="14" y2="13"/>
+              </svg>
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A", marginBottom: 4, letterSpacing: "-0.02em" }}>
               Soy Solicitante
             </div>
             <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.55 }}>
-              Busco crédito. Quiero cargar mi información, hacer seguimiento a mis solicitudes y recibir ofertas.
+              Busco cr&eacute;dito. Quiero cargar mi informaci&oacute;n, hacer seguimiento a mis solicitudes y recibir ofertas.
             </div>
             <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
               {["Solicitudes","Documentos","Seguimiento","Ofertas"].map(t => (
                 <span key={t} style={{ fontSize: 10, fontWeight: 600, color: "#065F46", background: "#EDFDF5", borderRadius: 999, padding: "3px 8px", fontFamily: "'Geist Mono',monospace" }}>{t}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Fondeador */}
+          <div
+            className={`role-card${selected === "fondeador" ? " selected-fondeador" : ""}`}
+            onClick={() => setSelected("fondeador")}
+          >
+            <div className="check-badge check-fondeador">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2.5 6l2.5 2.5 4.5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className="role-icon icon-fondeador">
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#1E40AF" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
+              </svg>
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A", marginBottom: 4, letterSpacing: "-0.02em" }}>
+              Fondeador Institucional
+            </div>
+            <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.55 }}>
+              Proveo capital a otorgantes para escalar originaci&oacute;n de cr&eacute;dito. Quiero conectar con lenders mexicanos.
+            </div>
+            <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
+              {["Portafolio","Due diligence","Originadores","Reportes"].map(t => (
+                <span key={t} style={{ fontSize: 10, fontWeight: 600, color: "#1E40AF", background: "#EFF6FF", borderRadius: 999, padding: "3px 8px", fontFamily: "'Geist Mono',monospace" }}>{t}</span>
               ))}
             </div>
           </div>
@@ -299,7 +340,7 @@ export default function RoleSelectPage() {
             </>
           ) : selected ? (
             <>
-              Continuar como {selected === "otorgante" ? "Otorgante" : "Solicitante"}
+              Continuar como {selected === "otorgante" ? "Otorgante" : selected === "fondeador" ? "Fondeador" : "Solicitante"}
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="rgba(255,255,255,0.7)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </>
           ) : (

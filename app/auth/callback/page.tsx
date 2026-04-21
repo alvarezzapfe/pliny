@@ -31,6 +31,11 @@ async function routeUser(userId: string, router: ReturnType<typeof useRouter>) {
     return;
   }
 
+  if (roleRow.role === "fondeador") {
+    router.replace("/fondeador");
+    return;
+  }
+
   router.replace("/dashboard");
 }
 
