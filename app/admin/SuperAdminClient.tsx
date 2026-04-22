@@ -206,11 +206,23 @@ function EditSolicitudModal({ sol, onClose, onSaved, onDeleted }: {
 }
 
 // ── Plan Modal ─────────────────────────────────────────────────────────────
+type PlanConfig = { id: string; label: string; price_mxn: number | null; active: boolean };
+
 function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; onSaved:(uid:string,plan:string,role:string|null)=>void }) {
   const [plan, setPlan] = useState(user.plan);
   const [role, setRole] = useState(user.role ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [plans, setPlans] = useState<PlanConfig[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/producto")
+      .then(r => r.json())
+      .then(d => { setPlans((d.plans ?? []).filter((p: any) => p.active)); setPlansLoading(false); })
+      .catch(() => { setPlansError(true); setPlansLoading(false); });
+  }, []);
 
   async function handleSave() {
     setSaving(true);
@@ -253,14 +265,26 @@ function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; on
                   <div style={{ padding:"12px 16px", borderRadius:12, background:"#F8FAFC", border:"1.5px solid #E2E8F0", fontSize:12, color:"#94A3B8" }}>
                     Solicitantes siempre son <strong>Free</strong>.
                   </div>
+                ) : plansLoading ? (
+                  <div style={{ display:"flex", gap:8 }}>
+                    {[1,2,3].map(i => (
+                      <div key={i} style={{ flex:1, height:58, borderRadius:12, background:"#F1F5F9", border:"1.5px solid #E2E8F0" }} />
+                    ))}
+                  </div>
+                ) : plansError || plans.length === 0 ? (
+                  <div style={{ padding:"12px 16px", borderRadius:12, background:"#FFF1F2", border:"1px solid #FECDD3", fontSize:12, color:"#9F1239" }}>
+                    Error cargando planes. Intenta cerrar y abrir el modal.
+                  </div>
                 ) : (
                   <div style={{ display:"flex", gap:8 }}>
-                    {(["free","basic","pro"] as const).map(p => {
-                      const cfg = PLAN_CONFIG[p]; const active = plan === p;
+                    {plans.map(p => {
+                      const cfg = PLAN_CONFIG[p.id as keyof typeof PLAN_CONFIG] ?? PLAN_CONFIG.free;
+                      const active = plan === p.id;
+                      const priceLabel = p.price_mxn == null || p.price_mxn === 0 ? "Sin acceso" : `$${p.price_mxn.toLocaleString("es-MX")}/mes`;
                       return (
-                        <button key={p} onClick={() => setPlan(p)} style={{ flex:1, padding:"12px 8px", borderRadius:12, border:`2px solid ${active?cfg.border:"#E2E8F0"}`, background:active?cfg.bg:"#FAFAFA", cursor:"pointer", fontFamily:"'Geist',sans-serif", transition:"all .15s", boxShadow:active&&cfg.glow?`0 0 16px ${cfg.glow}`:"none" }}>
-                          <div style={{ fontSize:13, fontWeight:800, color:active?cfg.color:"#CBD5E1" }}>{cfg.label}</div>
-                          <div style={{ fontSize:10, color:active?cfg.color:"#E2E8F0", marginTop:3 }}>{p==="free"?"Sin acceso":p==="basic"?"$70/mes":"$500/mes"}</div>
+                        <button key={p.id} onClick={() => setPlan(p.id)} style={{ flex:1, padding:"12px 8px", borderRadius:12, border:`2px solid ${active?cfg.border:"#E2E8F0"}`, background:active?cfg.bg:"#FAFAFA", cursor:"pointer", fontFamily:"'Geist',sans-serif", transition:"all .15s", boxShadow:active&&cfg.glow?`0 0 16px ${cfg.glow}`:"none" }}>
+                          <div style={{ fontSize:13, fontWeight:800, color:active?cfg.color:"#CBD5E1" }}>{p.label}</div>
+                          <div style={{ fontSize:10, color:active?cfg.color:"#E2E8F0", marginTop:3 }}>{priceLabel}</div>
                         </button>
                       );
                     })}
@@ -954,7 +978,7 @@ export default function SuperAdminClient() {
     { key:"verificaciones", label:"Verificaciones", icon:"M2 8l4 4 8-8M8 2a6 6 0 100 12", count:null },
     { key:"producto", label:"Producto", icon:"M2 2h12v2H2zM3 6h10l-1 8H4L3 6zM6 6V4a2 2 0 014 0v2", count:null },
     { key:"contratos", label:"Contratos", icon:"M4 2h8l2 2v12H4V2zM8 2v4h4M6 9h6M6 12h4", count:null },
-    { key:"reportes", label:"Reportes Cred.", icon:"M2 2h12v2H2zM2 6h9M2 10h7M10 9l2 2 4-4", count:null },
+    { key:"reportes", label:"Reportes Crediticios", icon:"M2 2h12v2H2zM2 6h9M2 10h7M10 9l2 2 4-4", count:null },
   ];
 
   const CSS = `
