@@ -52,8 +52,9 @@ export default function ReportesCrediticiosAdmin() {
   const [editState, setEditState] = useState("");
   const [editScore, setEditScore] = useState("");
   const [editNotas, setEditNotas] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingLabel, setSavingLabel] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
   async function load() {
@@ -71,35 +72,68 @@ export default function ReportesCrediticiosAdmin() {
     setEditState(r.estado);
     setEditScore(r.score != null ? String(r.score) : "");
     setEditNotas(r.admin_notas ?? "");
+    setPendingFile(null);
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      showToast("Solo se aceptan archivos PDF");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("El archivo no puede exceder 10 MB");
+      e.target.value = "";
+      return;
+    }
+    setPendingFile(file);
   }
 
   async function save() {
     if (!selected) return;
     setSaving(true);
+
+    // Step 1: Upload PDF if one is selected
+    if (pendingFile) {
+      setSavingLabel("Subiendo PDF...");
+      const fd = new FormData();
+      fd.append("file", pendingFile);
+      const uploadRes = await fetch(`/api/admin/reportes-crediticios/${selected.id}`, {
+        method: "POST",
+        headers: { "x-admin-secret": adminSecret },
+        body: fd,
+      });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({ error: "Error subiendo PDF" }));
+        showToast(err.error ?? "Error subiendo PDF");
+        setSaving(false);
+        setSavingLabel("");
+        return; // Do NOT continue to PATCH if upload fails
+      }
+    }
+
+    // Step 2: PATCH metadata (estado, score, notas)
+    setSavingLabel("Guardando...");
     const body: Record<string, any> = { estado: editState };
     if (editScore) body.score = Number(editScore);
     if (editNotas) body.admin_notas = editNotas;
 
-    await api(`/api/admin/reportes-crediticios/${selected.id}`, { method: "PATCH", body: JSON.stringify(body) });
+    const patchRes = await api(`/api/admin/reportes-crediticios/${selected.id}`, { method: "PATCH", body: JSON.stringify(body) });
+    if (!patchRes.ok) {
+      showToast("Error guardando cambios");
+      setSaving(false);
+      setSavingLabel("");
+      return;
+    }
+
     setSaving(false);
+    setSavingLabel("");
+    setPendingFile(null);
     setSelected(null);
     load();
     showToast("Reporte actualizado");
-  }
-
-  async function uploadPdf(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!selected || !e.target.files?.[0]) return;
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("file", e.target.files[0]);
-    await fetch(`/api/admin/reportes-crediticios/${selected.id}`, {
-      method: "POST",
-      headers: { "x-admin-secret": adminSecret },
-      body: fd,
-    });
-    setUploading(false);
-    load();
-    showToast("PDF subido");
   }
 
   const filtered = tab === "todos" ? reportes : reportes.filter(r => r.estado === tab);
@@ -210,10 +244,15 @@ export default function ReportesCrediticiosAdmin() {
 
               <div>
                 <label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>
-                  PDF del reporte {selected.reporte_pdf_filename && <span style={{ color: "#059669", fontWeight: 400 }}>({selected.reporte_pdf_filename})</span>}
+                  PDF del reporte {selected.reporte_pdf_filename && !pendingFile && <span style={{ color: "#059669", fontWeight: 400 }}>({selected.reporte_pdf_filename})</span>}
                 </label>
-                <input type="file" accept=".pdf" onChange={uploadPdf} disabled={uploading} style={{ fontSize: 12 }} />
-                {uploading && <div style={{ fontSize: 11, color: "#3B82F6", marginTop: 4 }}>Subiendo...</div>}
+                <input type="file" accept=".pdf" onChange={handleFileSelect} disabled={saving} style={{ fontSize: 12 }} />
+                {pendingFile && (
+                  <div style={{ fontSize: 11, color: "#1E40AF", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                    <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="#1E40AF" strokeWidth="1.4" strokeLinecap="round"><path d="M4 2h5l3 3v8a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v3h3"/></svg>
+                    {pendingFile.name} ({(pendingFile.size / (1024 * 1024)).toFixed(1)} MB)
+                  </div>
+                )}
               </div>
 
               <div>
@@ -221,8 +260,8 @@ export default function ReportesCrediticiosAdmin() {
                 <textarea value={editNotas} onChange={e => setEditNotas(e.target.value)} rows={3} style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: "1.5px solid #E2E8F0", fontSize: 13, fontFamily: "'Geist',sans-serif", color: "#0F172A", background: "#F8FAFC", outline: "none", resize: "vertical", boxSizing: "border-box" }} placeholder="Notas internas sobre este reporte..." />
               </div>
 
-              <button onClick={save} disabled={saving} style={{ height: 42, borderRadius: 10, border: "none", background: "linear-gradient(135deg,#0C1E4A,#1B3F8A)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Geist',sans-serif", opacity: saving ? 0.6 : 1 }}>
-                {saving ? "Guardando..." : "Guardar cambios"}
+              <button onClick={save} disabled={saving} style={{ height: 42, borderRadius: 10, border: "none", background: "linear-gradient(135deg,#0C1E4A,#1B3F8A)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "'Geist',sans-serif", opacity: saving ? 0.6 : 1 }}>
+                {saving ? savingLabel || "Guardando..." : "Guardar cambios"}
               </button>
             </div>
           </div>
