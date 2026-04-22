@@ -21,6 +21,7 @@ type SolicitudCard = {
 };
 
 type MarketStats = { count: number; montoTotal: number; tasaPromedio: number | null };
+type PlanData = { id: string; label: string; price_usd: number; price_mxn: number | null; description: string | null; features: string[]; active: boolean };
 
 export default function Home() {
   const [scrolled,   setScrolled]   = useState(false);
@@ -29,6 +30,7 @@ export default function Home() {
   const [correo,     setCorreo]     = useState("");
   const [leadStatus, setLeadStatus] = useState<"idle"|"loading"|"done"|"error">("idle");
   const [mktStats,   setMktStats]   = useState<MarketStats>({ count: 0, montoTotal: 0, tasaPromedio: null });
+  const [pricingPlans, setPricingPlans] = useState<PlanData[]>([]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -56,6 +58,21 @@ export default function Home() {
       } catch { /* mantiene defaults */ }
     }
     fetchStats();
+
+    async function fetchPlans() {
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const res = await fetch(
+          `${url}/rest/v1/plans_config?select=id,label,price_usd,price_mxn,description,features,active&active=eq.true&order=price_usd.asc`,
+          { headers: { apikey: key, Authorization: `Bearer ${key}` } }
+        );
+        const data: PlanData[] = await res.json();
+        // Filter to only show paid plans (exclude free)
+        setPricingPlans(data.filter(p => p.id !== "free"));
+      } catch { /* mantiene fallback hardcodeado */ }
+    }
+    fetchPlans();
   }, []);
 
   const go = (id: string) => {
@@ -631,32 +648,37 @@ export default function Home() {
             <h2 style={{ fontSize:"clamp(28px,4vw,48px)", fontWeight:800, letterSpacing:"-0.045em" }}>Sin sorpresas.</h2>
             <p style={{ fontSize:15.5, color:"var(--fg-2)", marginTop:12, maxWidth:"44ch" }}>Empieza con lo esencial. Escala cuando tu operación lo exige.</p>
           </div>
-          <div className="price-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-            {[
-              { name:"Basic", price:"$30", per:"/mes USD", desc:"Para validar tu modelo de crédito y arrancar operaciones.", features:["Dashboard y cartera base","Expediente de acreditados","Reporte ejecutivo estándar","Acceso al marketplace","1 usuario"], cta:"Solicitar Basic", href:"/pricing/lead?plan=basic", highlight:false },
-              { name:"Pro", price:"$150", per:"/mes USD", badge:"Recomendado", desc:"Para operaciones que necesitan escala, señales y automatización.", features:["Todo lo de Basic","Risk signals y alertas automáticas","Multi-usuario + roles","Marketplace Pro (contacto ilimitado)","Integración API (roadmap)","Soporte prioritario"], cta:"Solicitar Pro", href:"/pricing/lead?plan=pro", highlight:true },
-            ].map(p=>(
-              <div key={p.name} className={`price-card${p.highlight?" highlight":""}`}>
-                {p.badge && (
-                  <div style={{ position:"absolute", top:0, right:24, background:"var(--grad)", color:"#fff", fontSize:9.5, fontWeight:700, fontFamily:"var(--font-mono)", letterSpacing:"0.1em", padding:"5px 12px", borderRadius:"0 0 10px 10px" }}>{p.badge.toUpperCase()}</div>
+          <div className="price-grid" style={{ display:"grid", gridTemplateColumns: pricingPlans.length > 2 ? `repeat(${pricingPlans.length},1fr)` : "1fr 1fr", gap:16 }}>
+            {(pricingPlans.length > 0 ? pricingPlans : [
+              { id:"basic", label:"Basic", price_usd:30, price_mxn:500, description:"Para validar tu modelo de crédito y arrancar operaciones.", features:["Dashboard y cartera base","Expediente de acreditados","Reporte ejecutivo estándar","Acceso al marketplace","1 usuario"], active:true },
+              { id:"pro", label:"Pro", price_usd:150, price_mxn:2500, description:"Para operaciones que necesitan escala, señales y automatización.", features:["Todo lo de Basic","Risk signals y alertas automáticas","Multi-usuario + roles","Marketplace Pro (contacto ilimitado)","Integración API (roadmap)","Soporte prioritario"], active:true },
+            ]).map((p,i,arr)=>{
+              const highlight = p.id === "pro" || (arr.length > 2 && i === 1);
+              const priceStr = p.price_mxn ? `$${p.price_mxn.toLocaleString("es-MX")}` : `$${p.price_usd}`;
+              const perStr = p.price_mxn ? "/mes MXN" : "/mes USD";
+              return (
+              <div key={p.id} className={`price-card${highlight?" highlight":""}`}>
+                {highlight && (
+                  <div style={{ position:"absolute", top:0, right:24, background:"var(--grad)", color:"#fff", fontSize:9.5, fontWeight:700, fontFamily:"var(--font-mono)", letterSpacing:"0.1em", padding:"5px 12px", borderRadius:"0 0 10px 10px" }}>RECOMENDADO</div>
                 )}
-                <div className="mono-label" style={{ marginBottom:14 }}>{p.name}</div>
+                <div className="mono-label" style={{ marginBottom:14 }}>{p.label}</div>
                 <div style={{ display:"flex", alignItems:"baseline", gap:7, marginBottom:10 }}>
-                  <span style={{ fontSize:48, fontWeight:800, letterSpacing:"-0.06em" }}>{p.price}</span>
-                  <span style={{ fontSize:13.5, color:"var(--fg-3)" }}>{p.per}</span>
+                  <span style={{ fontSize:48, fontWeight:800, letterSpacing:"-0.06em" }}>{priceStr}</span>
+                  <span style={{ fontSize:13.5, color:"var(--fg-3)" }}>{perStr}</span>
                 </div>
-                <p style={{ fontSize:13.5, color:"var(--fg-2)", lineHeight:1.7, marginBottom:28 }}>{p.desc}</p>
+                <p style={{ fontSize:13.5, color:"var(--fg-2)", lineHeight:1.7, marginBottom:28 }}>{p.description}</p>
                 <div style={{ borderTop:"1px solid var(--border)", paddingTop:22, marginBottom:28 }}>
-                  {p.features.map(f=>(
+                  {(p.features ?? []).map((f: string)=>(
                     <div key={f} style={{ display:"flex", alignItems:"center", gap:11, marginBottom:11 }}>
                       <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-5" stroke="var(--accent-2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       <span style={{ fontSize:13.5, color:"var(--fg-2)" }}>{f}</span>
                     </div>
                   ))}
                 </div>
-                <a href={p.href} className={`btn btn-md ${p.highlight?"btn-grad":"btn-ghost"}`} style={{ width:"100%", justifyContent:"center" }}>{p.cta} →</a>
+                <a href={`/pricing/lead?plan=${p.id}`} className={`btn btn-md ${highlight?"btn-grad":"btn-ghost"}`} style={{ width:"100%", justifyContent:"center" }}>Solicitar {p.label} →</a>
               </div>
-            ))}
+              );
+            })}
           </div>
           <div style={{ marginTop:16, padding:"15px 22px", background:"rgba(0,229,160,.04)", border:"1px solid rgba(0,229,160,.12)", borderRadius:14, display:"flex", alignItems:"center", gap:13 }}>
             <div style={{ width:34, height:34, borderRadius:9, background:"rgba(0,229,160,.1)", border:"1px solid rgba(0,229,160,.18)", display:"grid", placeItems:"center", flexShrink:0 }}>
