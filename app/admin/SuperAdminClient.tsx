@@ -58,7 +58,7 @@ type Solicitud = {
   monto: number; plazo_meses: number; status: string; created_at: string;
   owner_email?: string;
 };
-type View = "usuarios" | "solicitudes" | "leads" | "metricas" | "pagares" | "onboarding" | "verificaciones" | "producto" | "contratos";
+type View = "usuarios" | "solicitudes" | "leads" | "metricas" | "pagares" | "onboarding" | "verificaciones" | "producto" | "contratos" | "reportes";
 
 function PlanBadge({ plan, large }: { plan: string; large?: boolean }) {
   const cfg = PLAN_CONFIG[plan as keyof typeof PLAN_CONFIG] ?? PLAN_CONFIG.free;
@@ -954,6 +954,7 @@ export default function SuperAdminClient() {
     { key:"verificaciones", label:"Verificaciones", icon:"M2 8l4 4 8-8M8 2a6 6 0 100 12", count:null },
     { key:"producto", label:"Producto", icon:"M2 2h12v2H2zM3 6h10l-1 8H4L3 6zM6 6V4a2 2 0 014 0v2", count:null },
     { key:"contratos", label:"Contratos", icon:"M4 2h8l2 2v12H4V2zM8 2v4h4M6 9h6M6 12h4", count:null },
+    { key:"reportes", label:"Reportes Cred.", icon:"M2 2h12v2H2zM2 6h9M2 10h7M10 9l2 2 4-4", count:null },
   ];
 
   const CSS = `
@@ -1303,6 +1304,14 @@ export default function SuperAdminClient() {
             <div className="fade" style={{ display:"flex", flexDirection:"column", gap:14 }}>
               <iframe
                 src="/admin/contratos"
+                style={{ width:"100%", height:"calc(100vh - 180px)", border:"none", borderRadius:16, background:"#fff" }}
+              />
+            </div>
+          )}
+          {view==="reportes" && (
+            <div className="fade" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <iframe
+                src="/admin/reportes-crediticios"
                 style={{ width:"100%", height:"calc(100vh - 180px)", border:"none", borderRadius:16, background:"#fff" }}
               />
             </div>

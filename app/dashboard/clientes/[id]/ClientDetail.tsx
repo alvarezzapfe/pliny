@@ -6,10 +6,12 @@ import { supabase } from "@/lib/supabaseClient";
 import InlineField from "@/components/clients/InlineField";
 import KycDocCard from "@/components/clients/KycDocCard";
 
-type Tab = "resumen"|"empresa"|"representante"|"financieros"|"kyc"|"buro"|"notas"|"actividad";
+type Tab = "resumen"|"empresa"|"representante"|"financieros"|"kyc"|"reporte"|"notas"|"actividad";
 type Client = Record<string, any>;
 type Nota = { id: string; author_name: string; contenido: string; pinned: boolean; created_at: string };
 type BuroScore = { id: string; score: number; fecha_consulta: string; fuente: string; notas: string | null };
+type ReporteCredito = { id: string; estado: string; score: number | null; solicitado_at: string; completado_at: string | null; reporte_pdf_url: string | null; lender_notas: string | null };
+type Cuota = { usados_mes: number; limite_mes: number; restantes: number; ilimitado: boolean; periodo: string; plan: string };
 
 function Ic({ d, s = 14, c = "currentColor" }: { d: string; s?: number; c?: string }) {
   return <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>;
@@ -28,7 +30,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "representante", label: "Rep. Legal" },
   { key: "financieros", label: "Financieros" },
   { key: "kyc", label: "KYC" },
-  { key: "buro", label: "Buró" },
+  { key: "reporte", label: "Reporte Crediticio" },
   { key: "notas", label: "Notas" },
   { key: "actividad", label: "Actividad" },
 ];
@@ -81,7 +83,12 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
   const [tab, setTab] = useState<Tab>("resumen");
   const [notas, setNotas] = useState<Nota[]>([]);
   const [scores, setScores] = useState<BuroScore[]>([]);
+  const [reportes, setReportes] = useState<ReporteCredito[]>([]);
+  const [cuota, setCuota] = useState<Cuota | null>(null);
   const [notaDraft, setNotaDraft] = useState("");
+  const [showSolicitarModal, setShowSolicitarModal] = useState(false);
+  const [solicitarNotas, setSolicitarNotas] = useState("");
+  const [solicitando, setSolicitando] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3000); };
@@ -111,7 +118,54 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
     if (res.ok) { const j = await res.json(); setScores(j.scores ?? []); }
   }, [clientId, getAuth]);
 
-  useEffect(() => { load(); loadNotas(); loadScores(); }, [load, loadNotas, loadScores]);
+  const loadReportes = useCallback(async () => {
+    const token = await getAuth();
+    if (!token) return;
+    const res = await fetch(`/api/reportes-crediticios?client_id=${clientId}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) { const j = await res.json(); setReportes(j.reportes ?? []); }
+  }, [clientId, getAuth]);
+
+  const loadCuota = useCallback(async () => {
+    const token = await getAuth();
+    if (!token) return;
+    const res = await fetch("/api/reportes-crediticios/cuota", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) { const j = await res.json(); setCuota(j); }
+  }, [getAuth]);
+
+  async function solicitarReporte() {
+    setSolicitando(true);
+    const token = await getAuth();
+    if (!token) { setSolicitando(false); return; }
+    const res = await fetch("/api/reportes-crediticios", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ client_id: clientId, lender_notas: solicitarNotas || null }),
+    });
+    setSolicitando(false);
+    setShowSolicitarModal(false);
+    setSolicitarNotas("");
+    if (res.ok) {
+      showToast("Reporte solicitado — te notificaremos cuando esté listo (típicamente 2-4 horas hábiles)");
+      loadReportes();
+      loadCuota();
+    } else {
+      const j = await res.json();
+      showToast(j.message ?? j.error ?? "Error al solicitar");
+    }
+  }
+
+  async function descargarPdf(reporteId: string) {
+    const token = await getAuth();
+    if (!token) return;
+    const res = await fetch(`/api/reportes-crediticios/${reporteId}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) {
+      const j = await res.json();
+      if (j.reporte?.signed_url) window.open(j.reporte.signed_url, "_blank");
+      else showToast("PDF no disponible aún");
+    }
+  }
+
+  useEffect(() => { load(); loadNotas(); loadScores(); loadReportes(); loadCuota(); }, [load, loadNotas, loadScores, loadReportes, loadCuota]);
 
   async function saveField(field: string, value: string) {
     const { error } = await supabase.from("clients").update({ [field]: value || null, updated_at: new Date().toISOString() }).eq("id", clientId);
@@ -257,7 +311,7 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
                 <span style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Geist Mono',monospace", color: scoreColor(buroScore) }}>{buroScore ?? "—"}</span>
                 {scores[0]?.fecha_consulta && <span style={{ fontSize: 11, color: "#94A3B8" }}>{ago(scores[0].fecha_consulta)}</span>}
               </div>
-              <button onClick={() => setTab("buro")} style={{ marginTop: 8, fontSize: 11, color: "#1E40AF", background: "none", border: "none", cursor: "pointer", fontFamily: "'Geist',sans-serif", fontWeight: 600, padding: 0 }}>Ver historial completo &rarr;</button>
+              <button onClick={() => setTab("reporte")} style={{ marginTop: 8, fontSize: 11, color: "#1E40AF", background: "none", border: "none", cursor: "pointer", fontFamily: "'Geist',sans-serif", fontWeight: 600, padding: 0 }}>Ver reportes &rarr;</button>
             </div>
           </div>
           {notas.length > 0 && (
@@ -355,36 +409,111 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
         </>
       )}
 
-      {/* TAB: Buró */}
-      {tab === "buro" && (
+      {/* TAB: Reporte Crediticio */}
+      {tab === "reporte" && (
         <>
-          <div style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700 }}>Historial de Bur&oacute;</div>
-              <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>{scores.length} consultas registradas</div>
+          {/* Cuota card */}
+          {cuota && (
+            <div style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>Reportes este mes</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Geist Mono',monospace" }}>
+                    {cuota.ilimitado ? `${cuota.usados_mes}` : `${cuota.usados_mes}/${cuota.limite_mes}`}
+                  </span>
+                  <span style={{ fontSize: 11, color: "#94A3B8" }}>{cuota.ilimitado ? "usados (ilimitado)" : "usados"}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'Geist Mono',monospace", background: "#EFF6FF", color: "#1E40AF", border: "1px solid #BFDBFE", borderRadius: 999, padding: "2px 8px" }}>{cuota.plan.toUpperCase()}</span>
+                </div>
+                {!cuota.ilimitado && (
+                  <div style={{ width: 180, height: 4, background: "#F1F5F9", borderRadius: 999, marginTop: 8, overflow: "hidden" }}>
+                    <div style={{ width: `${Math.min((cuota.usados_mes / cuota.limite_mes) * 100, 100)}%`, height: "100%", background: cuota.restantes <= 0 ? "#EF4444" : "#3B82F6", borderRadius: 999 }} />
+                  </div>
+                )}
+              </div>
+              {!cuota.ilimitado && cuota.restantes <= 0 && (
+                <div style={{ padding: "8px 14px", background: "#FFF1F2", border: "1px solid #FECDD3", borderRadius: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#9F1239" }}>Cuota agotada</div>
+                  <a href="mailto:luis@plinius.mx?subject=Upgrade%20de%20plan" style={{ fontSize: 11, color: "#1E40AF", fontWeight: 600, textDecoration: "none" }}>Upgrade a {cuota.plan === "basic" ? "Pro" : "Enterprise"} &rarr;</a>
+                </div>
+              )}
             </div>
-            <button onClick={addBuroScore} style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "none", background: "linear-gradient(135deg,#0C1E4A,#1B3F8A)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Geist',sans-serif" }}>
-              + Registrar score
+          )}
+
+          {/* Solicitar button */}
+          <div style={{ marginBottom: 14 }}>
+            <button
+              onClick={() => setShowSolicitarModal(true)}
+              disabled={cuota != null && !cuota.ilimitado && cuota.restantes <= 0}
+              style={{
+                height: 42, padding: "0 22px", borderRadius: 10, border: "none",
+                background: (cuota && !cuota.ilimitado && cuota.restantes <= 0) ? "#E2E8F0" : "linear-gradient(135deg,#0C1E4A,#1B3F8A)",
+                color: (cuota && !cuota.ilimitado && cuota.restantes <= 0) ? "#94A3B8" : "#fff",
+                fontSize: 13, fontWeight: 700, cursor: (cuota && !cuota.ilimitado && cuota.restantes <= 0) ? "not-allowed" : "pointer",
+                fontFamily: "'Geist',sans-serif", boxShadow: (cuota && !cuota.ilimitado && cuota.restantes <= 0) ? "none" : "0 2px 12px rgba(12,30,74,.22)",
+              }}
+            >
+              Solicitar Reporte Crediticio
             </button>
           </div>
-          {scores.length === 0 ? (
+
+          {/* Historial */}
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Historial de reportes</div>
+          {reportes.length === 0 ? (
             <div style={{ ...S.card, textAlign: "center", padding: "40px 20px", color: "#94A3B8" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Sin consultas de bur&oacute;</div>
-              <div style={{ fontSize: 12 }}>Registra el primer score manualmente o integra tu proveedor.</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Sin reportes crediticios</div>
+              <div style={{ fontSize: 12 }}>Solicita el primer reporte para este cliente.</div>
             </div>
           ) : (
             <div style={{ background: "#fff", border: "1px solid #E8EDF5", borderRadius: 14, overflow: "hidden" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "100px 1fr 120px 1fr", padding: "10px 16px", background: "#FAFBFF", borderBottom: "1px solid #E8EDF5" }}>
-                {["Score","Fecha","Fuente","Notas"].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", fontFamily: "'Geist Mono',monospace", letterSpacing: ".06em", textTransform: "uppercase" }}>{h}</div>)}
+              <div style={{ display: "grid", gridTemplateColumns: "120px 100px 100px 1fr 90px", padding: "10px 16px", background: "#FAFBFF", borderBottom: "1px solid #E8EDF5" }}>
+                {["Solicitado","Estado","Score","Notas","Acciones"].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", fontFamily: "'Geist Mono',monospace", letterSpacing: ".06em", textTransform: "uppercase" }}>{h}</div>)}
               </div>
-              {scores.map(s => (
-                <div key={s.id} style={{ display: "grid", gridTemplateColumns: "100px 1fr 120px 1fr", padding: "12px 16px", borderBottom: "1px solid #F8FAFC", alignItems: "center" }}>
-                  <span style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Geist Mono',monospace", color: scoreColor(s.score) }}>{s.score}</span>
-                  <span style={{ fontSize: 12, color: "#64748B" }}>{new Date(s.fecha_consulta).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}</span>
-                  <span style={{ fontSize: 11, color: "#94A3B8", fontFamily: "'Geist Mono',monospace" }}>{s.fuente}</span>
-                  <span style={{ fontSize: 12, color: "#64748B" }}>{s.notas ?? "—"}</span>
+              {reportes.map(r => {
+                const estS: Record<string, { bg: string; color: string; border: string; label: string }> = {
+                  pendiente:  { bg: "#FFFBEB", color: "#92400E", border: "#FDE68A", label: "Pendiente" },
+                  procesando: { bg: "#EFF6FF", color: "#1E40AF", border: "#BFDBFE", label: "Procesando" },
+                  completado: { bg: "#F0FDF9", color: "#065F46", border: "#A7F3D0", label: "Completado" },
+                  cancelado:  { bg: "#F8FAFC", color: "#64748B", border: "#E2E8F0", label: "Cancelado" },
+                };
+                const es = estS[r.estado] ?? estS.pendiente;
+                return (
+                  <div key={r.id} style={{ display: "grid", gridTemplateColumns: "120px 100px 100px 1fr 90px", padding: "12px 16px", borderBottom: "1px solid #F8FAFC", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "#64748B" }}>{new Date(r.solicitado_at).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'Geist Mono',monospace", background: es.bg, color: es.color, border: `1px solid ${es.border}`, borderRadius: 999, padding: "3px 8px", justifySelf: "start" }}>{es.label}</span>
+                    <span style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Geist Mono',monospace", color: scoreColor(r.score) }}>{r.score ?? "—"}</span>
+                    <span style={{ fontSize: 11, color: "#64748B", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.lender_notas ?? "—"}</span>
+                    <div>
+                      {r.estado === "completado" && r.reporte_pdf_url ? (
+                        <button onClick={() => descargarPdf(r.id)} style={{ fontSize: 11, fontWeight: 600, color: "#1E40AF", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontFamily: "'Geist',sans-serif" }}>Descargar</button>
+                      ) : (
+                        <span style={{ fontSize: 10, color: "#94A3B8" }}>Esperando...</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Modal solicitar */}
+          {showSolicitarModal && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.55)", backdropFilter: "blur(6px)", zIndex: 100, display: "grid", placeItems: "center", padding: 16 }} onClick={() => setShowSolicitarModal(false)}>
+              <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 460, padding: "28px 32px", boxShadow: "0 32px 80px rgba(15,23,42,.25)" }} onClick={e => e.stopPropagation()}>
+                <h3 style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 8 }}>Solicitar Reporte Crediticio</h3>
+                <p style={{ fontSize: 13, color: "#64748B", lineHeight: 1.6, marginBottom: 20 }}>
+                  Se generará un reporte crediticio integral de <strong>{client?.company_name}</strong> incluyendo situación en Buró, análisis fiscal y scoring propietario.
+                </p>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>Notas u observaciones (opcional)</label>
+                  <textarea value={solicitarNotas} onChange={e => setSolicitarNotas(e.target.value)} rows={3} placeholder="Contexto adicional para el equipo de análisis..." style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: "1.5px solid #E2E8F0", fontSize: 13, fontFamily: "'Geist',sans-serif", color: "#0F172A", background: "#F8FAFC", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
                 </div>
-              ))}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setShowSolicitarModal(false)} style={{ flex: 1, height: 42, borderRadius: 10, border: "1.5px solid #E2E8F0", background: "#fff", color: "#475569", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Geist',sans-serif" }}>Cancelar</button>
+                  <button onClick={solicitarReporte} disabled={solicitando} style={{ flex: 1, height: 42, borderRadius: 10, border: "none", background: "linear-gradient(135deg,#0C1E4A,#1B3F8A)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Geist',sans-serif", opacity: solicitando ? 0.6 : 1 }}>
+                    {solicitando ? "Solicitando..." : `Solicitar reporte${cuota && !cuota.ilimitado ? ` (usa 1 de ${cuota.limite_mes})` : ""}`}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </>
