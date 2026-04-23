@@ -88,8 +88,8 @@ function ExpandedRow({ p, onUpdated }: { p: Pagare; onUpdated: () => void }) {
         clienteNombre: form.cliente_nombre, clienteCurp: form.cliente_curp,
         clienteClaveElector: form.cliente_clave_elector, clienteDomicilio: form.cliente_domicilio,
         monto: form.monto, tasaMensual: form.tasa_mensual, plazoMeses: form.plazo_meses,
-        metodoInteres: form.metodo_interes, cuotaMensual, totalIntereses, totalPagar, tabla,
-        fechaIso: form.fecha_disposicion,
+        metodoInteres: form.metodo_interes, cuotaMensual, totalIntereses, totalIva, totalPagar, tabla,
+        tasaIva: form.tasa_iva, fechaIso: form.fecha_disposicion,
       }
       const { generarPagarePDF } = await import('@/lib/pagares/PagarePDF')
       const pdfBlob = await generarPagarePDF(payload as any)

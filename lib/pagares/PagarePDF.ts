@@ -23,6 +23,7 @@ export interface PagareData {
   monto: number; tasaMensual: number; plazoMeses: number
   metodoInteres: 'flat' | 'saldo'; cuotaMensual: number
   totalIntereses: number; totalIva?: number; totalPagar: number
+  tasaIva?: number
   tabla: CuotaAmortizacion[]
   ineFrente?: string; ineReverso?: string
 }
@@ -145,20 +146,25 @@ export async function generarPagarePDF(data: PagareData): Promise<Blob> {
 
   // Condiciones
   y = sectionTitle('I.  CONDICIONES DEL CRÉDITO', y)
+  const hasIva = (data.tasaIva ?? 0) > 0
+  const condRows: string[][] = [
+    ['Tipo de crédito',      'Crédito Simple Personal'],
+    ['Monto del crédito',    `${fmt(data.monto)} M.N.`],
+    ['Tasa de interés',      `${data.tasaMensual}% neto mensual  ·  ${data.metodoInteres === 'flat' ? 'Flat (interés fijo sobre capital original)' : 'Sobre saldo insoluto'}`],
+    ['Plazo',                `${data.plazoMeses} meses`],
+    ['Cuota mensual',        `${fmt(data.cuotaMensual)} M.N. (fija)`],
+    ['Total intereses',      `${fmt(data.totalIntereses)} M.N.`],
+  ]
+  if (hasIva) condRows.push([`IVA total (${data.tasaIva}%)`, `${fmt(data.totalIva ?? 0)} M.N.`])
+  condRows.push(
+    ['Total a pagar',        `${fmt(data.totalPagar)} M.N.`],
+    ['Fecha de disposición', data.fecha],
+    ['Fecha de vencimiento', data.vencimiento],
+    ['Lugar de pago',        'Torre Esmeralda III, Blvd. Manuel Ávila Camacho 32, CDMX'],
+  )
   autoTable(doc, {
     startY: y, margin: { left: ML, right: MR }, tableWidth: CW, head: [],
-    body: [
-      ['Tipo de crédito',      'Crédito Simple Personal'],
-      ['Monto del crédito',    `${fmt(data.monto)} M.N.`],
-      ['Tasa de interés',      `${data.tasaMensual}% neto mensual  ·  ${data.metodoInteres === 'flat' ? 'Flat (interés fijo sobre capital original)' : 'Sobre saldo insoluto'}`],
-      ['Plazo',                `${data.plazoMeses} meses`],
-      ['Cuota mensual',        `${fmt(data.cuotaMensual)} M.N. (fija)`],
-      ['Total intereses',      `${fmt(data.totalIntereses)} M.N.`],
-      ['Total a pagar',        `${fmt(data.totalPagar)} M.N.`],
-      ['Fecha de disposición', data.fecha],
-      ['Fecha de vencimiento', data.vencimiento],
-      ['Lugar de pago',        'Torre Esmeralda III, Blvd. Manuel Ávila Camacho 32, CDMX'],
-    ],
+    body: condRows,
     columnStyles: {
       0: { fontStyle:'bold', fillColor:AZUL_CLR, cellWidth:50, fontSize:8.5, textColor:AZUL_MED },
       1: { fillColor:[255,255,255], fontSize:8.5, textColor:GRIS_OSC },
@@ -177,56 +183,94 @@ export async function generarPagarePDF(data: PagareData): Promise<Blob> {
 
   y = sectionTitle(`II.  TABLA DE AMORTIZACIÓN  —  ${data.metodoInteres === 'flat' ? 'Método Flat' : 'Sobre saldo'}`, y)
 
-  autoTable(doc, {
-    startY: y, margin: { left: ML, right: MR }, tableWidth: CW,
-    head: [['No.', 'Vencimiento', 'Capital ($)', 'Interés ($)', 'Cuota Total ($)', 'Saldo ($)']],
-    body: [
-      ...data.tabla.map(r => [
-        r.n, r.fecha,
-        r.capital.toLocaleString('es-MX',{minimumFractionDigits:2}),
-        r.interes.toLocaleString('es-MX',{minimumFractionDigits:2}),
-        r.cuota.toLocaleString('es-MX',{minimumFractionDigits:2}),
-        Math.max(0,r.saldo).toLocaleString('es-MX',{minimumFractionDigits:2}),
-      ]),
-      ['','TOTALES',
-        data.monto.toLocaleString('es-MX',{minimumFractionDigits:2}),
-        data.totalIntereses.toLocaleString('es-MX',{minimumFractionDigits:2}),
-        data.totalPagar.toLocaleString('es-MX',{minimumFractionDigits:2}),
-        '—'],
-    ],
-    headStyles: { fillColor:AZUL_OSC, textColor:BLANCO, fontSize:8.5, fontStyle:'bold', halign:'center' },
-    bodyStyles: { fontSize:9, textColor:GRIS_OSC },
-    alternateRowStyles: { fillColor:GRIS_CLR },
-    columnStyles: {
-      0: { halign:'center', cellWidth:12 },
-      1: { cellWidth:52 },
-      2: { halign:'right' },
-      3: { halign:'right', textColor:NARANJA },
-      4: { halign:'right', fontStyle:'bold', textColor:AZUL_MED },
-      5: { halign:'right', textColor:GRIS_MED },
-    },
-    styles: { lineColor:AZUL_TBL, lineWidth:0.3, cellPadding:{top:5,bottom:5,left:6,right:6} },
-    theme: 'grid',
-    didParseCell(d) {
-      const last = d.table.body.length - 1
-      if (d.row.index === last) {
-        d.cell.styles.fillColor = AZUL_CLR
-        d.cell.styles.fontStyle = 'bold'
-        d.cell.styles.textColor = AZUL_OSC
-        if (d.column.index === 3) d.cell.styles.textColor = NARANJA
-        if (d.column.index === 4) d.cell.styles.textColor = AZUL_MED
-      }
-    },
-  })
+  const fmtN = (n: number) => n.toLocaleString('es-MX',{minimumFractionDigits:2})
+  const PURPLE: [number,number,number] = [107, 33, 168]
 
-  const noteY = (doc as any).lastAutoTable.finalY + 6
+  if (hasIva) {
+    autoTable(doc, {
+      startY: y, margin: { left: ML, right: MR }, tableWidth: CW,
+      head: [['No.', 'Vencimiento', 'Capital ($)', 'Interés ($)', 'IVA ($)', 'Cuota Total ($)', 'Saldo ($)']],
+      body: [
+        ...data.tabla.map(r => [
+          r.n, r.fecha, fmtN(r.capital), fmtN(r.interes), fmtN(r.iva ?? 0), fmtN(r.cuota), fmtN(Math.max(0,r.saldo)),
+        ]),
+        ['','TOTALES', fmtN(data.monto), fmtN(data.totalIntereses), fmtN(data.totalIva ?? 0), fmtN(data.totalPagar), '—'],
+      ],
+      headStyles: { fillColor:AZUL_OSC, textColor:BLANCO, fontSize:8.5, fontStyle:'bold', halign:'center' },
+      bodyStyles: { fontSize:9, textColor:GRIS_OSC },
+      alternateRowStyles: { fillColor:GRIS_CLR },
+      columnStyles: {
+        0: { halign:'center', cellWidth:11 },
+        1: { cellWidth:42 },
+        2: { halign:'right' },
+        3: { halign:'right', textColor:NARANJA },
+        4: { halign:'right', textColor:PURPLE },
+        5: { halign:'right', fontStyle:'bold', textColor:AZUL_MED },
+        6: { halign:'right', textColor:GRIS_MED },
+      },
+      styles: { lineColor:AZUL_TBL, lineWidth:0.3, cellPadding:{top:5,bottom:5,left:5,right:5} },
+      theme: 'grid',
+      didParseCell(d) {
+        const last = d.table.body.length - 1
+        if (d.row.index === last) {
+          d.cell.styles.fillColor = AZUL_CLR
+          d.cell.styles.fontStyle = 'bold'
+          d.cell.styles.textColor = AZUL_OSC
+          if (d.column.index === 3) d.cell.styles.textColor = NARANJA
+          if (d.column.index === 4) d.cell.styles.textColor = PURPLE
+          if (d.column.index === 5) d.cell.styles.textColor = AZUL_MED
+        }
+      },
+    })
+  } else {
+    autoTable(doc, {
+      startY: y, margin: { left: ML, right: MR }, tableWidth: CW,
+      head: [['No.', 'Vencimiento', 'Capital ($)', 'Interés ($)', 'Cuota Total ($)', 'Saldo ($)']],
+      body: [
+        ...data.tabla.map(r => [
+          r.n, r.fecha, fmtN(r.capital), fmtN(r.interes), fmtN(r.cuota), fmtN(Math.max(0,r.saldo)),
+        ]),
+        ['','TOTALES', fmtN(data.monto), fmtN(data.totalIntereses), fmtN(data.totalPagar), '—'],
+      ],
+      headStyles: { fillColor:AZUL_OSC, textColor:BLANCO, fontSize:8.5, fontStyle:'bold', halign:'center' },
+      bodyStyles: { fontSize:9, textColor:GRIS_OSC },
+      alternateRowStyles: { fillColor:GRIS_CLR },
+      columnStyles: {
+        0: { halign:'center', cellWidth:12 },
+        1: { cellWidth:52 },
+        2: { halign:'right' },
+        3: { halign:'right', textColor:NARANJA },
+        4: { halign:'right', fontStyle:'bold', textColor:AZUL_MED },
+        5: { halign:'right', textColor:GRIS_MED },
+      },
+      styles: { lineColor:AZUL_TBL, lineWidth:0.3, cellPadding:{top:5,bottom:5,left:6,right:6} },
+      theme: 'grid',
+      didParseCell(d) {
+        const last = d.table.body.length - 1
+        if (d.row.index === last) {
+          d.cell.styles.fillColor = AZUL_CLR
+          d.cell.styles.fontStyle = 'bold'
+          d.cell.styles.textColor = AZUL_OSC
+          if (d.column.index === 3) d.cell.styles.textColor = NARANJA
+          if (d.column.index === 4) d.cell.styles.textColor = AZUL_MED
+        }
+      },
+    })
+  }
+
+  let noteY = (doc as any).lastAutoTable.finalY + 6
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(...GRIS_MED)
-  doc.text(
-    `* Tasa: ${data.tasaMensual}% mensual neto fija  ·  Cuota mensual fija: ${fmt(data.cuotaMensual)}  ·  Total intereses: ${fmt(data.totalIntereses)}  ·  Total a pagar: ${fmt(data.totalPagar)}`,
-    W / 2, noteY, { align: 'center' }
-  )
+  const noteParts = [`Tasa: ${data.tasaMensual}% mensual neto fija`, `Cuota mensual fija: ${fmt(data.cuotaMensual)}`, `Total intereses: ${fmt(data.totalIntereses)}`]
+  if (hasIva) noteParts.push(`IVA (${data.tasaIva}%): ${fmt(data.totalIva ?? 0)}`)
+  noteParts.push(`Total a pagar: ${fmt(data.totalPagar)}`)
+  doc.text(`* ${noteParts.join('  ·  ')}`, W / 2, noteY, { align: 'center' })
+  if (hasIva) {
+    noteY += 5
+    doc.setFontSize(7)
+    doc.text(`Los montos expresados incluyen IVA del ${data.tasaIva}% aplicado sobre los intereses ordinarios, conforme a la Ley del IVA.`, W / 2, noteY, { align: 'center' })
+  }
 
   // ════════════════════════════════════════════════
   // PÁGINA 3 — CLÁUSULAS + FIRMAS

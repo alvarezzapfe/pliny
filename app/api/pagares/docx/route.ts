@@ -113,8 +113,8 @@ export async function POST(req: NextRequest) {
       folio, fecha, vencimiento, lugar,
       clienteNombre, clienteCurp, clienteClaveElector, clienteDomicilio,
       monto, tasaMensual, plazoMeses, metodoInteres,
-      cuotaMensual, totalIntereses, totalPagar,
-      tabla,
+      cuotaMensual, totalIntereses, totalIva, totalPagar,
+      tasaIva, tabla,
       ineFrente,   // base64 string opcional
       ineReverso,  // base64 string opcional
       fechaIso,    // YYYY-MM-DD para calcular fechas
@@ -210,23 +210,28 @@ export async function POST(req: NextRequest) {
     )
 
     // ── CONDICIONES ───────────────────────────────────────────────────────────
+    const hasIva = (tasaIva ?? 0) > 0
     children.push(sectionTitle("I. Condiciones del Crédito"))
+    const condRows: [string, string][] = [
+      ["Tipo de crédito",      "Crédito Simple Personal"],
+      ["Monto del crédito",    `$${fmt(monto)} M.N.`],
+      ["Tasa de interés",      `${tasaMensual}% neto mensual (${metodoInteres === 'flat' ? 'Flat — interés fijo sobre capital original' : 'sobre saldo insoluto'})`],
+      ["Plazo",                `${plazoMeses} meses`],
+      ["Cuota mensual",        `$${fmt(cuotaMensual)} M.N. (fija)`],
+      ["Total intereses",      `$${fmt(totalIntereses)} M.N.`],
+    ]
+    if (hasIva) condRows.push([`IVA total (${tasaIva}%)`, `$${fmt(totalIva ?? 0)} M.N.`])
+    condRows.push(
+      ["Total a pagar",        `$${fmt(totalPagar)} M.N.`],
+      ["Fecha de disposición", fecha],
+      ["Fecha de vencimiento", vencimiento],
+      ["Lugar de pago",        "Torre Esmeralda III, Blvd. Manuel Ávila Camacho 32, CDMX"],
+    )
     children.push(
       new Table({
         width: { size: 10240, type: WidthType.DXA },
         columnWidths: [3500, 6740],
-        rows: [
-          ["Tipo de crédito",      "Crédito Simple Personal"],
-          ["Monto del crédito",    `$${fmt(monto)} M.N.`],
-          ["Tasa de interés",      `${tasaMensual}% neto mensual (${metodoInteres === 'flat' ? 'Flat — interés fijo sobre capital original' : 'sobre saldo insoluto'})`],
-          ["Plazo",                `${plazoMeses} meses`],
-          ["Cuota mensual",        `$${fmt(cuotaMensual)} M.N. (fija)`],
-          ["Total intereses",      `$${fmt(totalIntereses)} M.N.`],
-          ["Total a pagar",        `$${fmt(totalPagar)} M.N.`],
-          ["Fecha de disposición", fecha],
-          ["Fecha de vencimiento", vencimiento],
-          ["Lugar de pago",        "Torre Esmeralda III, Blvd. Manuel Ávila Camacho 32, CDMX"],
-        ].map(([label, val]) => new TableRow({
+        rows: condRows.map(([label, val]) => new TableRow({
           children: [labelCell(label, 3500), valueCell(val, 6740)]
         }))
       }),
@@ -235,46 +240,82 @@ export async function POST(req: NextRequest) {
 
     // ── AMORTIZACIÓN ──────────────────────────────────────────────────────────
     children.push(sectionTitle("II. Tabla de Amortización"))
-    children.push(
-      new Table({
-        width: { size: 10240, type: WidthType.DXA },
-        columnWidths: [1040, 1800, 2100, 2100, 2100, 2100],
-        rows: [
-          new TableRow({
-            children: [
-              headerCell("No.", 1040),
-              headerCell("Vencimiento", 1800),
-              headerCell("Capital ($)", 2100),
-              headerCell("Interés ($)", 2100),
-              headerCell("Cuota Total ($)", 2100),
-              headerCell("Saldo ($)", 2100),
-            ]
-          }),
-          ...tabla.map((r: any, idx: number) => new TableRow({
-            children: [
-              dataCell(String(r.n), 1040, AlignmentType.CENTER, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
-              dataCell(r.fecha, 1800, AlignmentType.CENTER, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
-              dataCell(`$${fmt(r.capital)}`, 2100, AlignmentType.RIGHT, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
-              dataCell(`$${fmt(r.interes)}`, 2100, AlignmentType.RIGHT, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
-              dataCell(`$${fmt(r.cuota)}`, 2100, AlignmentType.RIGHT, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
-              dataCell(`$${fmt(Math.max(0, r.saldo))}`, 2100, AlignmentType.RIGHT, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
-            ]
-          })),
-          // Totales
-          new TableRow({
-            children: [
+
+    if (hasIva) {
+      // 7 columns with IVA
+      const cw = [900, 1540, 1800, 1800, 1200, 1800, 1200]
+      children.push(
+        new Table({
+          width: { size: 10240, type: WidthType.DXA },
+          columnWidths: cw,
+          rows: [
+            new TableRow({ children: [
+              headerCell("No.", cw[0]), headerCell("Vencimiento", cw[1]),
+              headerCell("Capital ($)", cw[2]), headerCell("Interés ($)", cw[3]),
+              headerCell("IVA ($)", cw[4]), headerCell("Cuota Total ($)", cw[5]),
+              headerCell("Saldo ($)", cw[6]),
+            ]}),
+            ...tabla.map((r: any, idx: number) => {
+              const bg = idx % 2 === 0 ? "FFFFFF" : "F5F7FA"
+              return new TableRow({ children: [
+                dataCell(String(r.n), cw[0], AlignmentType.CENTER, bg),
+                dataCell(r.fecha, cw[1], AlignmentType.CENTER, bg),
+                dataCell(`$${fmt(r.capital)}`, cw[2], AlignmentType.RIGHT, bg),
+                dataCell(`$${fmt(r.interes)}`, cw[3], AlignmentType.RIGHT, bg),
+                dataCell(`$${fmt(r.iva ?? 0)}`, cw[4], AlignmentType.RIGHT, bg),
+                dataCell(`$${fmt(r.cuota)}`, cw[5], AlignmentType.RIGHT, bg),
+                dataCell(`$${fmt(Math.max(0, r.saldo))}`, cw[6], AlignmentType.RIGHT, bg),
+              ]})
+            }),
+            new TableRow({ children: [
+              new TableCell({ width: { size: cw[0], type: WidthType.DXA }, borders: allBorders, shading: { fill: AZUL_CLR, type: ShadingType.CLEAR }, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold("", 16, AZUL)] })] }),
+              new TableCell({ width: { size: cw[1], type: WidthType.DXA }, borders: allBorders, shading: { fill: AZUL_CLR, type: ShadingType.CLEAR }, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold("TOTALES", 16, AZUL)] })] }),
+              dataCell(`$${fmt(monto)}`, cw[2], AlignmentType.RIGHT, AZUL_CLR),
+              dataCell(`$${fmt(totalIntereses)}`, cw[3], AlignmentType.RIGHT, AZUL_CLR),
+              dataCell(`$${fmt(totalIva ?? 0)}`, cw[4], AlignmentType.RIGHT, AZUL_CLR),
+              dataCell(`$${fmt(totalPagar)}`, cw[5], AlignmentType.RIGHT, AZUL_CLR),
+              dataCell("—", cw[6], AlignmentType.CENTER, AZUL_CLR),
+            ]})
+          ]
+        }),
+        spacer(60),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 120 }, children: [small(`Los montos expresados incluyen IVA del ${tasaIva}% aplicado sobre los intereses ordinarios, conforme a la Ley del IVA.`, 15)] }),
+      )
+    } else {
+      // 6 columns without IVA (original layout)
+      children.push(
+        new Table({
+          width: { size: 10240, type: WidthType.DXA },
+          columnWidths: [1040, 1800, 2100, 2100, 2100, 2100],
+          rows: [
+            new TableRow({ children: [
+              headerCell("No.", 1040), headerCell("Vencimiento", 1800),
+              headerCell("Capital ($)", 2100), headerCell("Interés ($)", 2100),
+              headerCell("Cuota Total ($)", 2100), headerCell("Saldo ($)", 2100),
+            ]}),
+            ...tabla.map((r: any, idx: number) => new TableRow({
+              children: [
+                dataCell(String(r.n), 1040, AlignmentType.CENTER, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
+                dataCell(r.fecha, 1800, AlignmentType.CENTER, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
+                dataCell(`$${fmt(r.capital)}`, 2100, AlignmentType.RIGHT, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
+                dataCell(`$${fmt(r.interes)}`, 2100, AlignmentType.RIGHT, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
+                dataCell(`$${fmt(r.cuota)}`, 2100, AlignmentType.RIGHT, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
+                dataCell(`$${fmt(Math.max(0, r.saldo))}`, 2100, AlignmentType.RIGHT, idx % 2 === 0 ? "FFFFFF" : "F5F7FA"),
+              ]
+            })),
+            new TableRow({ children: [
               new TableCell({ width: { size: 1040, type: WidthType.DXA }, borders: allBorders, shading: { fill: AZUL_CLR, type: ShadingType.CLEAR }, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold("", 16, AZUL)] })] }),
               new TableCell({ width: { size: 1800, type: WidthType.DXA }, borders: allBorders, shading: { fill: AZUL_CLR, type: ShadingType.CLEAR }, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold("TOTALES", 16, AZUL)] })] }),
               dataCell(`$${fmt(monto)}`, 2100, AlignmentType.RIGHT, AZUL_CLR),
               dataCell(`$${fmt(totalIntereses)}`, 2100, AlignmentType.RIGHT, AZUL_CLR),
               dataCell(`$${fmt(totalPagar)}`, 2100, AlignmentType.RIGHT, AZUL_CLR),
               dataCell("—", 2100, AlignmentType.CENTER, AZUL_CLR),
-            ]
-          })
-        ]
-      }),
-      spacer(120),
-    )
+            ]})
+          ]
+        }),
+        spacer(120),
+      )
+    }
 
     // ── CLÁUSULAS ─────────────────────────────────────────────────────────────
     children.push(sectionTitle("III. Cláusulas"))
