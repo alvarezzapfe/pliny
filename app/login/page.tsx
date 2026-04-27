@@ -216,8 +216,6 @@ export default function LoginPage() {
     .form-footer a { color: #0C1E4A; text-decoration: none; font-weight: 700; }
     .form-footer a:hover { text-decoration: underline; }
 
-    .admin-link { display: block; text-align: center; margin-top: 28px; font-family: 'Geist Mono', monospace; font-size: 10px; color: rgba(13,20,38,.18); letter-spacing: .06em; text-decoration: none; transition: color .15s; }
-    .admin-link:hover { color: rgba(13,20,38,.4); }
 
     .spinner { animation: spin .7s linear infinite; }
 
@@ -368,7 +366,6 @@ export default function LoginPage() {
             &iquest;No tienes cuenta? <Link href="/register">Reg&iacute;strate &rarr;</Link>
           </p>
 
-          <a href="/admin/login" className="admin-link">ADMIN →</a>
         </div>
       </div>
     </div>
