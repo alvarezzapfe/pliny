@@ -293,8 +293,8 @@ export default function MarketplacePage() {
         </div>
       ) : filtered.length===0 ? (
         <div style={{ padding:"60px 20px", display:"flex", flexDirection:"column", alignItems:"center", gap:12, textAlign:"center" }}>
-          <div style={{ fontSize:14, fontWeight:700, color:"#475569" }}>Sin solicitudes en este momento</div>
-          <div style={{ fontSize:12, color:"#94A3B8" }}>Vuelve pronto — nuevas solicitudes llegan diariamente</div>
+          <div style={{ fontSize:14, fontWeight:700, color:"#475569" }}>Aún no hay subastas activas</div>
+          <div style={{ fontSize:12, color:"#94A3B8" }}>El marketplace está en su fase inicial. Mientras tanto, gestiona tu cartera desde el dashboard principal y te avisaremos cuando haya nuevas oportunidades.</div>
         </div>
       ) : (
         <>{vista==="cards" ? (
