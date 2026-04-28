@@ -73,6 +73,17 @@ export default function Home() {
       } catch { /* mantiene fallback hardcodeado */ }
     }
     fetchPlans();
+
+    async function fetchMarketplace() {
+      try {
+        const res = await fetch("/api/landing-marketplace");
+        if (res.ok) {
+          const d = await res.json();
+          if (d.ops?.length > 0) setSolicitudes(d.ops);
+        }
+      } catch { /* mantiene array vacío */ }
+    }
+    fetchMarketplace();
   }, []);
 
   const go = (id: string) => {
@@ -107,14 +118,7 @@ export default function Home() {
     { name:"Logística Central S.A.", monto:"$1.5M", score:90, vcto:"Ago 26", status:"green", label:"Al corriente", pct:95 },
   ], []);
 
-  const solicitudes: SolicitudCard[] = [
-    { sector:"Manufactura",  monto:"$8.5M",  plazo:"24m", garantia:"Hipotecaria", fact:"$20M–$50M",  tag:"Capital de trabajo"  },
-    { sector:"Tecnología",   monto:"$2.1M",  plazo:"12m", garantia:"Aval",        fact:"$5M–$20M",   tag:"Expansión"           },
-    { sector:"Construcción", monto:"$15M",   plazo:"36m", garantia:"Hipotecaria", fact:">$50M",       tag:"Proyectos"           },
-    { sector:"Comercio",     monto:"$900K",  plazo:"6m",  garantia:"Prendaria",   fact:"$1M–$5M",    tag:"Inventario"          },
-    { sector:"Salud",        monto:"$3.4M",  plazo:"18m", garantia:"Sin garantía",fact:"$5M–$20M",   tag:"Equipamiento"        },
-    { sector:"Agro",         monto:"$5.2M",  plazo:"12m", garantia:"Prendaria",   fact:"$20M–$50M",  tag:"Capital de trabajo"  },
-  ];
+  const [solicitudes, setSolicitudes] = useState<SolicitudCard[]>([]);
 
   const CSS = `
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -421,10 +425,10 @@ export default function Home() {
               {/* KPI row */}
               <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
                 {[
-                  {label:"Cartera total",   val:"$14.3M", delta:"+2.1%", up:true},
-                  {label:"Créditos activos",val:"38",     delta:"+3",    up:true},
-                  {label:"Mora > 90 días",  val:"2.4%",  delta:"+0.3%", up:false},
-                  {label:"En marketplace",  val:"12",    delta:"nuevas", up:true},
+                  {label:"Cartera total",   val:"—",  delta:"", up:true},
+                  {label:"Créditos activos",val:"—",  delta:"", up:true},
+                  {label:"Mora > 90 días",  val:"—",  delta:"", up:true},
+                  {label:"En marketplace",  val: mktStats.count > 0 ? String(mktStats.count) : "—", delta:"activas", up:true},
                 ].map(k=>(
                   <div key={k.label} className="kpi-card">
                     <div className="mono-label" style={{ marginBottom:7 }}>{k.label}</div>
