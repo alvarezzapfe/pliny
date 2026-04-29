@@ -48,6 +48,10 @@ export default function ResetPasswordPage() {
   // PKCE flow: exchange ?code= for session
   useEffect(() => {
     async function exchangeCode() {
+      console.log('[reset-password] full URL:', window.location.href);
+      console.log('[reset-password] searchParams code:', searchParams.get("code"));
+      console.log('[reset-password] hash:', window.location.hash);
+
       const code = searchParams.get("code");
 
       if (!code) {
@@ -58,11 +62,14 @@ export default function ResetPasswordPage() {
         const refreshToken = hashParams.get("refresh_token");
         const type = hashParams.get("type");
 
+        console.log('[reset-password] no code, checking hash:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, type });
+
         if (accessToken && refreshToken && type === "recovery") {
           const { error: sessionErr } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
+          console.log('[reset-password] hash session result:', { error: sessionErr?.message });
           setTokenValid(!sessionErr);
           return;
         }
@@ -71,7 +78,9 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+      console.log('[reset-password] exchanging code:', code);
+      const { data, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+      console.log('[reset-password] exchange result:', { error: exchangeErr?.message, hasSession: !!data?.session, userId: data?.session?.user?.id });
 
       if (exchangeErr) {
         setTokenValid(false);
