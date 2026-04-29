@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
@@ -6,43 +7,45 @@ export async function POST(req: NextRequest) {
     const { code, password } = await req.json();
 
     if (!code || typeof code !== "string") {
-      return NextResponse.json({ error: "Código de recuperación requerido." }, { status: 400 });
+      return NextResponse.json({ error: "Código requerido." }, { status: 400 });
     }
     if (!password || typeof password !== "string" || password.length < 12) {
-      return NextResponse.json({ error: "La contraseña debe tener al menos 12 caracteres." }, { status: 400 });
+      return NextResponse.json({ error: "Contraseña debe tener 12+ caracteres." }, { status: 400 });
     }
 
-    const sb = createServiceClient();
+    // 1. Anon client con flowType pkce para hacer el exchange
+    const anonClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { flowType: "pkce", persistSession: false, autoRefreshToken: false } }
+    );
 
-    // Exchange the PKCE code for a session (server-side, same process that could hold the verifier)
-    const { data, error: exchangeErr } = await sb.auth.exchangeCodeForSession(code);
+    const { data, error: exchangeErr } = await anonClient.auth.exchangeCodeForSession(code);
 
-    if (exchangeErr || !data.session) {
-      console.error("[reset-password API] exchange error:", exchangeErr?.message);
+    if (exchangeErr || !data?.session) {
+      console.error("[reset-password] exchange:", exchangeErr?.message);
       return NextResponse.json(
         { error: "Enlace inválido o expirado. Solicita uno nuevo." },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    // Update password using admin API (bypasses any session issues)
+    // 2. Service client para update admin (bypasses RLS)
+    const sb = createServiceClient();
     const { error: updateErr } = await sb.auth.admin.updateUserById(
       data.session.user.id,
-      { password },
+      { password }
     );
 
     if (updateErr) {
-      console.error("[reset-password API] update error:", updateErr.message);
-      return NextResponse.json(
-        { error: "Error actualizando contraseña. Intenta de nuevo." },
-        { status: 500 },
-      );
+      console.error("[reset-password] update:", updateErr.message);
+      return NextResponse.json({ error: "Error actualizando contraseña." }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Error inesperado";
-    console.error("[reset-password API] catch:", message);
+    console.error("[reset-password] catch:", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
