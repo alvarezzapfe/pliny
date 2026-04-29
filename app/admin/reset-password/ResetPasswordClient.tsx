@@ -37,7 +37,7 @@ const STRENGTH_META: Record<Strength, { label: string; color: string; pct: numbe
 export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const code = searchParams.get("code");
+  const tokenHash = searchParams.get("token_hash");
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -67,7 +67,7 @@ export default function ResetPasswordPage() {
       const res = await fetch("/api/admin/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, password }),
+        body: JSON.stringify({ tokenHash, password }),
       });
 
       const data = await res.json();
@@ -132,8 +132,8 @@ export default function ResetPasswordPage() {
         {/* Card */}
         <div style={{ background: "#fff", borderRadius: 24, boxShadow: "0 32px 80px rgba(0,0,0,.3)", overflow: "hidden", padding: 28 }}>
 
-          {/* No code in URL */}
-          {!code && !success && (
+          {/* No token_hash in URL */}
+          {!tokenHash && !success && (
             <div style={{ textAlign: "center", padding: "12px 0" }}>
               <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#FFF1F2", border: "2px solid #FECDD3", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
                 <Ic d="M3 3l10 10M13 3L3 13" s={20} c="#EF4444" />
@@ -160,7 +160,7 @@ export default function ResetPasswordPage() {
           )}
 
           {/* Form */}
-          {code && !success && (
+          {tokenHash && !success && (
             <>
               <div style={{ marginBottom: 24 }}>
                 <h1 style={{ fontSize: 20, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.04em", marginBottom: 4 }}>Nueva contraseña</h1>
