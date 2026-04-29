@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -37,60 +37,14 @@ const STRENGTH_META: Record<Strength, { label: string; color: string; pct: numbe
 export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const code = searchParams.get("code");
+
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [tokenValid, setTokenValid] = useState<boolean | null>(null);
-
-  // PKCE flow: exchange ?code= for session
-  useEffect(() => {
-    async function exchangeCode() {
-      console.log('[reset-password] full URL:', window.location.href);
-      console.log('[reset-password] searchParams code:', searchParams.get("code"));
-      console.log('[reset-password] hash:', window.location.hash);
-
-      const code = searchParams.get("code");
-
-      if (!code) {
-        // Fallback: also check hash for legacy flow
-        const hash = window.location.hash.substring(1);
-        const hashParams = new URLSearchParams(hash);
-        const accessToken = hashParams.get("access_token");
-        const refreshToken = hashParams.get("refresh_token");
-        const type = hashParams.get("type");
-
-        console.log('[reset-password] no code, checking hash:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, type });
-
-        if (accessToken && refreshToken && type === "recovery") {
-          const { error: sessionErr } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          console.log('[reset-password] hash session result:', { error: sessionErr?.message });
-          setTokenValid(!sessionErr);
-          return;
-        }
-
-        setTokenValid(false);
-        return;
-      }
-
-      console.log('[reset-password] exchanging code:', code);
-      const { data, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-      console.log('[reset-password] exchange result:', { error: exchangeErr?.message, hasSession: !!data?.session, userId: data?.session?.user?.id });
-
-      if (exchangeErr) {
-        setTokenValid(false);
-        return;
-      }
-
-      setTokenValid(true);
-    }
-    exchangeCode();
-  }, [searchParams]);
 
   function validate(): string | null {
     if (password.length < 12) return "La contraseña debe tener al menos 12 caracteres.";
@@ -109,18 +63,30 @@ export default function ResetPasswordPage() {
     setError(null);
     setLoading(true);
 
-    const { error: updateErr } = await supabase.auth.updateUser({ password });
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, password }),
+      });
 
-    if (updateErr) {
-      setError(updateErr.message);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Error actualizando contraseña.");
+        setLoading(false);
+        return;
+      }
+
+      // Sign out any existing client session and redirect
+      await supabase.auth.signOut();
+      setSuccess(true);
       setLoading(false);
-      return;
+      setTimeout(() => router.push("/admin/login?reset=success"), 2000);
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+      setLoading(false);
     }
-
-    await supabase.auth.signOut();
-    setSuccess(true);
-    setLoading(false);
-    setTimeout(() => router.push("/admin/login?reset=success"), 2000);
   }
 
   const strength = password.length > 0 ? getStrength(password) : null;
@@ -166,26 +132,18 @@ export default function ResetPasswordPage() {
         {/* Card */}
         <div style={{ background: "#fff", borderRadius: 24, boxShadow: "0 32px 80px rgba(0,0,0,.3)", overflow: "hidden", padding: 28 }}>
 
-          {/* Loading token validation */}
-          {tokenValid === null && (
-            <div style={{ textAlign: "center", padding: "24px 0" }}>
-              <svg className="spinner" width={24} height={24} viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="#DDE5F7" strokeWidth="2" /><path d="M13 7.5a5.5 5.5 0 00-5.5-5.5" stroke="#5B8DEF" strokeWidth="2" strokeLinecap="round" /></svg>
-              <p style={{ fontSize: 13, color: "#64748B", marginTop: 12 }}>Validando enlace...</p>
-            </div>
-          )}
-
-          {/* Invalid token */}
-          {tokenValid === false && (
+          {/* No code in URL */}
+          {!code && !success && (
             <div style={{ textAlign: "center", padding: "12px 0" }}>
               <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#FFF1F2", border: "2px solid #FECDD3", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
                 <Ic d="M3 3l10 10M13 3L3 13" s={20} c="#EF4444" />
               </div>
-              <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 8 }}>Enlace inválido o expirado</h2>
+              <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 8 }}>Enlace inválido</h2>
               <p style={{ fontSize: 13, color: "#64748B", lineHeight: 1.6, marginBottom: 20 }}>
-                El enlace de recuperación ya no es válido. Solicita uno nuevo.
+                No se encontró un código de recuperación en la URL. Solicita un nuevo enlace.
               </p>
               <a href="/admin/forgot-password" style={{ fontSize: 13, fontWeight: 600, color: "#1E40AF", textDecoration: "none" }}>
-                Solicitar nuevo enlace →
+                Solicitar nuevo enlace &rarr;
               </a>
             </div>
           )}
@@ -202,7 +160,7 @@ export default function ResetPasswordPage() {
           )}
 
           {/* Form */}
-          {tokenValid === true && !success && (
+          {code && !success && (
             <>
               <div style={{ marginBottom: 24 }}>
                 <h1 style={{ fontSize: 20, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.04em", marginBottom: 4 }}>Nueva contraseña</h1>
@@ -231,7 +189,6 @@ export default function ResetPasswordPage() {
                       <Ic d={showPass ? "M1.5 7.5s2.5-4 6-4 6 4 6 4-2.5 4-6 4-6-4-6-4zM6 7.5a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0zM3 3l10 10" : "M1.5 7.5s2.5-4 6-4 6 4 6 4-2.5 4-6 4-6-4-6-4zM6 7.5a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0z"} s={14} c="#94A3B8" />
                     </button>
                   </div>
-                  {/* Strength bar */}
                   {sm && (
                     <div style={{ marginTop: 8 }}>
                       <div style={{ height: 4, background: "#F1F5F9", borderRadius: 999, overflow: "hidden", marginBottom: 4 }}>
