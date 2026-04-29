@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
 function Ic({ d, s = 15, c = "currentColor" }: { d: string; s?: number; c?: string }) {
@@ -16,6 +17,8 @@ type Step = "credentials" | "totp" | "setup_mfa";
 
 export default function AdminLoginClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resetSuccess = searchParams.get("reset") === "success";
   const [step, setStep]       = useState<Step>("credentials");
   const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
@@ -185,6 +188,12 @@ export default function AdminLoginClient() {
           {/* ── STEP: CREDENTIALS ─────────────────────────────────────── */}
           {step === "credentials" && (
             <div style={{ padding: 28 }}>
+              {resetSuccess && (
+                <div style={{ background: "#F0FDF9", border: "1px solid #A7F3D0", borderRadius: 10, padding: "11px 14px", fontSize: 13, fontWeight: 500, color: "#065F46", display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Ic d="M2 8l4 4 8-8" s={14} c="#059669" />
+                  Contraseña actualizada. Inicia sesión con tu nueva contraseña.
+                </div>
+              )}
               <div style={{ marginBottom: 24 }}>
                 <h1 style={{ fontSize: 20, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.04em", marginBottom: 4 }}>Acceso administrador</h1>
                 <p style={{ fontSize: 13, color: "#64748B" }}>Acceso restringido · Solo super admins</p>
@@ -226,6 +235,14 @@ export default function AdminLoginClient() {
                     : <>Continuar<Ic d="M2.5 7.5h10M9 4.5l3 3-3 3" s={13} c="rgba(255,255,255,.7)" /></>
                   }
                 </button>
+
+                <div style={{ textAlign: "center", marginTop: 12 }}>
+                  <Link href="/admin/forgot-password" style={{ fontSize: 12, color: "#94A3B8", textDecoration: "none", transition: "color .15s" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "#5B8DEF")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}>
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                </div>
               </form>
             </div>
           )}
