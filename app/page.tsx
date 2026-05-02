@@ -392,7 +392,10 @@ export default function Home() {
           {/* CTAs */}
           <div className="mount mount-4 hero-ctas" style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:24, flexWrap:"wrap" }}>
             <a href="/login" className="btn btn-grad btn-lg">Entrar a la consola →</a>
-            <button className="btn btn-ghost btn-lg" onClick={()=>go("marketplace")}>Ver marketplace</button>
+            <a href="/demo" className="btn btn-ghost btn-lg" style={{ display:"inline-flex", alignItems:"center", gap:8 }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 6h12M5 2v4M11 2v4"/></svg>
+              Solicita una demo
+            </a>
           </div>
 
           {/* Social proof micro-line */}
