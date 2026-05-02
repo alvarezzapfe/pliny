@@ -281,9 +281,9 @@ function ChatInner() {
                   </div>
                 </div>
                 <div style={{ flex:1 }}/>
-                <button onClick={() => router.push("/dashboard/marketplace")}
+                <button onClick={() => router.push(isOtorgante ? "/dashboard/marketplace" : "/solicitante/solicitudes")}
                   style={{ height:30, padding:"0 12px", borderRadius:8, border:"1px solid #E2E8F0", background:"#F8FAFC", color:"#64748B", fontSize:11, fontWeight:600, cursor:"pointer" }}>
-                  Ver solicitud
+                  {isOtorgante ? "Ver solicitud" : "Mis solicitudes"}
                 </button>
               </div>
 
