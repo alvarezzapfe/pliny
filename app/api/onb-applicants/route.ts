@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
 import { z } from 'zod'
 
+// Helper: convierte "" en undefined antes de validar
+const emptyToUndef = (v: unknown) => (v === '' ? undefined : v)
+
 const CreateSchema = z.object({
   flow_id:    z.string().uuid(),
-  email:      z.string().email().optional(),
-  full_name:  z.string().optional(),
-  phone:      z.string().optional(),
-  utm_source: z.string().optional(),
+  email:      z.preprocess(emptyToUndef, z.string().email().optional()),
+  full_name:  z.preprocess(emptyToUndef, z.string().optional()),
+  phone:      z.preprocess(emptyToUndef, z.string().optional()),
+  utm_source: z.preprocess(emptyToUndef, z.string().optional()),
 })
 
 async function validateToken(token: string): Promise<{ lender_id: string; slug: string } | null> {
@@ -74,7 +77,11 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const parsed = CreateSchema.safeParse(body)
-    if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 })
+    if (!parsed.success) {
+      console.error('[onb-applicants] Zod validation failed:', JSON.stringify(parsed.error.issues))
+      console.error('[onb-applicants] Body recibido:', JSON.stringify(body))
+      return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.issues }, { status: 422 })
+    }
 
     // Verificar flow pertenece al lender
     const { data: flow } = await supabase
