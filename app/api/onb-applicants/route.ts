@@ -104,6 +104,15 @@ export async function POST(req: NextRequest) {
       : { data: null }
 
     const plan = profile?.plan ?? 'free'
+
+    // Gating: only PRO and enterprise can use onboarding API
+    if (plan !== 'pro' && plan !== 'enterprise') {
+      return NextResponse.json({
+        error: 'requires_pro',
+        message: 'Esta función requiere plan PRO.',
+      }, { status: 402 })
+    }
+
     const LIMITS: Record<string, number> = { free: 0, basic: 30, pro: 150 }
     const limit = LIMITS[plan] ?? 0
 

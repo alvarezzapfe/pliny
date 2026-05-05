@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { OnboardingLanding } from '@/components/onboarding/OnboardingLanding'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
+import { UpgradeRequiredScreen } from '@/components/onboarding/UpgradeRequiredScreen'
 
 type Props = {
   params: Promise<{ slug: string }>
@@ -8,21 +9,17 @@ type Props = {
 }
 
 async function getLenderWithToken(slug: string) {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-
-  // Obtener token firmado + datos del lender en un solo call
-  const res = await fetch(`${base}/api/onboarding/${slug}/token`, {
-    cache: 'no-store', // tokens nunca se cachean
-  })
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.plinius.mx'
+  const res = await fetch(`${base}/api/onboarding/${slug}/token`, { cache: 'no-store' })
+  if (res.status === 402) return { __requires_pro: true }
   if (!res.ok) return null
-  return res.json() // { token, lender, flow? }
+  return res.json()
 }
 
 async function getFlow(slug: string) {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  const res = await fetch(`${base}/api/onboarding/${slug}`, {
-    next: { revalidate: 60 },
-  })
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.plinius.mx'
+  const res = await fetch(`${base}/api/onboarding/${slug}`, { next: { revalidate: 60 } })
+  if (res.status === 402) return { __requires_pro: true }
   if (!res.ok) return null
   return res.json()
 }
@@ -35,6 +32,14 @@ export default async function OnboardingPage({ params, searchParams }: Props) {
     getLenderWithToken(slug),
     getFlow(slug),
   ])
+
+  // Plan gating: show upgrade screen
+  if (
+    (tokenData && '__requires_pro' in tokenData) ||
+    (ctx && '__requires_pro' in ctx)
+  ) {
+    return <UpgradeRequiredScreen />
+  }
 
   if (!tokenData || !ctx) notFound()
 
@@ -59,7 +64,7 @@ export default async function OnboardingPage({ params, searchParams }: Props) {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const ctx = await getFlow(slug)
-  if (!ctx) return {}
+  if (!ctx || '__requires_pro' in ctx) return {}
   return {
     title: `${ctx.lender.name} — Solicitud de crédito`,
     description: `Completa tu solicitud con ${ctx.lender.name}. Proceso 100% digital.`,
