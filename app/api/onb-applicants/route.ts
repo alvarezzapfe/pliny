@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
 import { z } from 'zod'
 
-// Helper: convierte "" en undefined antes de validar
-const emptyToUndef = (v: unknown) => (v === '' ? undefined : v)
+// Helper: convierte "", null en undefined antes de validar
+const emptyToUndef = (v: unknown) => (v === '' || v === null ? undefined : v)
 
 const CreateSchema = z.object({
   flow_id:    z.string().uuid(),
