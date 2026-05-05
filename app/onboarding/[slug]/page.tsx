@@ -18,7 +18,7 @@ async function getLenderWithToken(slug: string) {
 
 async function getFlow(slug: string) {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.plinius.mx'
-  const res = await fetch(`${base}/api/onboarding/${slug}`, { next: { revalidate: 60 } })
+  const res = await fetch(`${base}/api/onboarding/${slug}`, { cache: 'no-store' })
   if (res.status === 402) return { __requires_pro: true }
   if (!res.ok) return null
   return res.json()
