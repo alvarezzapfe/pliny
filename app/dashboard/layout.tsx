@@ -22,7 +22,6 @@ const NAV = [
   { href: "/dashboard/reportes",      label: "Reportes",     icon: "M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h4M6 12h2" },
   { href: "/dashboard/datos",         label: "Datos",        icon: "M8 2a6 6 0 100 12M8 6v2.5M8 11h.01" },
   { href: "/dashboard/marketplace",   label: "Marketplace",  icon: "M2 2h12v8H2zM5 14h6M8 10v4" },
-  { href: "/dashboard/fondeo",        label: "Fondeo",       icon: "M2 14h12M3 10h2v4H3zM7 7h2v7H7zM11 4h2v10h-2zM8 2l3 2-3 2-3-2z" },
   { href: "/dashboard/calculadora",   label: "Calculadora",  icon: "M3 2h10a1 1 0 011 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zM3 9h2v2H3zM7 9h2v2H7zM11 9h2v2H11zM3 13h2v2H3zM7 13h2v2H7zM11 13h2v2H11z" },
   { href: "/dashboard/onboarding/applicants", label: "Onboarding", icon: "M8 2a3 3 0 110 6 3 3 0 010-6zM2 14c0-3.3 2.7-6 6-6s6 2.7 6 6M11 8l2 2M13 8l-2 2" },
   { href: "/dashboard/onboarding/reglas", label: "Reglas",  icon: "M2 3h12v2H2zM2 7h8M2 11h5M10 9l2 2 4-4" },
