@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
         phone:      parsed.data.phone,
         full_name:  parsed.data.full_name,
         utm_source: parsed.data.utm_source,
-        status:     'in_progress',
+        status:     'submitted',
         data:       sanitizedData,
         ip_address: req.headers.get('x-forwarded-for') ?? undefined,
         user_agent: req.headers.get('user-agent') ?? undefined,
@@ -179,10 +179,17 @@ export async function POST(req: NextRequest) {
       failedRules = evaluation.failed
     }
 
-    // Update status
+    // Update status + failed_rules + status_history
+    const statusHistory = [
+      { from: 'submitted', to: finalStatus, by: 'system', at: new Date().toISOString() },
+    ]
     await supabase
       .from('onb_applicants')
-      .update({ status: finalStatus === 'pre_approved' ? 'completed' : 'in_progress' })
+      .update({
+        status: finalStatus,
+        failed_rules: failedRules.length > 0 ? failedRules : null,
+        status_history: statusHistory,
+      })
       .eq('id', applicant.id)
 
     // Send email notifications (non-blocking)
