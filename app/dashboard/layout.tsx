@@ -179,7 +179,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div style={{ marginLeft: W, minHeight: "100vh", background: "#F4F6FB", fontFamily: "'Geist', sans-serif", transition: "margin-left .25s cubic-bezier(.16,1,.3,1)" }}>
-        <div style={{ maxWidth: ["/dashboard/calculadora","/dashboard/cartera-valuacion"].some(p=>pathname?.startsWith(p)) ? "none" : 1400, padding: ["/dashboard/calculadora","/dashboard/cartera-valuacion"].some(p=>pathname?.startsWith(p)) ? "0" : "36px 40px 56px" }}>
+        <div style={{ maxWidth: pathname?.startsWith("/dashboard/calculadora") ? "none" : 1400, padding: pathname?.startsWith("/dashboard/calculadora") ? "0" : "36px 40px 56px" }}>
           {children}
         </div>
       </div>
