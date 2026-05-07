@@ -74,12 +74,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Archivos con macros no son permitidos" }, { status: 400 });
     }
 
-    // 7. Parse with SheetJS (strict flags)
+    // 7. Parse with SheetJS (strict flags — all disabled for security)
     const workbook = XLSX.read(buffer, {
       type: "buffer",
       cellFormula: false,
       cellHTML: false,
       cellStyles: false,
+      bookVBA: false,
+      bookFiles: false,
       dense: true,
     });
 
