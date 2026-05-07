@@ -13,9 +13,11 @@
     "@nodecfdi/sat-ws-descarga-masiva": "^2.0.0",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.97.0",
+    "@tanstack/react-table": "^8.21.3",
     "adm-zip": "^0.5.16",
     "bcryptjs": "^3.0.3",
     "docx": "^9.6.1",
+    "exceljs": "^4.4.0",
     "fast-xml-parser": "^5.3.7",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
@@ -23,6 +25,7 @@
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "recharts": "^3.8.1",
     "resend": "^6.9.3",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
@@ -37,9 +40,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.5"
   }
 }
