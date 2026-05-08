@@ -25,9 +25,9 @@ const TIPOS = ["Term Loan", "Revolvente", "Arrend. Puro", "Arrend. Fin."];
 const PERIODICIDADES = ["Mensual", "Bimestral", "Trimestral", "Semestral", "Anual", "Bullet"];
 
 const SAMPLE_DATA = [
-  { folio_credito: "CR-001", deudor: "Agrícola del Norte SA", sector: "Agro", tipo_credito: "Term Loan", monto_original_mxn: 5000000, saldo_insoluto_mxn: 3200000, tasa_nominal_anual: 0.15, fecha_originacion: "2024-03-15", fecha_vencimiento: "2027-03-15", plazo_meses_original: 36, periodicidad_pago: "Mensual", dpd: 0, pd: 0.04, lgd: 0.45, garantia_tipo: "Hipotecaria", garantia_valor_mxn: 8000000 },
-  { folio_credito: "CR-002", deudor: "Comercializadora Express", sector: "Comercio", tipo_credito: "Revolvente", monto_original_mxn: 2000000, saldo_insoluto_mxn: 1500000, tasa_nominal_anual: 0.22, fecha_originacion: "2025-01-10", fecha_vencimiento: "2027-01-10", plazo_meses_original: 24, periodicidad_pago: "Mensual", dpd: 15, pd: 0.08, lgd: 0.55, garantia_tipo: "Prendaria", garantia_valor_mxn: 1000000 },
-  { folio_credito: "CR-003", deudor: "Industrias del Pacífico", sector: "Industria", tipo_credito: "Arrend. Fin.", monto_original_mxn: 12000000, saldo_insoluto_mxn: 9800000, tasa_nominal_anual: 0.13, fecha_originacion: "2024-06-01", fecha_vencimiento: "2028-06-01", plazo_meses_original: 48, periodicidad_pago: "Trimestral", dpd: 0, pd: 0.03, lgd: 0.35, garantia_tipo: "Maquinaria", garantia_valor_mxn: 15000000 },
+  { folio_credito: "CR-001", deudor: "Agrícola del Norte SA", sector: "Agro", tipo_credito: "Term Loan", monto_original_mxn: 5000000, saldo_insoluto_mxn: 3200000, tasa_nominal_anual: 15, fecha_originacion: "2024-03-15", fecha_vencimiento: "2027-03-15", plazo_meses_original: 36, periodicidad_pago: "Mensual", dpd: 0, pd: 0.04, lgd: 0.45, garantia_tipo: "Hipotecaria", garantia_valor_mxn: 8000000 },
+  { folio_credito: "CR-002", deudor: "Comercializadora Express", sector: "Comercio", tipo_credito: "Revolvente", monto_original_mxn: 2000000, saldo_insoluto_mxn: 1500000, tasa_nominal_anual: 22, fecha_originacion: "2025-01-10", fecha_vencimiento: "2027-01-10", plazo_meses_original: 24, periodicidad_pago: "Mensual", dpd: 15, pd: 0.08, lgd: 0.55, garantia_tipo: "Prendaria", garantia_valor_mxn: 1000000 },
+  { folio_credito: "CR-003", deudor: "Industrias del Pacífico", sector: "Industria", tipo_credito: "Arrend. Fin.", monto_original_mxn: 12000000, saldo_insoluto_mxn: 9800000, tasa_nominal_anual: 13, fecha_originacion: "2024-06-01", fecha_vencimiento: "2028-06-01", plazo_meses_original: 48, periodicidad_pago: "Trimestral", dpd: 0, pd: 0.03, lgd: 0.35, garantia_tipo: "Maquinaria", garantia_valor_mxn: 15000000 },
 ];
 
 const INSTRUCTIONS = [
@@ -38,7 +38,7 @@ const INSTRUCTIONS = [
   ["tipo_credito", "Enum", "Term Loan, Revolvente, Arrend. Puro, Arrend. Fin."],
   ["monto_original_mxn", "Número", "Monto original del crédito en MXN. > 0."],
   ["saldo_insoluto_mxn", "Número", "Saldo vigente en MXN. >= 0."],
-  ["tasa_nominal_anual", "Decimal", "Tasa anual como decimal. Ej: 0.18 = 18%."],
+  ["tasa_nominal_anual", "Número", "Tasa anual en porcentaje. Ej: 18.5 para 18.5%. NO poner 0.185."],
   ["fecha_originacion", "Fecha", "YYYY-MM-DD. Opcional si plazo_meses_original está presente."],
   ["fecha_vencimiento", "Fecha", "YYYY-MM-DD. Obligatorio. Debe ser >= hoy."],
   ["plazo_meses_original", "Entero", "Plazo original en meses. > 0."],

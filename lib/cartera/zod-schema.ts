@@ -37,7 +37,7 @@ export const CreditoRowSchema = z.object({
   tipo_credito:        z.enum(TIPOS_CREDITO, { errorMap: () => ({ message: `Tipo debe ser: ${TIPOS_CREDITO.join(", ")}` }) }),
   monto_original_mxn:  z.number().positive("Monto original debe ser > 0"),
   saldo_insoluto_mxn:  z.number().min(0, "Saldo insoluto debe ser >= 0"),
-  tasa_nominal_anual:  z.number().min(0, "Tasa debe ser >= 0").max(2, "Tasa debe ser <= 2 (200%)"),
+  tasa_nominal_anual:  z.number().min(0, "tasa_nominal_anual debe ser >= 0").max(1, "tasa_nominal_anual debe ser un porcentaje entre 0 y 100 (ej: 18.5 para 18.5%)"),
   fecha_originacion:   z.string().nullable(),
   fecha_vencimiento:   z.string().min(1, "Fecha de vencimiento es obligatoria"),
   plazo_meses_original: z.number().int().positive("Plazo debe ser > 0").nullable(),
@@ -75,7 +75,11 @@ export function parseRawRow(raw: unknown[]): Record<string, unknown> {
     tipo_credito:        sanitizeCell(raw[3]),
     monto_original_mxn:  validateNumber(raw[4], 0, 1e12),
     saldo_insoluto_mxn:  validateNumber(raw[5], 0, 1e12),
-    tasa_nominal_anual:  validateNumber(raw[6], 0, 2),
+    // Excel column is ALWAYS percentage (18 = 18%). Divide by 100 deterministically.
+    tasa_nominal_anual:  (() => {
+      const v = validateNumber(raw[6], 0, 100);
+      return v === null ? null : v / 100;
+    })(),
     fecha_originacion:   parseDate(raw[7]),
     fecha_vencimiento:   parseDate(raw[8]) ?? "",
     plazo_meses_original: validateNumber(raw[9], 1, 1200) ? Math.round(Number(raw[9])) : null,

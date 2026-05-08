@@ -8,7 +8,7 @@ const VALID_ROW = [
   "Term Loan",          // tipo_credito
   5000000,              // monto_original
   3000000,              // saldo_insoluto
-  0.18,                 // tasa_nominal_anual
+  18,                   // tasa_nominal_anual (percentage — converted to 0.18 by parseRawRow)
   "2024-01-15",         // fecha_originacion
   "2027-01-15",         // fecha_vencimiento
   36,                   // plazo_meses
@@ -26,9 +26,16 @@ describe("parseRawRow", () => {
     expect(parsed.folio_credito).toBe("CR-001");
     expect(parsed.deudor).toBe("Empresa Test SA");
     expect(parsed.monto_original_mxn).toBe(5000000);
-    expect(parsed.tasa_nominal_anual).toBe(0.18);
+    expect(parsed.tasa_nominal_anual).toBe(0.18); // 18 / 100 = 0.18 exactly
     expect(parsed.fecha_vencimiento).toBe("2027-01-15");
     expect(parsed.pd).toBe(0.05);
+  });
+
+  it("converts low percentages correctly (0.5% case)", () => {
+    const row = [...VALID_ROW];
+    row[6] = 0.5; // 0.5% = medio punto porcentual
+    const parsed = parseRawRow(row);
+    expect(parsed.tasa_nominal_anual).toBeCloseTo(0.005, 5); // 0.5 / 100 = 0.005
   });
 
   it("handles null pd/lgd", () => {
@@ -78,9 +85,9 @@ describe("validateRows", () => {
     expect(errors.some(e => e.field === "sector")).toBe(true);
   });
 
-  it("rejects row with tasa > 2", () => {
+  it("rejects row with tasa > 100 (percentage)", () => {
     const row = [...VALID_ROW];
-    row[6] = 3.5; // tasa > 2
+    row[6] = 150; // 150% — validateNumber(150, 0, 100) returns null
     const parsed = parseRawRow(row);
     const { valid, errors } = validateRows([parsed]);
     expect(valid.length).toBe(0);
