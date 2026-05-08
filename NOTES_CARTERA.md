@@ -12,9 +12,13 @@
 - [x] 4.1 Endpoint /list paginado
 - [~] 4.2 UploadDropzone — código escrito, sin validar visualmente
 
+## Steps completados (UI)
+- [x] 4.2 UploadDropzone — COMPLETED Y VALIDATED (commit 99b9dc5)
+- [x] 4.3 Auto-trigger /calcular + polling + estados processing/completed/error — COMPLETED Y VALIDATED
+  - Bug crítico resuelto: tasa_nominal_anual ahora acepta porcentaje (commit cb79ae8)
+  - Happy path validado: cartera-test-v2.xlsx → NPV $6.7M / Saldo $6.5M / EL $64.8K
+
 ## Steps pendientes
-- [ ] 4.2 — Validar visualmente en local (bloqueado por bug ANON_KEY en .env.local)
-- [ ] 4.3 Auto-trigger /calcular + estado processing
 - [ ] 4.4 Shell de tabs vacíos
 - [ ] 4.5 TabResumenEjecutivo
 - [ ] 4.6 TabDetalle (tabla virtualizada)
