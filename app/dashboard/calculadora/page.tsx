@@ -1,9 +1,10 @@
 // Valuador de Cartera — step 4.3: auto-trigger /calcular + polling
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import UploadDropzone from "@/components/cartera/UploadDropzone";
+import ResultsView from "@/components/calculadora/ResultsView";
 
 type ValidationError = { row: number; field: string; message: string };
 type PageStatus = "idle" | "processing" | "completed" | "completed_with_errors" | "error";
@@ -16,11 +17,6 @@ type ValuacionData = {
   el_total_mxn?: number;
   status?: string;
 };
-
-function fmtMoney(n: number | null | undefined): string {
-  if (n == null) return "—";
-  return "$" + n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 export default function CalculadoraPage() {
   const [discountRate, setDiscountRate] = useState(12);
@@ -137,7 +133,7 @@ export default function CalculadoraPage() {
   const isTerminal = pageStatus === "completed" || pageStatus === "completed_with_errors" || pageStatus === "error";
 
   return (
-    <div style={{ padding: "32px 40px", fontFamily: "'Geist', system-ui, sans-serif", maxWidth: 720, margin: "0 auto" }}>
+    <div style={{ padding: "32px 40px", fontFamily: "'Geist', system-ui, sans-serif", maxWidth: isTerminal ? 1100 : 720, margin: "0 auto", transition: "max-width .3s" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -212,44 +208,22 @@ export default function CalculadoraPage() {
           {pageStatus === "completed_with_errors" && (
             <div style={{ background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#9A3412", display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 16 }}>⚠️</span>
-              {(valuacion.n_creditos ?? 0) - (valuacion.n_creditos_calculados ?? 0)} crédito(s) no pudieron calcularse. Revisa el detalle más adelante.
+              {(valuacion.n_creditos ?? 0) - (valuacion.n_creditos_calculados ?? 0)} crédito(s) no pudieron calcularse. Revisa la pestaña Errores.
             </div>
           )}
-          <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, padding: "32px 28px", textAlign: "center" }}>
-            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#F0FDF4", border: "2px solid #BBF7D0", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
-              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A", marginBottom: 16 }}>Valuación completada</div>
-
-            {/* KPI row */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
-              {[
-                { label: "NPV TOTAL", value: fmtMoney(valuacion.npv_total_mxn) },
-                { label: "SALDO TOTAL", value: fmtMoney(valuacion.saldo_total_mxn) },
-                { label: "EL TOTAL", value: fmtMoney(valuacion.el_total_mxn) },
-              ].map(k => (
-                <div key={k.label} style={{ background: "#F8FAFC", borderRadius: 8, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: ".06em", marginBottom: 4 }}>{k.label}</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.02em" }}>{k.value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ fontSize: 12, color: "#64748B", marginBottom: 4 }}>
-              Valuación ID: <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{valuacion.id.slice(0, 8)}...{valuacion.id.slice(-4)}</span>
-            </div>
-            <div style={{ fontSize: 12, color: "#64748B", marginBottom: 20 }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{valuacion.n_creditos_calculados ?? valuacion.n_creditos}</span> / {valuacion.n_creditos} créditos calculados
-            </div>
-
-            <button onClick={resetAll} style={{
-              height: 40, padding: "0 20px", borderRadius: 8, border: "1px solid #E2E8F0",
-              background: "#FFFFFF", color: "#0F172A", fontSize: 13, fontWeight: 600,
-              cursor: "pointer", fontFamily: "'Geist', sans-serif",
-            }}>
-              Subir otra cartera
-            </button>
-          </div>
+          <Suspense fallback={<div style={{ padding: 48, textAlign: "center", color: "#94A3B8" }}>Cargando resultados...</div>}>
+            <ResultsView
+              valuacionId={valuacion.id}
+              kpis={{
+                npv: valuacion.npv_total_mxn ?? null,
+                saldo: valuacion.saldo_total_mxn ?? null,
+                el: valuacion.el_total_mxn ?? null,
+                nCreditos: valuacion.n_creditos,
+                nCreditosCalculados: valuacion.n_creditos_calculados ?? null,
+              }}
+              onReset={resetAll}
+            />
+          </Suspense>
         </div>
       )}
 
