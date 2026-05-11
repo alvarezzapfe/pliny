@@ -1,10 +1,11 @@
-// Valuador de Cartera — step 4.3: auto-trigger /calcular + polling
+// Valuador de Cartera — step 4.11: lista de valuaciones previas
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import UploadDropzone from "@/components/cartera/UploadDropzone";
 import ResultsView from "@/components/calculadora/ResultsView";
+import ValuationsList, { type ValuacionSummary } from "@/components/calculadora/ValuationsList";
 
 type ValidationError = { row: number; field: string; message: string };
 type PageStatus = "idle" | "processing" | "completed" | "completed_with_errors" | "error";
@@ -23,6 +24,7 @@ export default function CalculadoraPage() {
   const [pageStatus, setPageStatus] = useState<PageStatus>("idle");
   const [valuacion, setValuacion] = useState<ValuacionData | null>(null);
   const [errors, setErrors] = useState<{ list: ValidationError[]; validCount: number; errorCount: number } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCount = useRef(0);
 
@@ -109,6 +111,27 @@ export default function CalculadoraPage() {
     setPageStatus("idle");
     setValuacion(null);
     setErrors(null);
+    setRefreshKey(k => k + 1);
+  }
+
+  function handleSelectValuacion(v: ValuacionSummary) {
+    setValuacion({
+      id: v.id,
+      n_creditos: v.n_creditos,
+      n_creditos_calculados: v.n_creditos_calculados ?? undefined,
+      npv_total_mxn: v.npv_total_mxn ?? undefined,
+      saldo_total_mxn: v.saldo_total_mxn ?? undefined,
+      el_total_mxn: v.el_total_mxn ?? undefined,
+      status: v.status,
+    });
+    setErrors(null);
+    if (v.status === "error") {
+      setPageStatus("error");
+    } else if (v.status === "completed_with_errors") {
+      setPageStatus("completed_with_errors");
+    } else {
+      setPageStatus("completed");
+    }
   }
 
   async function downloadPlantilla() {
@@ -177,6 +200,11 @@ export default function CalculadoraPage() {
             <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 6 }}>Default 12%. Rango: 0% – 100%.</div>
           </div>
           <UploadDropzone discountRate={rateDecimal} onSuccess={handleSuccess} onValidationErrors={handleValidationErrors} />
+
+          {/* Valuaciones recientes */}
+          <div style={{ marginTop: 32 }}>
+            <ValuationsList onSelect={handleSelectValuacion} refreshKey={refreshKey} />
+          </div>
         </>
       )}
 
