@@ -174,8 +174,11 @@ export default function CreditDetailModal({ credito, onClose }: Props) {
             height: 38, padding: "0 20px", borderRadius: 8,
             border: "1px solid #E2E8F0", background: "#fff", color: "#0F172A",
             fontSize: 13, fontWeight: 600, cursor: "pointer",
-            fontFamily: "'Geist', sans-serif",
-          }}>
+            fontFamily: "'Geist', sans-serif", transition: "background .1s",
+          }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#F8FAFC")}
+            onMouseLeave={e => (e.currentTarget.style.background = "#fff")}
+          >
             Cerrar
           </button>
         </div>

@@ -53,6 +53,8 @@ export default function ResultsView({ valuacionId, kpis, onReset }: Props) {
     }
   }, [searchParams]);
 
+  const errorsCount = kpis.nCreditos - (kpis.nCreditosCalculados ?? kpis.nCreditos);
+
   function switchTab(key: TabKey) {
     setActiveTab(key);
     router.replace(`?tab=${key}`, { scroll: false });
@@ -119,6 +121,9 @@ export default function ResultsView({ valuacionId, kpis, onReset }: Props) {
             onMouseLeave={e => { if (activeTab !== t.key) e.currentTarget.style.color = "#64748B"; }}
           >
             {t.label}
+            {t.key === "errores" && errorsCount > 0 && (
+              <span style={{ marginLeft: 6, background: "#DC2626", color: "#fff", borderRadius: 10, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>{errorsCount}</span>
+            )}
           </button>
         ))}
       </div>
@@ -129,7 +134,7 @@ export default function ResultsView({ valuacionId, kpis, onReset }: Props) {
         {activeTab === "detalle" && <TabDetalle valuacionId={valuacionId} />}
         {activeTab === "stress" && <TabStressTesting valuacionId={valuacionId} />}
         {activeTab === "concentracion" && <TabConcentracion valuacionId={valuacionId} />}
-        {activeTab === "errores" && <TabErrores />}
+        {activeTab === "errores" && <TabErrores valuacionId={valuacionId} totalCreditos={kpis.nCreditos} />}
       </div>
     </div>
   );

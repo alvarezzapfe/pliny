@@ -121,7 +121,7 @@ export default function TabConcentracion({ valuacionId }: Props) {
       {/* SECCIÓN B — TOP DEUDORES */}
       <div style={SC.section}>TOP DEUDORES</div>
       <div style={SC.card}>
-        <div style={{ display: "grid", gridTemplateColumns: "50px 1fr 140px 100px 200px", padding: "10px 24px", background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "50px 1fr 140px 100px 200px", padding: "10px 24px", background: "#F8FAFC", borderBottom: "1px solid #E2E8F0", gap: "0 8px" }}>
           {["RANK", "DEUDOR", "SALDO", "% SALDO", "PARTICIPACIÓN"].map(h => (
             <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: ".06em", fontFamily: MONO, textAlign: h === "SALDO" || h === "% SALDO" ? "right" : "left" }}>{h}</div>
           ))}
@@ -130,7 +130,7 @@ export default function TabConcentracion({ valuacionId }: Props) {
           const barW = maxDeudorSaldo > 0 ? (d.saldo / maxDeudorSaldo) * 100 : 0;
           const rankColors = ["#D97706", "#94A3B8", "#B45309"];
           return (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "50px 1fr 140px 100px 200px", padding: "12px 24px", borderBottom: i < top10.length - 1 ? "1px solid #F1F5F9" : "none", alignItems: "center" }}>
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "50px 1fr 140px 100px 200px", padding: "12px 24px", borderBottom: i < top10.length - 1 ? "1px solid #F1F5F9" : "none", alignItems: "center", gap: "0 8px" }}>
               <div style={{ fontSize: 13, fontFamily: MONO, fontWeight: 700, color: i < 3 ? rankColors[i] : "#64748B" }}>#{i + 1}</div>
               <div style={{ fontSize: 13, color: "#0F172A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }}>{d.deudor}</div>
               <div style={{ fontSize: 13, fontFamily: MONO, color: "#0F172A", textAlign: "right" }}>{fmtMoney(d.saldo)}</div>

@@ -188,7 +188,7 @@ export default function TabDetalle({ valuacionId, onSelectCredit }: Props) {
       {sorted.length > 0 && (
         <div style={{ overflowX: "auto" }}>
           {/* Header */}
-          <div style={{ display: "grid", gridTemplateColumns: GRID_COLS, padding: "10px 12px", background: "#F8FAFC", borderBottom: "1px solid #E2E8F0", minWidth: 1010 }}>
+          <div style={{ display: "grid", gridTemplateColumns: GRID_COLS, padding: "10px 12px", background: "#F8FAFC", borderBottom: "1px solid #E2E8F0", minWidth: 1010, gap: "0 8px" }}>
             {COLS.map(col => (
               <div key={col.key || col.label} onClick={() => col.sortable && col.key && toggleSort(col.key as SortKey)}
                 style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".06em", color: sortKey === col.key ? "#0F172A" : "#94A3B8", cursor: col.sortable ? "pointer" : "default",
@@ -208,7 +208,7 @@ export default function TabDetalle({ valuacionId, onSelectCredit }: Props) {
                 return (
                   <div key={c.id} onClick={() => { setSelectedId(c.id); onSelectCredit?.(c.id); }}
                     style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vRow.start}px)`, height: 44,
-                      display: "grid", gridTemplateColumns: GRID_COLS, alignItems: "center", padding: "0 12px",
+                      display: "grid", gridTemplateColumns: GRID_COLS, alignItems: "center", padding: "0 12px", gap: "0 8px",
                       borderBottom: "1px solid #F1F5F9", cursor: "pointer", transition: "background .08s",
                       background: hasError ? "#FEFCE8" : "transparent" }}
                     onMouseEnter={e => (e.currentTarget.style.background = hasError ? "#FEF9C3" : "#F8FAFC")}
