@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import * as XLSX from "xlsx";
 import KpisHero from "@/components/cartera-gestion/KpisHero";
+import CreditosTable from "@/components/cartera-gestion/CreditosTable";
 
 function Ic({ d, s = 14, c = "currentColor", sw = 1.4 }: { d: string; s?: number; c?: string; sw?: number }) {
   return (
@@ -15,49 +16,12 @@ function Ic({ d, s = 14, c = "currentColor", sw = 1.4 }: { d: string; s?: number
   );
 }
 
-const ESTATUS_STYLES: Record<string, { bg: string; color: string; border: string; dot: string; label: string }> = {
-  vigente:   { bg:"#F0FDF9", color:"#065F46", border:"#D1FAE5", dot:"#00E5A0", label:"Vigente"   },
-  mora_30:   { bg:"#FFFBEB", color:"#92400E", border:"#FDE68A", dot:"#F59E0B", label:"Mora 30+"  },
-  mora_60:   { bg:"#FFF7ED", color:"#9A3412", border:"#FED7AA", dot:"#F97316", label:"Mora 60+"  },
-  mora_90:   { bg:"#FFF1F2", color:"#881337", border:"#FECDD3", dot:"#F43F5E", label:"Mora 90+"  },
-  liquidado: { bg:"#F0F9FF", color:"#0C4A6E", border:"#BAE6FD", dot:"#38BDF8", label:"Liquidado" },
-  castigado: { bg:"#F8FAFC", color:"#475569", border:"#E2E8F0", dot:"#94A3B8", label:"Castigado" },
-};
-
-const TIPO_COLORS: Record<string, { bg: string; color: string }> = {
-  "Crédito simple":          { bg:"#EFF6FF", color:"#1E40AF" },
-  "Crédito revolvente":      { bg:"#F0FDF9", color:"#065F46" },
-  "Arrendamiento puro":      { bg:"#FFF7ED", color:"#92400E" },
-  "Arrendamiento financiero":{ bg:"#FFFBEB", color:"#854D0E" },
-};
-
-const FILTERS = ["Todos","vigente","mora_30","mora_60","mora_90","liquidado","castigado"];
-const FILTER_LABELS: Record<string,string> = {
-  "Todos":"Todos","vigente":"Vigente","mora_30":"Mora 30+","mora_60":"Mora 60+",
-  "mora_90":"Mora 90+","liquidado":"Liquidado","castigado":"Castigado"
-};
-
 export default function CarteraPage() {
-  const [filter, setFilter]   = useState("Todos");
-  const [search, setSearch]   = useState("");
-  const [rows, setRows]       = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [showConvert, setShowConvert] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  async function load() {
-    setLoading(true);
-    const { data: creds } = await supabase
-      .from("credits")
-      .select("*, clients(company_name, rfc)")
-      .order("created_at", { ascending: false });
-
-    if (creds) setRows(creds);
-    setLoading(false);
-  }
 
   async function loadSolicitudes() {
     const { data } = await supabase
@@ -68,22 +32,7 @@ export default function CarteraPage() {
     if (data) setSolicitudes(data);
   }
 
-  useEffect(() => { load(); loadSolicitudes(); }, []);
-
-  // KPIs
-  const vigentes    = rows.filter(r => r.estatus === "vigente");
-  const carteraViva = vigentes.reduce((a,r) => a + (r.saldo_actual || r.monto_original || 0), 0);
-  const mora30      = rows.filter(r => ["mora_30","mora_60","mora_90"].includes(r.estatus));
-  const moraMonto   = mora30.reduce((a,r) => a + (r.saldo_actual || 0), 0);
-  const ticketProm  = vigentes.length ? carteraViva / vigentes.length : 0;
-  const tasaProm    = vigentes.length ? vigentes.reduce((a,r) => a + r.tasa_anual, 0) / vigentes.length : 0;
-
-  const filtered = rows.filter(r =>
-    (filter === "Todos" || r.estatus === filter) &&
-    (search === "" ||
-      r.clients?.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-      r.folio?.toLowerCase().includes(search.toLowerCase()))
-  );
+  useEffect(() => { loadSolicitudes(); }, []);
 
   // ── Excel Upload ──────────────────────────────────────────
   async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -135,7 +84,6 @@ export default function CarteraPage() {
       }
 
       setUploadMsg(`✅ ${inserted} créditos cargados${errors > 0 ? ` · ${errors} con error` : ""}`);
-      load();
     } catch (err: any) {
       setUploadMsg(`❌ ${err.message}`);
     } finally {
@@ -169,7 +117,6 @@ export default function CarteraPage() {
     if (!e1) {
       await supabase.from("solicitudes").update({ status: "aprobada" }).eq("id", sol.id);
       setShowConvert(false);
-      load();
       loadSolicitudes();
     }
   }
@@ -178,18 +125,8 @@ export default function CarteraPage() {
     <div style={{ fontFamily:"'Geist',sans-serif", color:"#0F172A" }}>
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-        @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
-        @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes scaleIn{from{opacity:0;transform:scale(.97);}to{opacity:1;transform:scale(1);}}
         .fade{animation:fadeUp .45s cubic-bezier(.16,1,.3,1) both;}
-        .d1{animation-delay:.05s;}.d2{animation-delay:.12s;}.d3{animation-delay:.20s;}
-        .card{background:#fff;border:1px solid #E8EDF5;border-radius:14px;}
-        .filter-btn{padding:5px 12px;border-radius:8px;border:1px solid #E8EDF5;background:#fff;font-family:'Geist',sans-serif;font-size:11px;font-weight:500;color:#475569;cursor:pointer;transition:all .14s;white-space:nowrap;}
-        .filter-btn:hover{background:#F4F6FB;border-color:#C7D4F0;color:#0F172A;}
-        .filter-btn.active{background:#0C1E4A;color:#fff;border-color:#0C1E4A;font-weight:600;}
-        .search-inp{height:36px;background:#F8FAFC;border:1px solid #E8EDF5;border-radius:9px;padding:0 12px 0 36px;font-family:'Geist',sans-serif;font-size:13px;color:#0F172A;outline:none;width:100%;max-width:200px;min-width:140px;transition:border-color .15s,background .15s,box-shadow .15s;}
-        .search-inp::placeholder{color:#94A3B8;}
-        .search-inp:focus{border-color:#5B8DEF;background:#fff;box-shadow:0 0 0 3px rgba(91,141,239,.10);}
         .btn-primary{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#0C1E4A,#1B3F8A);color:#fff;border:none;border-radius:10px;font-family:'Geist',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;cursor:pointer;text-decoration:none;box-shadow:0 2px 12px rgba(12,30,74,.22);transition:opacity .15s,transform .15s;letter-spacing:-.01em;}
         .btn-primary:hover{opacity:.9;transform:translateY(-1px);}
         .btn-ghost{display:inline-flex;align-items:center;gap:6px;background:transparent;color:#475569;border:1px solid #E8EDF5;border-radius:10px;font-family:'Geist',sans-serif;font-size:13px;font-weight:500;padding:8px 16px;cursor:pointer;transition:all .14s;text-decoration:none;}
@@ -197,38 +134,10 @@ export default function CarteraPage() {
         .btn-green{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#059669,#10B981);color:#fff;border:none;border-radius:10px;font-family:'Geist',sans-serif;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;transition:opacity .15s;letter-spacing:-.01em;}
         .btn-green:hover{opacity:.88;}
         .mono{font-family:'Geist Mono',monospace;}
-        .cr-table{width:100%;border-collapse:collapse;}
-        .cr-table thead th{font-family:'Geist Mono',monospace;font-size:10px;color:#64748B;letter-spacing:.07em;text-transform:uppercase;padding:8px 16px;background:#FAFBFF;border-bottom:1px solid #E8EDF5;text-align:left;font-weight:500;}
-        .cr-table tbody tr{border-bottom:1px solid #F1F5F9;transition:background .12s;}
-        .cr-table tbody tr:last-child{border-bottom:none;}
-        .cr-table tbody tr:hover{background:#FAFBFF;}
-        .cr-table td{padding:11px 16px;vertical-align:middle;}
-        .tipo-pill{display:inline-flex;align-items:center;border-radius:6px;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.03em;}
-        .status-pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 8px;font-family:'Geist Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.04em;border:1px solid;}
-        .row-btn{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;background:#F8FAFC;border:1px solid #E8EDF5;cursor:pointer;transition:all .13s;color:#64748B;text-decoration:none;}
-        .row-btn:hover{background:#EEF2FF;border-color:#C7D4F0;color:#5B8DEF;}
-        .empty-float{animation:float 3s ease-in-out infinite;}
-        .spinner{animation:spin .7s linear infinite;}
         .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;display:grid;place-items:center;backdrop-filter:blur(2px);}
         .modal{background:#fff;border-radius:20px;padding:28px;width:min(560px,94vw);max-height:80vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.18);animation:scaleIn .3s cubic-bezier(.16,1,.3,1);}
         .sol-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid #E8EDF5;border-radius:12px;cursor:pointer;transition:all .14s;background:#fff;margin-bottom:8px;}
         .sol-row:hover{border-color:#93B4F8;background:#F8FBFF;}
-        .upload-zone{border:2px dashed #C7D4F0;border-radius:12px;padding:28px;text-align:center;cursor:pointer;transition:all .15s;background:#FAFBFF;}
-        .upload-zone:hover{border-color:#5B8DEF;background:#EFF6FF;}
-        .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
-
-        @media(max-width:900px){
-          .cr-table,.cr-table thead,.cr-table tbody,.cr-table tr,.cr-table th,.cr-table td{display:block;}
-          .cr-table thead{display:none;}
-          .cr-table tbody tr{padding:14px 16px;border-bottom:1px solid #E8EDF5;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;}
-          .cr-table td{padding:0;}
-          .cr-table td.col-deudor{width:100%;margin-bottom:4px;}
-          .cr-table td.col-actions{width:100%;margin-top:6px;padding-top:8px;border-top:1px solid #F1F5F9;}
-          .filter-btn{min-height:44px;padding:10px 16px;}
-          .search-inp{min-height:44px;}
-          .row-btn{width:44px;height:44px;}
-          .topbar-actions{flex-wrap:wrap;}
-        }
       `}</style>
 
       {/* TOPBAR */}
@@ -266,116 +175,8 @@ export default function CarteraPage() {
       {/* KPIs — powered by /api/cartera/kpis */}
       <KpisHero />
 
-      {/* TABLE */}
-      <div className="card fade d2" style={{ overflow:"hidden" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:"1px solid #E8EDF5", gap:12, flexWrap:"wrap" }}>
-          <div role="group" aria-label="Filtrar por estatus" style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-            {FILTERS.map(f => (
-              <button key={f} className={`filter-btn${filter===f?" active":""}`} aria-pressed={filter===f} onClick={() => setFilter(f)}>
-                {FILTER_LABELS[f]}
-              </button>
-            ))}
-          </div>
-          <div style={{ position:"relative" }}>
-            <label htmlFor="cartera-search" className="sr-only">Buscar crédito o deudor</label>
-            <div style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:"#94A3B8", pointerEvents:"none" }} aria-hidden="true">
-              <Ic d="M11 11l3 3M7 2a5 5 0 100 10A5 5 0 007 2z" s={13}/>
-            </div>
-            <input id="cartera-search" className="search-inp" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}/>
-          </div>
-        </div>
-
-        <table className="cr-table" aria-label="Cartera de créditos" aria-busy={loading}>
-          <thead>
-            <tr>
-              <th scope="col">Folio</th>
-              <th scope="col">Deudor</th>
-              <th scope="col">Tipo</th>
-              <th scope="col">Saldo</th>
-              <th scope="col">Tasa</th>
-              <th scope="col">Plazo</th>
-              <th scope="col">DPD</th>
-              <th scope="col">Estatus</th>
-              <th scope="col"><span className="sr-only">Acciones</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={9} style={{ padding:"48px 24px", textAlign:"center", color:"#64748B", fontSize:13 }}>
-                  <div style={{ display:"flex", justifyContent:"center", alignItems:"center", gap:10 }}>
-                    <svg className="spinner" width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="#5B8DEF" strokeWidth="2" aria-hidden="true"><path d="M8 2a6 6 0 016 6"/></svg>
-                    Cargando cartera...
-                  </div>
-                </td>
-              </tr>
-            )}
-
-            {!loading && filtered.length === 0 && (
-              <tr>
-                <td colSpan={9} style={{ padding:"64px 24px" }}>
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16 }}>
-                    <div className="empty-float" style={{ width:72, height:72, borderRadius:18, background:"linear-gradient(135deg,rgba(12,30,74,.06),rgba(27,63,138,.10))", border:"1px solid rgba(91,141,239,.15)", display:"grid", placeItems:"center" }} aria-hidden="true">
-                      <Ic d="M2 3h12a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1zM1 6h14" s={28} c="#5B8DEF"/>
-                    </div>
-                    <div style={{ textAlign:"center" }}>
-                      <div style={{ fontSize:15, fontWeight:700, letterSpacing:"-.02em", marginBottom:6 }}>Sin créditos en cartera</div>
-                      <div style={{ fontSize:13, color:"#64748B", maxWidth:"38ch", lineHeight:1.6 }}>
-                        Agrega un crédito manualmente, sube un Excel o convierte una solicitud aprobada.
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", gap:8 }}>
-                      <button className="btn-ghost" onClick={() => fileRef.current?.click()}>
-                        <Ic d="M8 2v8M4 6l4-4 4 4M2 13h12" s={13}/> Subir Excel
-                      </button>
-                      <Link href="/dashboard/cartera/nuevo" className="btn-primary">
-                        <Ic d="M8 2v12M2 8h12" c="#fff" s={12}/> Nuevo crédito
-                      </Link>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            )}
-
-            {!loading && filtered.map(r => {
-              const tipo = TIPO_COLORS[r.tipo] || { bg:"#F8FAFC", color:"#475569" };
-              const est  = ESTATUS_STYLES[r.estatus] || ESTATUS_STYLES["vigente"];
-              const saldo = r.saldo_actual ?? r.monto_original;
-              return (
-                <tr key={r.id}>
-                  <td className="mono" style={{ fontSize:11, color:"#64748B" }}>{r.folio}</td>
-                  <td className="col-deudor">
-                    <div style={{ fontSize:13, fontWeight:600, color:"#0F172A" }}>{r.clients?.company_name || "—"}</div>
-                    <div style={{ fontSize:11, color:"#64748B", marginTop:1 }}>{r.clients?.rfc || "—"}</div>
-                  </td>
-                  <td><span className="tipo-pill" style={{ background:tipo.bg, color:tipo.color }}>{r.tipo}</span></td>
-                  <td className="mono" style={{ fontSize:12, fontWeight:600, color:"#0F172A" }}>
-                    ${Number(saldo).toLocaleString("es-MX")}
-                  </td>
-                  <td className="mono" style={{ fontSize:12, color:"#475569" }}>{r.tasa_anual}%</td>
-                  <td style={{ fontSize:12, color:"#475569" }}>{r.plazo_meses}m</td>
-                  <td>
-                    <span className="mono" style={{ fontSize:12, fontWeight:700, color: r.dpd > 0 ? "#F43F5E" : "#64748B" }}>
-                      {r.dpd ?? 0}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="status-pill" style={{ background:est.bg, color:est.color, borderColor:est.border }}>
-                      <span style={{ width:5, height:5, borderRadius:"50%", background:est.dot, display:"inline-block" }} aria-hidden="true"/>
-                      {est.label}
-                    </span>
-                  </td>
-                  <td className="col-actions">
-                    <Link href={`/dashboard/cartera/${r.id}`} className="row-btn" aria-label={`Ver detalle de ${r.clients?.company_name || r.folio}`}>
-                      <Ic d="M3 8h10M8 4l4 4-4 4" s={12}/>
-                    </Link>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {/* TABLE — powered by /api/cartera */}
+      <CreditosTable />
 
       {/* CONVERT MODAL */}
       {showConvert && (
