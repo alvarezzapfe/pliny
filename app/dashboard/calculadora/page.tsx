@@ -1,7 +1,8 @@
-// Valuador de Cartera — step 4.11: lista de valuaciones previas
+// Valuador de Cartera — step 4.12: URL persistence
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import UploadDropzone from "@/components/cartera/UploadDropzone";
 import ResultsView from "@/components/calculadora/ResultsView";
@@ -20,6 +21,16 @@ type ValuacionData = {
 };
 
 export default function CalculadoraPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 48, textAlign: "center", color: "#94A3B8" }}>Cargando...</div>}>
+      <CalculadoraInner />
+    </Suspense>
+  );
+}
+
+function CalculadoraInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [discountRate, setDiscountRate] = useState(12);
   const [pageStatus, setPageStatus] = useState<PageStatus>("idle");
   const [valuacion, setValuacion] = useState<ValuacionData | null>(null);
@@ -27,11 +38,57 @@ export default function CalculadoraPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCount = useRef(0);
+  const initialLoadDone = useRef(false);
 
   // Cleanup polling on unmount
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
+
+  // Load valuación from URL on mount (once)
+  useEffect(() => {
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
+    const urlId = searchParams.get("id");
+    if (!urlId) return;
+
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const res = await fetch(`/api/calculadora/cartera/${urlId}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!res.ok) return; // Silent fallback to idle
+        const json = await res.json();
+        const v = json.valuacion;
+        if (!v) return;
+
+        setValuacion({
+          id: v.id,
+          n_creditos: v.n_creditos,
+          n_creditos_calculados: v.n_creditos_calculados ?? undefined,
+          npv_total_mxn: v.npv_total_mxn ?? undefined,
+          saldo_total_mxn: v.saldo_total_mxn ?? undefined,
+          el_total_mxn: v.el_total_mxn ?? undefined,
+          status: v.status,
+        });
+
+        if (v.status === "processing") {
+          setPageStatus("processing");
+        } else if (v.status === "completed_with_errors") {
+          setPageStatus("completed_with_errors");
+        } else if (v.status === "error") {
+          setPageStatus("error");
+        } else {
+          setPageStatus("completed");
+        }
+      } catch {
+        console.log("[calculadora] Failed to load valuación from URL, falling back to idle");
+      }
+    })();
+  }, [searchParams]);
 
   // Start polling when status is "processing"
   useEffect(() => {
@@ -71,6 +128,7 @@ export default function CalculadoraPage() {
             status: found.status,
           } : prev);
           setPageStatus(found.status as PageStatus);
+          router.replace(`?id=${valuacion?.id}&tab=resumen`, { scroll: false });
         }
       } catch {
         // Silently retry on network errors
@@ -112,6 +170,7 @@ export default function CalculadoraPage() {
     setValuacion(null);
     setErrors(null);
     setRefreshKey(k => k + 1);
+    router.replace("/dashboard/calculadora", { scroll: false });
   }
 
   function handleSelectValuacion(v: ValuacionSummary) {
@@ -132,6 +191,7 @@ export default function CalculadoraPage() {
     } else {
       setPageStatus("completed");
     }
+    router.replace(`?id=${v.id}&tab=resumen`, { scroll: false });
   }
 
   async function downloadPlantilla() {
@@ -239,19 +299,17 @@ export default function CalculadoraPage() {
               {(valuacion.n_creditos ?? 0) - (valuacion.n_creditos_calculados ?? 0)} crédito(s) no pudieron calcularse. Revisa la pestaña Errores.
             </div>
           )}
-          <Suspense fallback={<div style={{ padding: 48, textAlign: "center", color: "#94A3B8" }}>Cargando resultados...</div>}>
-            <ResultsView
-              valuacionId={valuacion.id}
-              kpis={{
-                npv: valuacion.npv_total_mxn ?? null,
-                saldo: valuacion.saldo_total_mxn ?? null,
-                el: valuacion.el_total_mxn ?? null,
-                nCreditos: valuacion.n_creditos,
-                nCreditosCalculados: valuacion.n_creditos_calculados ?? null,
-              }}
-              onReset={resetAll}
-            />
-          </Suspense>
+          <ResultsView
+            valuacionId={valuacion.id}
+            kpis={{
+              npv: valuacion.npv_total_mxn ?? null,
+              saldo: valuacion.saldo_total_mxn ?? null,
+              el: valuacion.el_total_mxn ?? null,
+              nCreditos: valuacion.n_creditos,
+              nCreditosCalculados: valuacion.n_creditos_calculados ?? null,
+            }}
+            onReset={resetAll}
+          />
         </div>
       )}
 
