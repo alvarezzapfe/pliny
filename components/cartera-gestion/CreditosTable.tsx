@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import type { Credito, CreditoEstatus } from "@/lib/cartera-gestion/types";
+import EditarRapidoDrawer from "./EditarRapidoDrawer";
 
 const MONO = "'Geist Mono', monospace";
 
-const GRID_COLS = "100px 1fr 160px 140px 80px 80px 60px 110px 40px";
+const GRID_COLS = "100px 1fr 160px 140px 80px 80px 60px 110px 64px";
 const COL_HEADERS = [
   { key: "folio", label: "FOLIO", align: "left" as const },
   { key: "deudor", label: "DEUDOR", align: "left" as const },
@@ -50,13 +51,14 @@ function fmtPct(n: number | null | undefined): string {
   return n.toFixed(2) + "%";
 }
 
-export default function CreditosTable({ refreshKey = 0 }: { refreshKey?: number }) {
+export default function CreditosTable({ refreshKey = 0, onCreditoUpdated }: { refreshKey?: number; onCreditoUpdated?: () => void }) {
   const router = useRouter();
   const parentRef = useRef<HTMLDivElement | null>(null);
   const [creditos, setCreditos] = useState<Credito[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [editingCredito, setEditingCredito] = useState<Credito | null>(null);
 
   const [estatus, setEstatus] = useState<string>("todos");
   const [search, setSearch] = useState("");
@@ -226,7 +228,21 @@ export default function CreditosTable({ refreshKey = 0 }: { refreshKey?: number 
                       {badge.label}
                     </span>
                   </div>
-                  <div style={{ textAlign: "center", color: "#94A3B8", fontSize: 16 }}>→</div>
+                  <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingCredito(c); }}
+                      title="Edición rápida"
+                      style={{
+                        width: 26, height: 26, borderRadius: 6, border: "1px solid #E2E8F0",
+                        background: "#FFFFFF", color: "#64748B", fontSize: 13,
+                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all .1s",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#93B4F8"; e.currentTarget.style.color = "#1B3F8A"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "#E2E8F0"; e.currentTarget.style.color = "#64748B"; }}
+                    >✏</button>
+                    <div style={{ color: "#94A3B8", fontSize: 14, display: "flex", alignItems: "center" }}>→</div>
+                  </div>
                 </div>
               );
             })}
@@ -247,6 +263,17 @@ export default function CreditosTable({ refreshKey = 0 }: { refreshKey?: number 
           }}>limpiar filtros</button></span>
         )}
       </div>
+
+      <EditarRapidoDrawer
+        credito={editingCredito}
+        open={!!editingCredito}
+        onClose={() => setEditingCredito(null)}
+        onSaved={() => {
+          setEditingCredito(null);
+          load();
+          onCreditoUpdated?.();
+        }}
+      />
     </div>
   );
 }

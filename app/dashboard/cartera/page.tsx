@@ -197,7 +197,7 @@ export default function CarteraPage() {
       <KpisHero key={refreshKey} />
 
       {/* TABLE — powered by /api/cartera */}
-      <CreditosTable refreshKey={refreshKey} />
+      <CreditosTable refreshKey={refreshKey} onCreditoUpdated={() => setRefreshKey(k => k + 1)} />
 
       {/* CONVERT MODAL */}
       {showConvert && (
