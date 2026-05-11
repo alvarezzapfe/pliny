@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -66,6 +66,64 @@ export default function NuevoCreditoPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const lastAutoVencRef = useRef<string>("");
+  const lastAutoPlazoRef = useRef<string>("");
+
+  function addMonths(dateStr: string, months: number): string {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    date.setMonth(date.getMonth() + months);
+    const targetMonth = (m - 1 + months) % 12;
+    if (date.getMonth() !== (targetMonth + 12) % 12) {
+      date.setDate(0);
+    }
+    return date.toISOString().split("T")[0];
+  }
+
+  function monthsBetween(startStr: string, endStr: string): number {
+    const [sy, sm, sd] = startStr.split("-").map(Number);
+    const [ey, em, ed] = endStr.split("-").map(Number);
+    let months = (ey - sy) * 12 + (em - sm);
+    if (ed < sd) months -= 1;
+    return Math.max(0, months);
+  }
+
+  function handleFechaInicioChange(v: string) {
+    setFechaInicio(v);
+    if (!v) return;
+    if (plazoMeses && (!fechaVencimiento || fechaVencimiento === lastAutoVencRef.current)) {
+      const newVenc = addMonths(v, parseInt(plazoMeses, 10));
+      setFechaVencimiento(newVenc);
+      lastAutoVencRef.current = newVenc;
+    } else if (fechaVencimiento && (!plazoMeses || plazoMeses === lastAutoPlazoRef.current)) {
+      const newPlazo = monthsBetween(v, fechaVencimiento).toString();
+      setPlazoMeses(newPlazo);
+      lastAutoPlazoRef.current = newPlazo;
+    }
+  }
+
+  function handlePlazoMesesChange(v: string) {
+    setPlazoMeses(v);
+    if (!v || !fechaInicio) return;
+    const meses = parseInt(v, 10);
+    if (isNaN(meses) || meses <= 0) return;
+    if (!fechaVencimiento || fechaVencimiento === lastAutoVencRef.current) {
+      const newVenc = addMonths(fechaInicio, meses);
+      setFechaVencimiento(newVenc);
+      lastAutoVencRef.current = newVenc;
+    }
+  }
+
+  function handleFechaVencimientoChange(v: string) {
+    setFechaVencimiento(v);
+    if (!v || !fechaInicio) return;
+    if (!plazoMeses || plazoMeses === lastAutoPlazoRef.current) {
+      const newPlazo = monthsBetween(fechaInicio, v).toString();
+      setPlazoMeses(newPlazo);
+      lastAutoPlazoRef.current = newPlazo;
+    }
+  }
 
   function handleMontoChange(v: string) {
     setMontoOriginal(v);
@@ -229,7 +287,7 @@ export default function NuevoCreditoPage() {
             </div>
             <div>
               <label style={LABEL}>Plazo (meses)</label>
-              <input type="number" value={plazoMeses} onChange={e => setPlazoMeses(e.target.value)}
+              <input type="number" value={plazoMeses} onChange={e => handlePlazoMesesChange(e.target.value)}
                 placeholder="36" min={1} max={600} step={1}
                 style={{ ...INPUT_MONO, borderColor: errors.plazo_meses ? "#DC2626" : "#E2E8F0" }} />
               {errors.plazo_meses && <div style={ERROR_MSG}>{errors.plazo_meses}</div>}
@@ -250,12 +308,12 @@ export default function NuevoCreditoPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
             <div>
               <label style={LABEL}>Fecha inicio</label>
-              <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
+              <input type="date" value={fechaInicio} onChange={e => handleFechaInicioChange(e.target.value)}
                 style={INPUT_MONO} />
             </div>
             <div>
               <label style={LABEL}>Fecha vencimiento</label>
-              <input type="date" value={fechaVencimiento} onChange={e => setFechaVencimiento(e.target.value)}
+              <input type="date" value={fechaVencimiento} onChange={e => handleFechaVencimientoChange(e.target.value)}
                 style={INPUT_MONO} />
             </div>
           </div>
