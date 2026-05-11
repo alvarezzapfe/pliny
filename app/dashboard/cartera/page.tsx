@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import * as XLSX from "xlsx";
+import KpisHero from "@/components/cartera-gestion/KpisHero";
 
 function Ic({ d, s = 14, c = "currentColor", sw = 1.4 }: { d: string; s?: number; c?: string; sw?: number }) {
   return (
@@ -262,38 +263,8 @@ export default function CarteraPage() {
         </div>
       )}
 
-      {/* KPIs */}
-      <div className="fade d1" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:12, marginBottom:12 }}>
-        {[
-          { label:"Cartera viva",     val:`$${(carteraViva/1e6).toFixed(1)}M`,   sub:"saldo vigente MXN" },
-          { label:"Créditos activos", val:String(vigentes.length),                sub:"créditos vigentes" },
-          { label:"Mora 30+",         val:`$${(moraMonto/1e6).toFixed(1)}M`,      sub:`${mora30.length} créditos` },
-          { label:"Yield prom.",      val:`${tasaProm.toFixed(1)}%`,              sub:"tasa anual promedio" },
-        ].map(k => (
-          <div key={k.label} className="card" style={{ padding:"16px 18px" }}>
-            <div className="mono" style={{ fontSize:10, color:"#64748B", letterSpacing:".09em", textTransform:"uppercase", marginBottom:8 }}>{k.label}</div>
-            <div style={{ fontSize:24, fontWeight:800, letterSpacing:"-.05em", color:"#0F172A", lineHeight:1 }}>{k.val}</div>
-            <div style={{ fontSize:11, color:"#64748B", marginTop:5 }}>{k.sub}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Secondary KPIs */}
-      <div className="fade d1" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))", gap:12, marginBottom:20 }}>
-        {[
-          { label:"Ticket promedio", val:`$${(ticketProm/1e6).toFixed(2)}M`, sub:"promedio por crédito" },
-          { label:"Plazo prom.",     val: vigentes.length ? `${Math.round(vigentes.reduce((a,r)=>a+r.plazo_meses,0)/vigentes.length)} meses` : "—", sub:"plazo promedio" },
-          { label:"Total créditos",  val: String(rows.length), sub:"en cartera" },
-        ].map(k => (
-          <div key={k.label} className="card" style={{ padding:"14px 18px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <div>
-              <div className="mono" style={{ fontSize:10, color:"#64748B", letterSpacing:".09em", textTransform:"uppercase", marginBottom:4 }}>{k.label}</div>
-              <div style={{ fontSize:18, fontWeight:800, letterSpacing:"-.04em", color:"#0F172A" }}>{k.val}</div>
-            </div>
-            <div style={{ fontSize:11, color:"#64748B" }}>{k.sub}</div>
-          </div>
-        ))}
-      </div>
+      {/* KPIs — powered by /api/cartera/kpis */}
+      <KpisHero />
 
       {/* TABLE */}
       <div className="card fade d2" style={{ overflow:"hidden" }}>
