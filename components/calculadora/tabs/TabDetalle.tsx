@@ -5,6 +5,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import type { CreditoDetalle } from "@/lib/cartera/types";
+import CreditDetailModal from "@/components/calculadora/CreditDetailModal";
 
 type Props = { valuacionId: string; onSelectCredit?: (id: string) => void };
 type SortKey = "folio_credito" | "deudor" | "sector" | "saldo_insoluto_mxn" | "tasa_nominal_anual" | "fecha_vencimiento" | "dpd" | "npv" | "expected_loss";
@@ -48,6 +49,7 @@ export default function TabDetalle({ valuacionId, onSelectCredit }: Props) {
   const [sectorDropdownOpen, setSectorDropdownOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Debounce search
@@ -204,7 +206,7 @@ export default function TabDetalle({ valuacionId, onSelectCredit }: Props) {
                 const c = sorted[vRow.index];
                 const hasError = !!c.calc_error;
                 return (
-                  <div key={c.id} onClick={() => { onSelectCredit?.(c.id); console.log("[TabDetalle] selected:", c.id); }}
+                  <div key={c.id} onClick={() => { setSelectedId(c.id); onSelectCredit?.(c.id); }}
                     style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vRow.start}px)`, height: 44,
                       display: "grid", gridTemplateColumns: GRID_COLS, alignItems: "center", padding: "0 12px",
                       borderBottom: "1px solid #F1F5F9", cursor: "pointer", transition: "background .08s",
@@ -229,6 +231,11 @@ export default function TabDetalle({ valuacionId, onSelectCredit }: Props) {
           </div>
         </div>
       )}
+
+      <CreditDetailModal
+        credito={selectedId ? (sorted.find(c => c.id === selectedId) ?? null) : null}
+        onClose={() => setSelectedId(null)}
+      />
     </div>
   );
 }
