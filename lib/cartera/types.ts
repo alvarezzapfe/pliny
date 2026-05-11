@@ -30,3 +30,22 @@ export type ConcentracionData = {
   sector_distribution?: Record<string, number>;
   dpd_buckets?: Record<string, number>;
 };
+
+export type CreditoDetalle = {
+  id: string;
+  folio_credito: string;
+  deudor: string;
+  sector: string;
+  tipo_credito: string;
+  saldo_insoluto_mxn: number | null;
+  tasa_nominal_anual: number | null;
+  fecha_vencimiento: string;
+  dpd: number;
+  npv: number | null;
+  expected_loss: number | null;
+  ytm: number | null;
+  duration_modified: number | null;
+  wal: number | null;
+  risk_adjusted_npv: number | null;
+  calc_error: string | null;
+};
