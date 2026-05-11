@@ -128,7 +128,7 @@ export default function ResultsView({ valuacionId, kpis, onReset }: Props) {
         {activeTab === "resumen" && <TabResumenEjecutivo valuacionId={valuacionId} />}
         {activeTab === "detalle" && <TabDetalle valuacionId={valuacionId} />}
         {activeTab === "stress" && <TabStressTesting valuacionId={valuacionId} />}
-        {activeTab === "concentracion" && <TabConcentracion />}
+        {activeTab === "concentracion" && <TabConcentracion valuacionId={valuacionId} />}
         {activeTab === "errores" && <TabErrores />}
       </div>
     </div>
