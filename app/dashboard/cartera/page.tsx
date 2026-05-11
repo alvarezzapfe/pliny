@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import * as XLSX from "xlsx";
 import KpisHero from "@/components/cartera-gestion/KpisHero";
 import CreditosTable from "@/components/cartera-gestion/CreditosTable";
 
@@ -21,6 +20,7 @@ export default function CarteraPage() {
   const [uploadMsg, setUploadMsg] = useState("");
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [showConvert, setShowConvert] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function loadSolicitudes() {
@@ -34,7 +34,7 @@ export default function CarteraPage() {
 
   useEffect(() => { loadSolicitudes(); }, []);
 
-  // ── Excel Upload ──────────────────────────────────────────
+  // ── Excel Upload via /api/cartera/bulk-upload ─────────────
   async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -42,81 +42,95 @@ export default function CarteraPage() {
     setUploadMsg("");
 
     try {
-      const buf = await file.arrayBuffer();
-      const wb  = XLSX.read(buf);
-      const ws  = wb.Sheets[wb.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json(ws, { range: 4 }) as any[]; // skip title/subtitle/headers/fieldnames
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sin sesión");
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Sin sesión");
+      const formData = new FormData();
+      formData.append("file", file);
 
-      // Map RFC → client_id
-      const rfcs = [...new Set(raw.map((r:any) => r.rfc).filter(Boolean))];
-      const { data: clients } = await supabase.from("clients").select("id,rfc").in("rfc", rfcs);
-      const rfcMap: Record<string,string> = {};
-      clients?.forEach((c:any) => { rfcMap[c.rfc] = c.id; });
+      const res = await fetch("/api/cartera/bulk-upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: formData,
+      });
 
-      let inserted = 0, errors = 0;
-      for (const r of raw) {
-        if (!r.deudor || !r.monto_original || !r.fecha_inicio) { errors++; continue; }
-        const clientId = rfcMap[r.rfc] || null;
-        if (!clientId) { errors++; continue; }
+      const json = await res.json();
 
-        const { error } = await supabase.from("credits").insert({
-          client_id:        clientId,
-          created_by:       user.id,
-          tipo:             r.tipo_credito || "Crédito simple",
-          amortiza:         r.amortiza || "SI",
-          monto_original:   Number(r.monto_original),
-          saldo_actual:     Number(r.saldo_actual || r.monto_original),
-          tasa_anual:       Number(r.tasa_anual),
-          plazo_meses:      Number(r.plazo_meses),
-          garantia:         r.garantia || null,
-          fecha_inicio:     r.fecha_inicio,
-          fecha_vencimiento:r.fecha_vencimiento || null,
-          dpd:              Number(r.dpd || 0),
-          ultimo_pago:      r.ultimo_pago || null,
-          estatus:          r.estatus || "vigente",
-          notas:            r.notas || null,
-          fuente:           "excel",
-        });
-        if (error) errors++; else inserted++;
+      if (!res.ok) {
+        setUploadMsg(`Error: ${json.error}`);
+        return;
       }
 
-      setUploadMsg(`✅ ${inserted} créditos cargados${errors > 0 ? ` · ${errors} con error` : ""}`);
+      const errCount = json.errors_count ?? 0;
+      setUploadMsg(
+        `${json.inserted} créditos cargados de ${json.total_rows} filas` +
+        (errCount > 0 ? ` · ${errCount} con error` : ""),
+      );
+
+      if (json.inserted > 0) {
+        setRefreshKey(k => k + 1);
+      }
     } catch (err: any) {
-      setUploadMsg(`❌ ${err.message}`);
+      setUploadMsg(`Error: ${err.message}`);
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   }
 
+  // ── Download plantilla via /api/cartera/plantilla ─────────
+  async function handleDownloadPlantilla() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/cartera/plantilla", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "plantilla_cartera_plinius.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[Cartera] plantilla download error", err);
+    }
+  }
+
   // ── Convert solicitud → crédito ──────────────────────────
   async function convertirSolicitud(sol: any) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
     const p = sol.payload;
 
-    const { error: e1 } = await supabase.from("credits").insert({
-      solicitud_id:     sol.id,
-      client_id:        p.client_id,
-      created_by:       user.id,
-      tipo:             p.tipo || "Crédito simple",
-      amortiza:         "SI",
-      monto_original:   p.monto,
-      saldo_actual:     p.monto,
-      tasa_anual:       parseFloat(p.tasa_referencia) || 0,
-      plazo_meses:      p.plazo_valor,
-      garantia:         p.garantia || null,
-      fecha_inicio:     new Date().toISOString().split("T")[0],
-      estatus:          "vigente",
-      fuente:           "solicitud",
+    const res = await fetch("/api/cartera", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        solicitud_id: sol.id,
+        client_id: p.client_id || undefined,
+        deudor: p.deudor || p.empresa || "Sin nombre",
+        tipo_credito: p.tipo || "Crédito simple",
+        amortiza: "SI",
+        monto_original: Number(p.monto) || 0,
+        saldo_actual: Number(p.monto) || 0,
+        tasa_anual: parseFloat(p.tasa_referencia) || undefined,
+        plazo_meses: Number(p.plazo_valor) || undefined,
+        garantia: p.garantia || undefined,
+        fecha_inicio: new Date().toISOString().split("T")[0],
+        estatus: "vigente",
+      }),
     });
 
-    if (!e1) {
+    if (res.ok) {
       await supabase.from("solicitudes").update({ status: "aprobada" }).eq("id", sol.id);
       setShowConvert(false);
+      setRefreshKey(k => k + 1);
       loadSolicitudes();
     }
   }
@@ -155,10 +169,10 @@ export default function CarteraPage() {
           <button className="btn-ghost" onClick={() => fileRef.current?.click()} disabled={uploading}>
             <Ic d="M8 2v8M4 6l4-4 4 4M2 13h12" s={13}/> Subir Excel
           </button>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display:"none" }} onChange={handleExcelUpload} aria-label="Subir archivo Excel"/>
-          <a href="/plantilla_cartera.xlsx" download className="btn-ghost">
+          <input ref={fileRef} type="file" accept=".xlsx" style={{ display:"none" }} onChange={handleExcelUpload} aria-label="Subir archivo Excel"/>
+          <button className="btn-ghost" onClick={handleDownloadPlantilla}>
             <Ic d="M8 2v8M4 10l4 4 4-4M2 14h12" s={13}/> Plantilla
-          </a>
+          </button>
           <Link href="/dashboard/cartera/nuevo" className="btn-primary">
             <Ic d="M8 2v12M2 8h12" c="#fff" s={13}/> Nuevo crédito
           </Link>
@@ -167,16 +181,23 @@ export default function CarteraPage() {
 
       {/* Upload message */}
       {uploadMsg && (
-        <div style={{ marginBottom:16, padding:"10px 16px", background: uploadMsg.startsWith("✅") ? "#F0FDF9" : "#FFF1F2", border:`1px solid ${uploadMsg.startsWith("✅") ? "#D1FAE5" : "#FECDD3"}`, borderRadius:10, fontSize:13, color: uploadMsg.startsWith("✅") ? "#065F46" : "#881337" }}>
-          {uploadMsg}
+        <div style={{
+          marginBottom: 16, padding: "10px 16px", borderRadius: 10, fontSize: 13,
+          background: uploadMsg.startsWith("Error") ? "#FFF1F2" : "#F0FDF9",
+          border: `1px solid ${uploadMsg.startsWith("Error") ? "#FECDD3" : "#D1FAE5"}`,
+          color: uploadMsg.startsWith("Error") ? "#881337" : "#065F46",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <span>{uploadMsg}</span>
+          <button onClick={() => setUploadMsg("")} style={{ background:"none", border:"none", cursor:"pointer", color:"inherit", fontSize:16 }}>×</button>
         </div>
       )}
 
       {/* KPIs — powered by /api/cartera/kpis */}
-      <KpisHero />
+      <KpisHero key={refreshKey} />
 
       {/* TABLE — powered by /api/cartera */}
-      <CreditosTable />
+      <CreditosTable refreshKey={refreshKey} />
 
       {/* CONVERT MODAL */}
       {showConvert && (
