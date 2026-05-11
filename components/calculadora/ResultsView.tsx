@@ -125,7 +125,7 @@ export default function ResultsView({ valuacionId, kpis, onReset }: Props) {
 
       {/* Tab panel */}
       <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderTop: "none", borderRadius: "0 0 8px 8px", minHeight: 200 }}>
-        {activeTab === "resumen" && <TabResumenEjecutivo />}
+        {activeTab === "resumen" && <TabResumenEjecutivo valuacionId={valuacionId} />}
         {activeTab === "detalle" && <TabDetalle />}
         {activeTab === "stress" && <TabStressTesting />}
         {activeTab === "concentracion" && <TabConcentracion />}
