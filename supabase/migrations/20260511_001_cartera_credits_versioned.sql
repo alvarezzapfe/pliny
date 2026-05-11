@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.credits (
   fecha_vencimiento date,                                                -- fecha de vencimiento contractual
   ultimo_pago       date,                                                -- fecha del último pago recibido
   dpd               integer     DEFAULT 0,                               -- days past due (días de mora)
-  estatus           text        NOT NULL DEFAULT 'activo',               -- activo | mora | liquidado | reestructurado | castigado
+  estatus           text        NOT NULL DEFAULT 'vigente',              -- vigente | mora_30 | mora_60 | mora_90 | liquidado | castigado
   notas             text,                                                -- notas internas del lender
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
@@ -142,6 +142,25 @@ CREATE POLICY "credits_delete_own" ON public.credits
   FOR DELETE USING (auth.uid() = created_by);
 
 -- Service role bypasses RLS by default (para API routes server-side)
+
+-- ── 7. NORMALIZAR ESTATUS ──────────────────────────────────────────────────
+-- El código viejo usaba 'activo' como default. Normalizamos a enum cerrado.
+-- No hay datos reales en producción (solo 1 fila de prueba), safe to update.
+
+-- 7a. Migrar filas con valores viejos al nuevo enum
+UPDATE public.credits SET estatus = 'vigente' WHERE estatus = 'activo';
+UPDATE public.credits SET estatus = 'vigente' WHERE estatus NOT IN ('vigente', 'mora_30', 'mora_60', 'mora_90', 'liquidado', 'castigado');
+
+-- 7b. Cambiar default a 'vigente'
+ALTER TABLE public.credits ALTER COLUMN estatus SET DEFAULT 'vigente';
+
+-- 7c. CHECK constraint para enforcer enum cerrado
+ALTER TABLE public.credits DROP CONSTRAINT IF EXISTS credits_estatus_check;
+ALTER TABLE public.credits ADD CONSTRAINT credits_estatus_check
+  CHECK (estatus IN ('vigente', 'mora_30', 'mora_60', 'mora_90', 'liquidado', 'castigado'));
+
+-- 7d. Verificación: si quedan filas inválidas, el CHECK de arriba falla
+--     y la migration se rollbackea automáticamente. No se necesita lógica extra.
 
 -- ============================================================================
 -- FIN DE MIGRATION
