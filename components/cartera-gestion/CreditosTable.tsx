@@ -232,15 +232,23 @@ export default function CreditosTable({ refreshKey = 0, onCreditoUpdated }: { re
                     <button
                       onClick={(e) => { e.stopPropagation(); setEditingCredito(c); }}
                       title="Edición rápida"
+                      aria-label="Edición rápida"
                       style={{
                         width: 26, height: 26, borderRadius: 6, border: "1px solid #E2E8F0",
-                        background: "#FFFFFF", color: "#64748B", fontSize: 13,
+                        background: "#FFFFFF", color: "#64748B",
                         cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                         transition: "all .1s",
                       }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = "#93B4F8"; e.currentTarget.style.color = "#1B3F8A"; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = "#E2E8F0"; e.currentTarget.style.color = "#64748B"; }}
-                    >✏</button>
+                    >
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"
+                        stroke="currentColor" strokeWidth="1.5"
+                        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M11.5 1.5l3 3L5 14H2v-3l9.5-9.5z" />
+                        <path d="M9 4l3 3" />
+                      </svg>
+                    </button>
                     <div style={{ color: "#94A3B8", fontSize: 14, display: "flex", alignItems: "center" }}>→</div>
                   </div>
                 </div>

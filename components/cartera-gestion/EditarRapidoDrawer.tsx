@@ -44,6 +44,8 @@ export default function EditarRapidoDrawer({ credito, open, onClose, onSaved }: 
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!credito) return;
@@ -53,6 +55,7 @@ export default function EditarRapidoDrawer({ credito, open, onClose, onSaved }: 
     setUltimoPago(credito.ultimo_pago ? credito.ultimo_pago.split("T")[0] : "");
     setNotas(credito.notas || "");
     setError(null);
+    setShowDeleteConfirm(false);
   }, [credito]);
 
   useEffect(() => {
@@ -103,6 +106,36 @@ export default function EditarRapidoDrawer({ credito, open, onClose, onSaved }: 
       setError("Error de red. Intenta de nuevo.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!credito) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setError("Sin sesión"); return; }
+
+      const res = await fetch(`/api/cartera/${credito.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error || "Error al eliminar");
+        return;
+      }
+
+      onSaved();
+      onClose();
+    } catch (e) {
+      console.error("[EditarRapidoDrawer] delete", e);
+      setError("Error de red");
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   }
 
@@ -210,27 +243,90 @@ export default function EditarRapidoDrawer({ credito, open, onClose, onSaved }: 
         {/* Footer */}
         <div style={{
           padding: "16px 24px", borderTop: "1px solid #E2E8F0",
-          display: "flex", justifyContent: "flex-end", gap: 8,
-          background: "#F8FAFC",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          gap: 8, background: "#F8FAFC",
         }}>
-          <button onClick={onClose} disabled={saving}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={saving || deleting}
             style={{
-              padding: "9px 18px", borderRadius: 8,
-              border: "1px solid #E2E8F0", background: "#FFFFFF", color: "#0F172A",
-              fontSize: 13, fontWeight: 600,
-              cursor: saving ? "wait" : "pointer",
-            }}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving}
-            style={{
-              padding: "9px 20px", borderRadius: 8,
-              border: "none", background: "#0C1E4A", color: "#FFFFFF",
-              fontSize: 13, fontWeight: 600,
-              cursor: saving ? "wait" : "pointer",
-              opacity: saving ? 0.6 : 1,
+              padding: "9px 14px", borderRadius: 8,
+              border: "1px solid #FECACA", background: "#FFFFFF", color: "#DC2626",
+              fontSize: 12, fontWeight: 600,
+              cursor: (saving || deleting) ? "not-allowed" : "pointer",
+              display: "inline-flex", alignItems: "center", gap: 6,
             }}>
-            {saving ? "Guardando..." : "Guardar cambios"}
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"
+              stroke="currentColor" strokeWidth="1.5"
+              strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M2 4h12M5.5 4V2.5a1 1 0 011-1h3a1 1 0 011 1V4M4 4l1 10a1 1 0 001 1h4a1 1 0 001-1l1-10" />
+            </svg>
+            Eliminar
           </button>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onClose} disabled={saving || deleting}
+              style={{
+                padding: "9px 18px", borderRadius: 8,
+                border: "1px solid #E2E8F0", background: "#FFFFFF", color: "#0F172A",
+                fontSize: 13, fontWeight: 600,
+                cursor: (saving || deleting) ? "not-allowed" : "pointer",
+              }}>Cancelar</button>
+            <button onClick={handleSave} disabled={saving || deleting}
+              style={{
+                padding: "9px 20px", borderRadius: 8,
+                border: "none", background: "#0C1E4A", color: "#FFFFFF",
+                fontSize: 13, fontWeight: 600,
+                cursor: (saving || deleting) ? "wait" : "pointer",
+                opacity: (saving || deleting) ? 0.6 : 1,
+              }}>
+              {saving ? "Guardando..." : "Guardar cambios"}
+            </button>
+          </div>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div style={{
+            position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)",
+            display: "grid", placeItems: "center", zIndex: 1001,
+            animation: "fadeIn .15s ease-out",
+          }} onClick={() => !deleting && setShowDeleteConfirm(false)}>
+            <div onClick={e => e.stopPropagation()}
+              style={{
+                background: "#FFFFFF", borderRadius: 12, padding: 24,
+                maxWidth: 420, width: "90%",
+                boxShadow: "0 24px 64px rgba(0,0,0,0.24)",
+              }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#0F172A", marginBottom: 8 }}>
+                ¿Eliminar este crédito?
+              </div>
+              <div style={{ fontSize: 13, color: "#64748B", marginBottom: 20, lineHeight: 1.5 }}>
+                Vas a eliminar permanentemente <strong style={{ color: "#0F172A" }}>{credito.folio}</strong>{" "}
+                ({credito.deudor}). Esta acción no se puede deshacer.
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button onClick={() => setShowDeleteConfirm(false)} disabled={deleting}
+                  style={{
+                    padding: "9px 18px", borderRadius: 8,
+                    border: "1px solid #E2E8F0", background: "#FFFFFF", color: "#0F172A",
+                    fontSize: 13, fontWeight: 600,
+                    cursor: deleting ? "wait" : "pointer",
+                  }}>Cancelar</button>
+                <button onClick={handleDelete} disabled={deleting}
+                  style={{
+                    padding: "9px 18px", borderRadius: 8,
+                    border: "none", background: "#DC2626", color: "#FFFFFF",
+                    fontSize: 13, fontWeight: 600,
+                    cursor: deleting ? "wait" : "pointer",
+                    opacity: deleting ? 0.6 : 1,
+                  }}>
+                  {deleting ? "Eliminando..." : "Sí, eliminar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
