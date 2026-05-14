@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import KpisHero from "@/components/cartera-gestion/KpisHero";
 import CreditosTable from "@/components/cartera-gestion/CreditosTable";
+import ValuarCarteraButton from "@/components/cartera-gestion/ValuarCarteraButton";
 
 function Ic({ d, s = 14, c = "currentColor", sw = 1.4 }: { d: string; s?: number; c?: string; sw?: number }) {
   return (
@@ -173,6 +174,7 @@ export default function CarteraPage() {
           <button className="btn-ghost" onClick={handleDownloadPlantilla}>
             <Ic d="M8 2v8M4 10l4 4 4-4M2 14h12" s={13}/> Plantilla
           </button>
+          <ValuarCarteraButton onValuationComplete={() => setRefreshKey(k => k + 1)} />
           <Link href="/dashboard/cartera/nuevo" className="btn-primary">
             <Ic d="M8 2v12M2 8h12" c="#fff" s={13}/> Nuevo crédito
           </Link>
