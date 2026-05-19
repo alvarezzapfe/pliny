@@ -2,6 +2,7 @@
 // POST /api/workspaces/[id]/members  — add member by email (owner/admin only)
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getAuthedClient, getAdminClient } from "@/lib/deals/api-helpers";
 import { z } from "zod";
 
 const MemberInputSchema = z.object({
@@ -9,33 +10,20 @@ const MemberInputSchema = z.object({
   role: z.enum(["owner", "admin", "member"]),
 });
 
-async function getAuthedClient(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return { client: null, user: null, error: "Sin autorización" as const };
-  }
-  const token = authHeader.slice(7);
-  const client = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-    },
-  );
-  const { data: { user }, error } = await client.auth.getUser(token);
-  if (error || !user) return { client: null, user: null, error: "Usuario no autenticado" as const };
-  await client.auth.setSession({ access_token: token, refresh_token: "" });
-  return { client, user, error: null };
-}
-
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { client, user, error } = await getAuthedClient(req);
-    if (error || !client || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    const { user, error } = await getAuthedClient(req);
+    if (error || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
 
-    const { data: members, error: errMem } = await client
+    const admin = getAdminClient();
+
+    // Verify caller is member
+    const { data: mem } = await admin.from("workspace_members")
+      .select("role").eq("workspace_id", id).eq("user_id", user.id).maybeSingle();
+    if (!mem) return NextResponse.json({ error: "Sin acceso a este workspace" }, { status: 403 });
+
+    const { data: members, error: errMem } = await admin
       .from("workspace_members")
       .select("workspace_id, user_id, role, added_by, joined_at")
       .eq("workspace_id", id)
@@ -45,15 +33,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ members: members ?? [] });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: workspaceId } = await params;
-    const { client, user, error } = await getAuthedClient(req);
-    if (error || !client || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    const { user, error } = await getAuthedClient(req);
+    if (error || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+
+    const admin = getAdminClient();
+
+    // Verify caller is owner/admin
+    const { data: callerMem } = await admin.from("workspace_members")
+      .select("role").eq("workspace_id", workspaceId).eq("user_id", user.id).maybeSingle();
+    if (!callerMem || !["owner", "admin"].includes(callerMem.role)) {
+      return NextResponse.json({ error: "Solo owner/admin pueden agregar members" }, { status: 403 });
+    }
 
     const body = await req.json();
     const parsed = MemberInputSchema.safeParse(body);
@@ -61,17 +58,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Datos inválidos", details: parsed.error.flatten() }, { status: 400 });
     }
 
-    // Service role client for user lookup by email
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceKey) return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-
-    const adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceKey,
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    );
-
-    const { data: { users }, error: errLookup } = await adminClient.auth.admin.listUsers();
+    // Lookup user by email via admin auth
+    const { data: { users }, error: errLookup } = await admin.auth.admin.listUsers();
     if (errLookup) {
       console.error("[POST members] lookup", errLookup);
       return NextResponse.json({ error: "Error buscando usuario" }, { status: 500 });
@@ -84,28 +72,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }, { status: 404 });
     }
 
-    // Insert membership using authed client (RLS validates owner/admin)
-    const { data: member, error: errIns } = await client
+    const { data: member, error: errIns } = await admin
       .from("workspace_members")
-      .insert({
-        workspace_id: workspaceId,
-        user_id: target.id,
-        role: parsed.data.role,
-        added_by: user.id,
-      })
-      .select()
-      .single();
+      .insert({ workspace_id: workspaceId, user_id: target.id, role: parsed.data.role, added_by: user.id })
+      .select().single();
 
     if (errIns) {
-      if (errIns.code === "23505") {
-        return NextResponse.json({ error: "Este usuario ya es member del workspace" }, { status: 409 });
-      }
+      if (errIns.code === "23505") return NextResponse.json({ error: "Este usuario ya es member" }, { status: 409 });
       console.error("[POST members]", errIns);
       return NextResponse.json({ error: errIns.message }, { status: 500 });
     }
 
     return NextResponse.json({ member }, { status: 201 });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }

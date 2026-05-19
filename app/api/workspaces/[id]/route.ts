@@ -1,8 +1,8 @@
 // GET    /api/workspaces/[id]  — workspace detail
-// PATCH  /api/workspaces/[id]  — update (owner only via RLS)
-// DELETE /api/workspaces/[id]  — delete (owner only via RLS)
+// PATCH  /api/workspaces/[id]  — update (owner only)
+// DELETE /api/workspaces/[id]  — delete (owner only)
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAuthedClient, getAdminClient } from "@/lib/deals/api-helpers";
 import { z } from "zod";
 
 const WorkspacePatchSchema = z.object({
@@ -10,51 +10,42 @@ const WorkspacePatchSchema = z.object({
   description: z.string().max(500).nullable().optional(),
 });
 
-async function getAuthedClient(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return { client: null, user: null, error: "Sin autorización" as const };
-  }
-  const token = authHeader.slice(7);
-  const client = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-    },
-  );
-  const { data: { user }, error } = await client.auth.getUser(token);
-  if (error || !user) return { client: null, user: null, error: "Usuario no autenticado" as const };
-  await client.auth.setSession({ access_token: token, refresh_token: "" });
-  return { client, user, error: null };
-}
-
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { client, user, error } = await getAuthedClient(req);
-    if (error || !client || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    const { user, error } = await getAuthedClient(req);
+    if (error || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
 
-    const { data: ws, error: errWs } = await client
+    const admin = getAdminClient();
+
+    // Verify membership
+    const { data: mem } = await admin.from("workspace_members")
+      .select("role").eq("workspace_id", id).eq("user_id", user.id).maybeSingle();
+    if (!mem) return NextResponse.json({ error: "Workspace no encontrado" }, { status: 404 });
+
+    const { data: ws, error: errWs } = await admin
       .from("workspaces").select("*").eq("id", id).single();
 
-    if (errWs) {
-      if (errWs.code === "PGRST116") return NextResponse.json({ error: "Workspace no encontrado" }, { status: 404 });
-      return NextResponse.json({ error: errWs.message }, { status: 500 });
-    }
+    if (errWs) return NextResponse.json({ error: errWs.message }, { status: 500 });
 
     return NextResponse.json({ workspace: ws });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { client, user, error } = await getAuthedClient(req);
-    if (error || !client || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    const { user, error } = await getAuthedClient(req);
+    if (error || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+
+    const admin = getAdminClient();
+
+    // Only owner can update
+    const { data: ws } = await admin.from("workspaces").select("owner_user_id").eq("id", id).maybeSingle();
+    if (!ws) return NextResponse.json({ error: "Workspace no encontrado" }, { status: 404 });
+    if (ws.owner_user_id !== user.id) return NextResponse.json({ error: "Solo el owner puede editar" }, { status: 403 });
 
     const body = await req.json();
     const parsed = WorkspacePatchSchema.safeParse(body);
@@ -62,38 +53,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Datos inválidos", details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { data, error: errUpd } = await client
+    const { data, error: errUpd } = await admin
       .from("workspaces").update(parsed.data).eq("id", id).select().single();
 
-    if (errUpd) {
-      if (errUpd.code === "PGRST116") return NextResponse.json({ error: "Workspace no encontrado o sin permiso" }, { status: 404 });
-      console.error("[PATCH workspace]", errUpd);
-      return NextResponse.json({ error: errUpd.message }, { status: 500 });
-    }
+    if (errUpd) return NextResponse.json({ error: errUpd.message }, { status: 500 });
 
     return NextResponse.json({ workspace: data });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { client, user, error } = await getAuthedClient(req);
-    if (error || !client || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    const { user, error } = await getAuthedClient(req);
+    if (error || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
 
-    const { error: errDel, count } = await client
-      .from("workspaces").delete({ count: "exact" }).eq("id", id);
+    const admin = getAdminClient();
 
-    if (errDel) {
-      console.error("[DELETE workspace]", errDel);
-      return NextResponse.json({ error: errDel.message }, { status: 500 });
-    }
-    if (count === 0) return NextResponse.json({ error: "Workspace no encontrado o sin permiso" }, { status: 404 });
+    // Only owner can delete
+    const { data: ws } = await admin.from("workspaces").select("owner_user_id").eq("id", id).maybeSingle();
+    if (!ws) return NextResponse.json({ error: "Workspace no encontrado" }, { status: 404 });
+    if (ws.owner_user_id !== user.id) return NextResponse.json({ error: "Solo el owner puede eliminar" }, { status: 403 });
+
+    const { error: errDel } = await admin.from("workspaces").delete().eq("id", id);
+
+    if (errDel) return NextResponse.json({ error: errDel.message }, { status: 500 });
 
     return NextResponse.json({ deleted: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }

@@ -1,59 +1,46 @@
 // GET  /api/workspaces     — list workspaces where I'm a member
 // POST /api/workspaces     — create workspace (I become owner)
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAuthedClient, getAdminClient } from "@/lib/deals/api-helpers";
 import { WorkspaceInputSchema } from "@/lib/deals/zod-schema";
-
-async function getAuthedClient(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return { client: null, user: null, error: "Sin autorización" as const };
-  }
-  const token = authHeader.slice(7);
-  const client = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-    },
-  );
-  const { data: { user }, error } = await client.auth.getUser(token);
-  if (error || !user) return { client: null, user: null, error: "Usuario no autenticado" as const };
-  await client.auth.setSession({ access_token: token, refresh_token: "" });
-  return { client, user, error: null };
-}
 
 export async function GET(req: NextRequest) {
   try {
-    const { client, user, error } = await getAuthedClient(req);
-    if (error || !client || !user) {
-      return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    const { user, error } = await getAuthedClient(req);
+    if (error || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+
+    const admin = getAdminClient();
+
+    const { data: memberships, error: errMem } = await admin
+      .from("workspace_members").select("workspace_id").eq("user_id", user.id);
+
+    if (errMem) {
+      console.error("[GET workspaces] memberships", errMem);
+      return NextResponse.json({ error: errMem.message }, { status: 500 });
     }
 
-    const { data: workspaces, error: errWs } = await client
-      .from("workspaces")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const ids = (memberships ?? []).map(m => m.workspace_id);
+    if (ids.length === 0) return NextResponse.json({ workspaces: [] });
+
+    const { data: workspaces, error: errWs } = await admin
+      .from("workspaces").select("*").in("id", ids).order("created_at", { ascending: false });
 
     if (errWs) {
-      console.error("[GET /api/workspaces]", errWs);
+      console.error("[GET workspaces]", errWs);
       return NextResponse.json({ error: errWs.message }, { status: 500 });
     }
 
     return NextResponse.json({ workspaces: workspaces ?? [] });
   } catch (e: any) {
-    console.error("[GET /api/workspaces] unexpected", e);
-    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
+    console.error("[GET workspaces] unexpected", e);
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { client, user, error } = await getAuthedClient(req);
-    if (error || !client || !user) {
-      return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
-    }
+    const { user, error } = await getAuthedClient(req);
+    if (error || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
 
     const body = await req.json();
     const parsed = WorkspaceInputSchema.safeParse(body);
@@ -62,35 +49,32 @@ export async function POST(req: NextRequest) {
     }
 
     const { name, slug, description } = parsed.data;
+    const admin = getAdminClient();
 
-    const { data: ws, error: errIns } = await client
+    const { data: ws, error: errIns } = await admin
       .from("workspaces")
       .insert({ name, slug, description: description ?? null, owner_user_id: user.id })
-      .select()
-      .single();
+      .select().single();
 
     if (errIns) {
-      if (errIns.code === "23505") {
-        return NextResponse.json({ error: "El slug ya existe" }, { status: 409 });
-      }
-      console.error("[POST /api/workspaces] insert", errIns);
+      if (errIns.code === "23505") return NextResponse.json({ error: "El slug ya existe" }, { status: 409 });
+      console.error("[POST workspace]", errIns);
       return NextResponse.json({ error: errIns.message }, { status: 500 });
     }
 
-    // Create owner membership — RLS allows via "first owner" exception
-    const { error: errMem } = await client
+    const { error: errMem } = await admin
       .from("workspace_members")
       .insert({ workspace_id: ws.id, user_id: user.id, role: "owner", added_by: user.id });
 
     if (errMem) {
-      await client.from("workspaces").delete().eq("id", ws.id);
-      console.error("[POST /api/workspaces] member insert", errMem);
+      await admin.from("workspaces").delete().eq("id", ws.id);
+      console.error("[POST workspace] member", errMem);
       return NextResponse.json({ error: "No se pudo crear membership" }, { status: 500 });
     }
 
     return NextResponse.json({ workspace: ws }, { status: 201 });
   } catch (e: any) {
-    console.error("[POST /api/workspaces] unexpected", e);
-    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
+    console.error("[POST workspace] unexpected", e);
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }

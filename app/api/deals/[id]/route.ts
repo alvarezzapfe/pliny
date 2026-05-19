@@ -1,95 +1,105 @@
 // GET    /api/deals/[id]  — deal detail
-// PATCH  /api/deals/[id]  — update deal (workspace member or deal lead/contributor via RLS)
-// DELETE /api/deals/[id]  — delete deal (creator or workspace owner/admin via RLS)
+// PATCH  /api/deals/[id]  — update deal
+// DELETE /api/deals/[id]  — delete deal
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAuthedClient, getAdminClient } from "@/lib/deals/api-helpers";
 import { DealUpdateSchema } from "@/lib/deals/zod-schema";
 
-async function getAuthedClient(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return { client: null, user: null, error: "Sin autorización" as const };
-  }
-  const token = authHeader.slice(7);
-  const client = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-    },
-  );
-  const { data: { user }, error } = await client.auth.getUser(token);
-  if (error || !user) return { client: null, user: null, error: "Usuario no autenticado" as const };
-  await client.auth.setSession({ access_token: token, refresh_token: "" });
-  return { client, user, error: null };
+/** Check if user has access to deal (workspace member or deal member) */
+async function canAccessDeal(admin: ReturnType<typeof getAdminClient>, dealId: string, userId: string) {
+  const { data: deal } = await admin.from("deals").select("id, workspace_id, created_by").eq("id", dealId).maybeSingle();
+  if (!deal) return { access: false, deal: null, role: null };
+
+  // Check workspace membership
+  const { data: wsMem } = await admin.from("workspace_members")
+    .select("role").eq("workspace_id", deal.workspace_id).eq("user_id", userId).maybeSingle();
+  if (wsMem) return { access: true, deal, role: wsMem.role as string };
+
+  // Check deal membership
+  const { data: dealMem } = await admin.from("deal_members")
+    .select("role").eq("deal_id", dealId).eq("user_id", userId).maybeSingle();
+  if (dealMem) return { access: true, deal, role: dealMem.role as string };
+
+  return { access: false, deal: null, role: null };
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { client, user, error } = await getAuthedClient(req);
-    if (error || !client || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    const { user, error } = await getAuthedClient(req);
+    if (error || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
 
-    const { data: deal, error: errDeal } = await client
+    const admin = getAdminClient();
+    const { access } = await canAccessDeal(admin, id, user.id);
+    if (!access) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
+
+    const { data: deal, error: errDeal } = await admin
       .from("deals").select("*").eq("id", id).single();
 
-    if (errDeal) {
-      if (errDeal.code === "PGRST116") return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
-      return NextResponse.json({ error: errDeal.message }, { status: 500 });
-    }
+    if (errDeal) return NextResponse.json({ error: errDeal.message }, { status: 500 });
 
     return NextResponse.json({ deal });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { client, user, error } = await getAuthedClient(req);
-    if (error || !client || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    const { user, error } = await getAuthedClient(req);
+    if (error || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+
+    const admin = getAdminClient();
+    const { access, role } = await canAccessDeal(admin, id, user.id);
+    if (!access) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
+
+    // Viewers can't edit
+    if (role === "viewer") return NextResponse.json({ error: "Sin permiso para editar" }, { status: 403 });
 
     const body = await req.json();
     const parsed = DealUpdateSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "Datos inválidos", details: parsed.error.flatten() }, { status: 400 });
     }
-
     if (Object.keys(parsed.data).length === 0) {
       return NextResponse.json({ error: "Sin cambios" }, { status: 400 });
     }
 
-    const { data: deal, error: errUpd } = await client
+    const { data: deal, error: errUpd } = await admin
       .from("deals").update(parsed.data).eq("id", id).select().single();
 
-    if (errUpd) {
-      if (errUpd.code === "PGRST116") return NextResponse.json({ error: "Deal no encontrado o sin permiso" }, { status: 404 });
-      console.error("[PATCH deal]", errUpd);
-      return NextResponse.json({ error: errUpd.message }, { status: 500 });
-    }
+    if (errUpd) return NextResponse.json({ error: errUpd.message }, { status: 500 });
 
     return NextResponse.json({ deal });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { client, user, error } = await getAuthedClient(req);
-    if (error || !client || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    const { user, error } = await getAuthedClient(req);
+    if (error || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
 
-    const { error: errDel, count } = await client
-      .from("deals").delete({ count: "exact" }).eq("id", id);
+    const admin = getAdminClient();
+    const { access, deal, role } = await canAccessDeal(admin, id, user.id);
+    if (!access || !deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
+
+    // Only creator, workspace owner, or workspace admin can delete
+    const isCreator = deal.created_by === user.id;
+    const isWsAdmin = role === "owner" || role === "admin";
+    if (!isCreator && !isWsAdmin) {
+      return NextResponse.json({ error: "Sin permiso para eliminar" }, { status: 403 });
+    }
+
+    const { error: errDel } = await admin.from("deals").delete().eq("id", id);
 
     if (errDel) return NextResponse.json({ error: errDel.message }, { status: 500 });
-    if (count === 0) return NextResponse.json({ error: "Deal no encontrado o sin permiso" }, { status: 404 });
 
     return NextResponse.json({ deleted: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
   }
 }
