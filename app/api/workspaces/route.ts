@@ -4,28 +4,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { WorkspaceInputSchema } from "@/lib/deals/zod-schema";
 
-function getAuthedClient(req: NextRequest) {
+async function getAuthedClient(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+  if (!authHeader?.startsWith("Bearer ")) {
+    return { client: null, user: null, error: "Sin autorización" as const };
+  }
   const token = authHeader.slice(7);
-  return {
-    token,
-    client: createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: `Bearer ${token}` } } },
-    ),
-  };
+  const client = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    },
+  );
+  const { data: { user }, error } = await client.auth.getUser(token);
+  if (error || !user) return { client: null, user: null, error: "Usuario no autenticado" as const };
+  await client.auth.setSession({ access_token: token, refresh_token: "" });
+  return { client, user, error: null };
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthedClient(req);
-    if (!auth) return NextResponse.json({ error: "Sin autorización" }, { status: 401 });
-    const { data: { user } } = await auth.client.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Usuario no autenticado" }, { status: 401 });
+    const { client, user, error } = await getAuthedClient(req);
+    if (error || !client || !user) {
+      return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    }
 
-    const { data: workspaces, error: errWs } = await auth.client
+    const { data: workspaces, error: errWs } = await client
       .from("workspaces")
       .select("*")
       .order("created_at", { ascending: false });
@@ -44,10 +50,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthedClient(req);
-    if (!auth) return NextResponse.json({ error: "Sin autorización" }, { status: 401 });
-    const { data: { user } } = await auth.client.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Usuario no autenticado" }, { status: 401 });
+    const { client, user, error } = await getAuthedClient(req);
+    if (error || !client || !user) {
+      return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
+    }
 
     const body = await req.json();
     const parsed = WorkspaceInputSchema.safeParse(body);
@@ -57,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     const { name, slug, description } = parsed.data;
 
-    const { data: ws, error: errIns } = await auth.client
+    const { data: ws, error: errIns } = await client
       .from("workspaces")
       .insert({ name, slug, description: description ?? null, owner_user_id: user.id })
       .select()
@@ -72,12 +78,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Create owner membership — RLS allows via "first owner" exception
-    const { error: errMem } = await auth.client
+    const { error: errMem } = await client
       .from("workspace_members")
       .insert({ workspace_id: ws.id, user_id: user.id, role: "owner", added_by: user.id });
 
     if (errMem) {
-      await auth.client.from("workspaces").delete().eq("id", ws.id);
+      await client.from("workspaces").delete().eq("id", ws.id);
       console.error("[POST /api/workspaces] member insert", errMem);
       return NextResponse.json({ error: "No se pudo crear membership" }, { status: 500 });
     }

@@ -9,24 +9,31 @@ const MemberInputSchema = z.object({
   role: z.enum(["owner", "admin", "member"]),
 });
 
-function getAuthedClient(req: NextRequest) {
+async function getAuthedClient(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+  if (!authHeader?.startsWith("Bearer ")) {
+    return { client: null, user: null, error: "Sin autorización" as const };
+  }
   const token = authHeader.slice(7);
-  return createClient(
+  const client = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: `Bearer ${token}` } } },
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    },
   );
+  const { data: { user }, error } = await client.auth.getUser(token);
+  if (error || !user) return { client: null, user: null, error: "Usuario no autenticado" as const };
+  await client.auth.setSession({ access_token: token, refresh_token: "" });
+  return { client, user, error: null };
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const client = getAuthedClient(req);
-    if (!client) return NextResponse.json({ error: "Sin autorización" }, { status: 401 });
-    const { data: { user } } = await client.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Usuario no autenticado" }, { status: 401 });
+    const { client, user, error } = await getAuthedClient(req);
+    if (error || !client || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
 
     const { data: members, error: errMem } = await client
       .from("workspace_members")
@@ -45,10 +52,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: workspaceId } = await params;
-    const client = getAuthedClient(req);
-    if (!client) return NextResponse.json({ error: "Sin autorización" }, { status: 401 });
-    const { data: { user } } = await client.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Usuario no autenticado" }, { status: 401 });
+    const { client, user, error } = await getAuthedClient(req);
+    if (error || !client || !user) return NextResponse.json({ error: error || "Auth error" }, { status: 401 });
 
     const body = await req.json();
     const parsed = MemberInputSchema.safeParse(body);
