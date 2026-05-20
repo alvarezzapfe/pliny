@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Deal, DealStage, DealType } from "@/lib/deals/types";
 import { DEAL_STAGE_VALUES, DEAL_STAGE_LABELS, DEAL_TYPE_LABELS } from "@/lib/deals/types";
 import NuevoDealModal from "../NuevoDealModal";
+import InvitarExternoModal from "./InvitarExternoModal";
 
 const MONO = "'Geist Mono', monospace";
 
@@ -28,6 +29,9 @@ export default function DealDetail({ slug, dealId }: Props) {
   const [notesDraft, setNotesDraft] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [members, setMembers] = useState<Array<{ user_id: string; role: string; is_external: boolean }>>([]);
+  const [pendingInvites, setPendingInvites] = useState<Array<{ id: string; email: string; role: string; expires_at: string }>>([]);
 
   const fetchDeal = useCallback(async () => {
     setLoading(true);
@@ -49,6 +53,19 @@ export default function DealDetail({ slug, dealId }: Props) {
   }, [dealId, router]);
 
   useEffect(() => { fetchDeal(); }, [fetchDeal]);
+
+  async function fetchMembersAndInvites() {
+    const { data: membersData } = await supabase
+      .from("deal_members").select("user_id, role, is_external").eq("deal_id", dealId);
+    setMembers(membersData || []);
+
+    const { data: invitesData } = await supabase
+      .from("deal_invitations").select("id, email, role, expires_at")
+      .eq("deal_id", dealId).is("accepted_at", null);
+    setPendingInvites(invitesData || []);
+  }
+
+  useEffect(() => { if (deal) fetchMembersAndInvites(); }, [deal]);
 
   async function updateDeal(updates: Record<string, unknown>) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -198,7 +215,9 @@ export default function DealDetail({ slug, dealId }: Props) {
       </div>
 
       {tab === "resumen" && <ResumenTab deal={deal} onEdit={() => setShowEditModal(true)} />}
-      {tab === "miembros" && <MiembrosTab />}
+      {tab === "miembros" && (
+        <MiembrosTab members={members} pendingInvites={pendingInvites} onInvite={() => setShowInviteModal(true)} />
+      )}
       {tab === "notas" && <NotasTab value={notesDraft} onChange={setNotesDraft} onBlur={handleSaveNotes} saving={notesSaving} />}
 
       {showEditModal && deal && (
@@ -207,6 +226,14 @@ export default function DealDetail({ slug, dealId }: Props) {
           initialDeal={deal}
           onClose={() => setShowEditModal(false)}
           onSuccess={() => { setShowEditModal(false); fetchDeal(); }}
+        />
+      )}
+
+      {showInviteModal && (
+        <InvitarExternoModal
+          dealId={dealId}
+          onClose={() => setShowInviteModal(false)}
+          onSuccess={() => { setShowInviteModal(false); fetchMembersAndInvites(); }}
         />
       )}
     </div>
@@ -257,22 +284,85 @@ function ResumenTab({ deal, onEdit }: { deal: Deal; onEdit: () => void }) {
   );
 }
 
-function MiembrosTab() {
+function MiembrosTab({ members, pendingInvites, onInvite }: {
+  members: Array<{ user_id: string; role: string; is_external: boolean }>;
+  pendingInvites: Array<{ id: string; email: string; role: string; expires_at: string }>;
+  onInvite: () => void;
+}) {
+  const roleColors: Record<string, { bg: string; color: string }> = {
+    lead: { bg: "#DCFCE7", color: "#15803D" },
+    contributor: { bg: "#DBEAFE", color: "#1E40AF" },
+    viewer: { bg: "#F1F5F9", color: "#475569" },
+  };
+
   return (
-    <div style={{
-      background: "#FFFFFF", border: "2px dashed #E2E8F0", borderRadius: 12,
-      padding: 48, textAlign: "center",
-    }}>
-      <p style={{ color: "#64748B", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
-        Gestión de miembros del deal
-      </p>
-      <p style={{ color: "#94A3B8", fontSize: 12, marginBottom: 24 }}>
-        Invitar abogados, sponsors, contrapartes (Step 6)
-      </p>
-      <button disabled style={{
-        background: "#F8FAFC", color: "#94A3B8", border: "1px solid #E2E8F0",
-        padding: "10px 20px", borderRadius: 8, cursor: "not-allowed", fontSize: 13, fontWeight: 600,
-      }}>+ Invitar externo (próximamente)</button>
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h3 style={{ color: "#0F172A", fontSize: 16, fontWeight: 600, margin: 0 }}>
+          {members.length} {members.length === 1 ? "miembro" : "miembros"}
+        </h3>
+        <button onClick={onInvite} style={{
+          background: "linear-gradient(135deg, #0C1E4A, #1B3F8A)", color: "#fff",
+          border: "none", padding: "8px 16px", borderRadius: 8,
+          cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'Geist', sans-serif",
+        }}>+ Invitar externo</button>
+      </div>
+
+      <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden", maxWidth: 700, marginBottom: 24 }}>
+        {members.map((m, i) => {
+          const colors = roleColors[m.role] || roleColors.viewer;
+          return (
+            <div key={m.user_id} style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "14px 18px",
+              borderBottom: i < members.length - 1 ? "1px solid #F1F5F9" : "none",
+            }}>
+              <div>
+                <div style={{ color: "#0F172A", fontSize: 13, fontFamily: "'Geist Mono', monospace" }}>
+                  {m.user_id.slice(0, 8)}...
+                </div>
+                <div style={{ color: "#64748B", fontSize: 11, marginTop: 2 }}>
+                  {m.is_external ? "Externo" : "Equipo interno"}
+                </div>
+              </div>
+              <span style={{
+                background: colors.bg, color: colors.color,
+                fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 4,
+                textTransform: "uppercase", letterSpacing: ".04em",
+              }}>{m.role}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {pendingInvites.length > 0 && (
+        <>
+          <h3 style={{ color: "#0F172A", fontSize: 14, fontWeight: 600, margin: "0 0 12px 0" }}>
+            Invitaciones pendientes ({pendingInvites.length})
+          </h3>
+          <div style={{ background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 12, overflow: "hidden", maxWidth: 700 }}>
+            {pendingInvites.map((inv, i) => (
+              <div key={inv.id} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "12px 18px",
+                borderBottom: i < pendingInvites.length - 1 ? "1px solid #FDE68A" : "none",
+              }}>
+                <div>
+                  <div style={{ color: "#0F172A", fontSize: 13 }}>{inv.email}</div>
+                  <div style={{ color: "#92400E", fontSize: 11, marginTop: 2 }}>
+                    Expira: {new Date(inv.expires_at).toLocaleDateString("es-MX")}
+                  </div>
+                </div>
+                <span style={{
+                  background: "#FEF3C7", color: "#92400E",
+                  fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 4,
+                  textTransform: "uppercase", letterSpacing: ".04em",
+                }}>{inv.role}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
