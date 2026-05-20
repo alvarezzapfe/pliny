@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Deal, DealStage, DealType } from "@/lib/deals/types";
 import { DEAL_STAGE_VALUES, DEAL_STAGE_LABELS, DEAL_TYPE_LABELS } from "@/lib/deals/types";
+import NuevoDealModal from "../NuevoDealModal";
 
 const MONO = "'Geist Mono', monospace";
 
@@ -26,6 +27,7 @@ export default function DealDetail({ slug, dealId }: Props) {
   const [nameValue, setNameValue] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const fetchDeal = useCallback(async () => {
     setLoading(true);
@@ -195,14 +197,23 @@ export default function DealDetail({ slug, dealId }: Props) {
         ))}
       </div>
 
-      {tab === "resumen" && <ResumenTab deal={deal} />}
+      {tab === "resumen" && <ResumenTab deal={deal} onEdit={() => setShowEditModal(true)} />}
       {tab === "miembros" && <MiembrosTab />}
       {tab === "notas" && <NotasTab value={notesDraft} onChange={setNotesDraft} onBlur={handleSaveNotes} saving={notesSaving} />}
+
+      {showEditModal && deal && (
+        <NuevoDealModal
+          workspaceId={deal.workspace_id}
+          initialDeal={deal}
+          onClose={() => setShowEditModal(false)}
+          onSuccess={() => { setShowEditModal(false); fetchDeal(); }}
+        />
+      )}
     </div>
   );
 }
 
-function ResumenTab({ deal }: { deal: Deal }) {
+function ResumenTab({ deal, onEdit }: { deal: Deal; onEdit: () => void }) {
   const rows = [
     { label: "ID", value: deal.id.slice(0, 8) + "...", mono: true },
     { label: "Nombre", value: deal.name },
@@ -217,6 +228,21 @@ function ResumenTab({ deal }: { deal: Deal }) {
 
   return (
     <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, padding: 24, maxWidth: 700 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button onClick={onEdit} style={{
+          padding: "7px 14px", borderRadius: 8,
+          border: "1px solid #E2E8F0", background: "#FFFFFF", color: "#0F172A",
+          fontSize: 12, fontWeight: 600, cursor: "pointer",
+          fontFamily: "'Geist', sans-serif",
+          display: "inline-flex", alignItems: "center", gap: 6,
+        }}>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11.5 1.5l3 3L5 14H2v-3l9.5-9.5z" /><path d="M9 4l3 3" />
+          </svg>
+          Editar
+        </button>
+      </div>
       {rows.map((row, i) => (
         <div key={row.label} style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",

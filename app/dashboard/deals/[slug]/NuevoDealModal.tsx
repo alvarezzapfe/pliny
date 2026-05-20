@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { DEAL_TYPE_VALUES, DEAL_STAGE_VALUES, DEAL_TYPE_LABELS, DEAL_STAGE_LABELS } from "@/lib/deals/types";
-import type { DealType, DealStage } from "@/lib/deals/types";
+import type { Deal, DealType, DealStage } from "@/lib/deals/types";
 
 const MONO = "'Geist Mono', monospace";
 
@@ -21,11 +21,14 @@ const INPUT: React.CSSProperties = {
 
 interface Props {
   workspaceId: string;
+  initialDeal?: Deal;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function NuevoDealModal({ workspaceId, onClose, onSuccess }: Props) {
+export default function NuevoDealModal({ workspaceId, initialDeal, onClose, onSuccess }: Props) {
+  const isEdit = !!initialDeal;
+
   const [name, setName] = useState("");
   const [clientName, setClientName] = useState("");
   const [type, setType] = useState<DealType>("debt");
@@ -36,6 +39,18 @@ export default function NuevoDealModal({ workspaceId, onClose, onSuccess }: Prop
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialDeal) {
+      setName(initialDeal.name);
+      setClientName(initialDeal.client_name || "");
+      setType(initialDeal.type);
+      setStage(initialDeal.stage);
+      setAmountMxn(initialDeal.amount_mxn != null ? String(initialDeal.amount_mxn) : "");
+      setTargetCloseDate(initialDeal.target_close_date || "");
+      setNotes(initialDeal.notes || "");
+    }
+  }, [initialDeal]);
 
   async function handleSubmit() {
     if (!name.trim()) { setError("El nombre es requerido"); return; }
@@ -51,12 +66,20 @@ export default function NuevoDealModal({ workspaceId, onClose, onSuccess }: Prop
         stage,
       };
       if (clientName.trim()) payload.client_name = clientName.trim();
+      else if (isEdit) payload.client_name = null;
       if (amountMxn) payload.amount_mxn = parseFloat(amountMxn);
+      else if (isEdit) payload.amount_mxn = null;
       if (targetCloseDate) payload.target_close_date = targetCloseDate;
+      else if (isEdit) payload.target_close_date = null;
       if (notes.trim()) payload.notes = notes.trim();
+      else if (isEdit) payload.notes = null;
 
-      const res = await fetch(`/api/workspaces/${workspaceId}/deals`, {
-        method: "POST",
+      const url = isEdit
+        ? `/api/deals/${initialDeal!.id}`
+        : `/api/workspaces/${workspaceId}/deals`;
+
+      const res = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
@@ -66,7 +89,7 @@ export default function NuevoDealModal({ workspaceId, onClose, onSuccess }: Prop
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Error al crear deal");
+        setError(data.error || `Error al ${isEdit ? "guardar" : "crear"} deal`);
         setSaving(false);
         return;
       }
@@ -91,24 +114,21 @@ export default function NuevoDealModal({ workspaceId, onClose, onSuccess }: Prop
         boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
       }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0F172A", margin: "0 0 24px 0", letterSpacing: "-0.01em" }}>
-          Nuevo deal
+          {isEdit ? "Editar deal" : "Nuevo deal"}
         </h2>
 
-        {/* Name */}
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL}>Nombre del deal *</label>
           <input value={name} onChange={e => setName(e.target.value)}
             placeholder="ej. Emisión Bursátil FEMSA" style={INPUT} />
         </div>
 
-        {/* Client */}
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL}>Cliente / Contraparte</label>
           <input value={clientName} onChange={e => setClientName(e.target.value)}
             placeholder="ej. FEMSA SAB de CV" style={INPUT} />
         </div>
 
-        {/* Type + Stage */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div>
             <label style={LABEL}>Tipo</label>
@@ -117,14 +137,13 @@ export default function NuevoDealModal({ workspaceId, onClose, onSuccess }: Prop
             </select>
           </div>
           <div>
-            <label style={LABEL}>Stage inicial</label>
+            <label style={LABEL}>{isEdit ? "Stage" : "Stage inicial"}</label>
             <select value={stage} onChange={e => setStage(e.target.value as DealStage)} style={INPUT}>
               {DEAL_STAGE_VALUES.map(s => <option key={s} value={s}>{DEAL_STAGE_LABELS[s]}</option>)}
             </select>
           </div>
         </div>
 
-        {/* Amount + Target date */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div>
             <label style={LABEL}>Monto (MXN)</label>
@@ -139,7 +158,6 @@ export default function NuevoDealModal({ workspaceId, onClose, onSuccess }: Prop
           </div>
         </div>
 
-        {/* Notes */}
         <div style={{ marginBottom: 24 }}>
           <label style={LABEL}>Notas</label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)}
@@ -148,7 +166,6 @@ export default function NuevoDealModal({ workspaceId, onClose, onSuccess }: Prop
             style={{ ...INPUT, height: "auto", minHeight: 72, padding: "10px 12px", resize: "vertical" as const }} />
         </div>
 
-        {/* Error */}
         {error && (
           <div style={{
             padding: "10px 14px", marginBottom: 16,
@@ -157,7 +174,6 @@ export default function NuevoDealModal({ workspaceId, onClose, onSuccess }: Prop
           }}>{error}</div>
         )}
 
-        {/* Buttons */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <button onClick={onClose} disabled={saving} style={{
             padding: "9px 18px", borderRadius: 8,
@@ -173,7 +189,7 @@ export default function NuevoDealModal({ workspaceId, onClose, onSuccess }: Prop
             fontSize: 13, fontWeight: 600,
             cursor: canSubmit ? "pointer" : "not-allowed",
             fontFamily: "'Geist', sans-serif",
-          }}>{saving ? "Creando..." : "Crear deal"}</button>
+          }}>{saving ? "Guardando..." : isEdit ? "Guardar cambios" : "Crear deal"}</button>
         </div>
       </div>
     </div>
