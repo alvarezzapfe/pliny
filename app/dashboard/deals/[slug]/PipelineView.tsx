@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import type { Deal, DealStage } from "@/lib/deals/types";
 import { DEAL_STAGE_VALUES, DEAL_STAGE_LABELS, DEAL_TYPE_LABELS } from "@/lib/deals/types";
@@ -27,10 +28,12 @@ function fmtMoney(n: number | null | undefined): string {
 
 interface Props {
   deals: Deal[];
+  slug: string;
   onStageChange: (dealId: string, newStage: string) => void;
 }
 
-export default function PipelineView({ deals, onStageChange }: Props) {
+export default function PipelineView({ deals, slug, onStageChange }: Props) {
+  const router = useRouter();
   const dealsByStage: Record<DealStage, Deal[]> = {} as Record<DealStage, Deal[]>;
   for (const stage of DEAL_STAGE_VALUES) {
     dealsByStage[stage] = [];
@@ -170,6 +173,21 @@ export default function PipelineView({ deals, onStageChange }: Props) {
                                   Target: {deal.target_close_date}
                                 </div>
                               )}
+
+                              {/* Open detail link */}
+                              <button
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); router.push(`/dashboard/deals/${slug}/${deal.id}`); }}
+                                style={{
+                                  marginTop: 8, width: "100%", padding: "5px 0",
+                                  background: "#F8FAFC", border: "1px solid #E8EDF5", borderRadius: 5,
+                                  fontSize: 10, fontWeight: 600, color: "#64748B",
+                                  cursor: "pointer", transition: "all .1s",
+                                  fontFamily: "'Geist', sans-serif",
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#93B4F8"; e.currentTarget.style.color = "#1B3F8A"; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#E8EDF5"; e.currentTarget.style.color = "#64748B"; }}
+                              >Abrir →</button>
                             </div>
                           )}
                         </Draggable>

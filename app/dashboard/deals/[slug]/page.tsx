@@ -137,7 +137,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ slug: stri
       </div>
 
       {/* Pipeline */}
-      <PipelineView deals={deals} onStageChange={handleStageChange} />
+      <PipelineView deals={deals} slug={slug ?? ""} onStageChange={handleStageChange} />
 
       {/* New Deal Modal */}
       {showNewDeal && workspace && (
