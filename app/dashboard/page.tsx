@@ -63,7 +63,7 @@ export default function DashboardOtorgante() {
         supabase.from("credits")
   .select("id,monto_original,saldo_actual,estatus,created_at,created_by")
   .eq("created_by", auth.user.id)
-  .eq("estatus", "activo"),
+  .in("estatus", ["vigente","mora_30","mora_60","mora_90"]),
 
         supabase.from("solicitudes")
           .select("id,monto,plazo_meses,destino,status,created_at,solicitante_id")

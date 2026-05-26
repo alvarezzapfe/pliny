@@ -31,11 +31,12 @@ function fmtDateShort(d: string | null) {
 }
 
 const ESTATUS_META: Record<string, { label:string; bg:string; color:string; border:string; dot:string }> = {
-  activo:     { label:"Activo",     bg:"#ECFDF5", color:"#065F46", border:"#A7F3D0", dot:"#10B981" },
-  vencido:    { label:"Vencido",    bg:"#FFF1F2", color:"#9F1239", border:"#FECDD3", dot:"#F43F5E" },
+  vigente:    { label:"Vigente",    bg:"#ECFDF5", color:"#065F46", border:"#A7F3D0", dot:"#10B981" },
+  mora_30:    { label:"Mora 30+",   bg:"#FFFBEB", color:"#92400E", border:"#FDE68A", dot:"#F59E0B" },
+  mora_60:    { label:"Mora 60+",   bg:"#FFF7ED", color:"#9A3412", border:"#FED7AA", dot:"#F97316" },
+  mora_90:    { label:"Mora 90+",   bg:"#FEF2F2", color:"#991B1B", border:"#FECACA", dot:"#DC2626" },
   liquidado:  { label:"Liquidado",  bg:"#F0FDF4", color:"#166534", border:"#BBF7D0", dot:"#22C55E" },
   castigado:  { label:"Castigado",  bg:"#FFF7ED", color:"#9A3412", border:"#FED7AA", dot:"#F97316" },
-  reestructurado: { label:"Reestructurado", bg:"#EFF6FF", color:"#1E40AF", border:"#BFDBFE", dot:"#3B82F6" },
 };
 
 const PAGO_META: Record<string, { label:string; color:string; bg:string }> = {
@@ -46,7 +47,7 @@ const PAGO_META: Record<string, { label:string; color:string; bg:string }> = {
 };
 
 function EstatusPill({ estatus }: { estatus: string }) {
-  const m = ESTATUS_META[estatus] ?? ESTATUS_META.activo;
+  const m = ESTATUS_META[estatus] ?? ESTATUS_META.vigente;
   return (
     <span style={{ display:"inline-flex", alignItems:"center", gap:5, borderRadius:999, padding:"3px 9px", fontSize:10, fontWeight:700, fontFamily:"'Geist Mono',monospace", background:m.bg, color:m.color, border:`1px solid ${m.border}` }}>
       <span style={{ width:5, height:5, borderRadius:"50%", background:m.dot, display:"inline-block" }}/>
@@ -77,7 +78,7 @@ function ProgressBar({ current, total, color="#059669" }: { current:number; tota
 function CreditDetail({ credit, onClose }: { credit: any; onClose: ()=>void }) {
   const [pagos, setPagos]     = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const m = ESTATUS_META[credit.estatus] ?? ESTATUS_META.activo;
+  const m = ESTATUS_META[credit.estatus] ?? ESTATUS_META.vigente;
 
   useEffect(()=>{
     (async()=>{
@@ -258,10 +259,10 @@ export default function CreditosPage() {
     })();
   }, [router]);
 
-  const activos    = credits.filter(c=>c.estatus==="activo");
+  const activos    = credits.filter(c=>["vigente","mora_30","mora_60","mora_90"].includes(c.estatus));
   const totalSaldo = activos.reduce((s,c)=>s+(c.saldo_actual??0), 0);
   const totalOrig  = activos.reduce((s,c)=>s+(c.monto_original??0), 0);
-  const vencidos   = credits.filter(c=>c.estatus==="vencido").length;
+  const vencidos   = credits.filter(c=>["mora_30","mora_60","mora_90"].includes(c.estatus)).length;
 
   const CSS = `
     @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;700&display=swap');

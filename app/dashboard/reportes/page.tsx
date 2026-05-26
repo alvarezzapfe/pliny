@@ -63,7 +63,7 @@ export default function ReportesPage() {
     const total = credits.length;
     const carteraViva = credits.reduce((a, c) => a + (c.saldo_actual || 0), 0);
     const montoOriginal = credits.reduce((a, c) => a + (c.monto_original || 0), 0);
-    const activos = credits.filter(c => c.estatus === "activo");
+    const activos = credits.filter(c => ["vigente","mora_30","mora_60","mora_90"].includes(c.estatus));
     const mora = credits.filter(c => c.estatus === "mora" || (c.dpd || 0) > 30);
     const enMora30 = credits.filter(c => (c.dpd || 0) > 30);
     const enMora90 = credits.filter(c => (c.dpd || 0) > 90);
