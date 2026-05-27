@@ -25,6 +25,8 @@ const NAV = [
   { href: "/dashboard/calculadora",   label: "Calculadora",  icon: "M3 2h10a1 1 0 011 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zM3 9h2v2H3zM7 9h2v2H7zM11 9h2v2H11zM3 13h2v2H3zM7 13h2v2H7zM11 13h2v2H11z" },
   { href: "/dashboard/deals",                label: "Deal Rooms",  icon: "M2 3h12v2H2zM2 7h5v7H2zM9 7h5v7H9z" },
   { href: "/dashboard/onboarding/applicants", label: "Onboarding", icon: "M8 2a3 3 0 110 6 3 3 0 010-6zM2 14c0-3.3 2.7-6 6-6s6 2.7 6 6M11 8l2 2M13 8l-2 2" },
+  { href: "/dashboard/onboarding/portal",     label: "Portal",     icon: "M2 3h12v10H2zM8 13v2M5 15h6M10 6h2" },
+  { href: "/dashboard/onboarding/api",        label: "API",        icon: "M4 6h2M4 10h2M4 14h2M8 6h8M8 10h8M8 14h5" },
   { href: "/dashboard/onboarding/reglas", label: "Reglas",  icon: "M2 3h12v2H2zM2 7h8M2 11h5M10 9l2 2 4-4" },
   { href: "/dashboard/chat",          label: "Mensajes",     icon: "M2 2h12v8a2 2 0 01-2 2H4a2 2 0 01-2-2V2zM6 14h4M8 12v2" },
   { href: "/dashboard/plan",           label: "Mi Plan",      icon: "M2 2h12v2H2zM2 6h8M2 10h5M11 9l2 2 3-3" },
