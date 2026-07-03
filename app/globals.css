@@ -2,17 +2,24 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0F172A;
 
   /* Crowdlink */
-  --cl-blue: #0084FF;
-  --cl-green: #41E897;
+  --cl-blue: #0C1E4A;
+  --cl-green: #00E5A0;
 
   /* Deep blues */
   --deep-0: #030812;
   --deep-1: #040B18;
   --deep-2: #06122A;
   --deep-3: #071A3B;
+
+  /* ── Unified design tokens ── */
+  --radius-sm:    8px;
+  --radius-md:    12px;
+  --radius-pill:  999px;
+  --shadow-sm:    0 1px 3px rgba(0,0,0,.06);
+  --shadow-md:    0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.06);
 }
 
 @theme inline {

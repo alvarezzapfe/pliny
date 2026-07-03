@@ -131,13 +131,13 @@ export default function Home() {
       --font-sans: 'DM Sans', -apple-system, system-ui, sans-serif;
       --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
       --bg:        #FFFFFF;
-      --bg-2:      #F9FAFB;
-      --bg-3:      #F3F4F6;
-      --fg:        #0A0A0A;
-      --fg-2:      #6B7280;
-      --fg-3:      #9CA3AF;
-      --border:    #E5E7EB;
-      --border-2:  #D1D5DB;
+      --bg-2:      #F8FAFC;
+      --bg-3:      #F8FAFC;
+      --fg:        #0F172A;
+      --fg-2:      #94A3B8;
+      --fg-3:      #94A3B8;
+      --border:    #E2E8F0;
+      --border-2:  #E2E8F0;
       --accent:    #0C1E4A;
       --accent-2:  #00E5A0;
       --purple:    #7C3AED;
@@ -146,7 +146,12 @@ export default function Home() {
       --amber:     #F59E0B;
       --green:     #00E5A0;
       --grad:      linear-gradient(135deg, #7B5CF5 0%, #1E7FFF 50%, #1FD9E8 100%);
-      --grad-text: linear-gradient(135deg, #7B5CF5 0%, #1E7FFF 45%, #1FD9E8 100%);
+      --grad-text: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      --radius-sm:   8px;
+      --radius-md:   12px;
+      --radius-pill: 999px;
+      --shadow-sm:   0 1px 3px rgba(0,0,0,.06);
+      --shadow-md:   0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.06);
     }
 
     /* ── KEYFRAMES ── */
@@ -171,18 +176,18 @@ export default function Home() {
     .logo-text { font-size:16px; font-weight:700; color:var(--fg); letter-spacing:-0.04em; }
     .logo-sub  { font-family:var(--font-mono); font-size:8px; color:var(--accent-2); letter-spacing:0.14em; margin-top:1px; }
     .nav-links { display:flex; align-items:center; gap:2px; }
-    .nav-btn { background:none; border:none; cursor:pointer; font-family:var(--font-sans); font-size:13.5px; font-weight:500; color:var(--fg-2); padding:6px 13px; border-radius:8px; transition:color .15s,background .15s; }
+    .nav-btn { background:none; border:none; cursor:pointer; font-family:var(--font-sans); font-size:13.5px; font-weight:500; color:var(--fg-2); padding:6px 13px; border-radius:var(--radius-sm); transition:color .15s,background .15s; }
     .nav-btn:hover { color:var(--fg); background:rgba(0,0,0,0.04); }
     .nav-ctas { display:flex; align-items:center; gap:8px; }
 
     /* ── BUTTONS ── */
-    .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; font-family:var(--font-sans); font-size:13.5px; font-weight:600; border-radius:10px; border:none; cursor:pointer; text-decoration:none; transition:all .2s cubic-bezier(.16,1,.3,1); letter-spacing:-0.015em; white-space:nowrap; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; font-family:var(--font-sans); font-size:13.5px; font-weight:600; border-radius:var(--radius-sm); border:none; cursor:pointer; text-decoration:none; transition:all .2s cubic-bezier(.16,1,.3,1); letter-spacing:-0.015em; white-space:nowrap; }
     .btn:hover { transform:translateY(-1px); }
     .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
     .btn-sm { padding:7px 15px; font-size:12.5px; }
     .btn-md { padding:11px 22px; }
     .btn-lg { padding:14px 28px; font-size:14.5px; }
-    .btn-solid { background:var(--fg); color:#FFFFFF; font-weight:700; box-shadow:0 1px 3px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.08); }
+    .btn-solid { background:var(--fg); color:var(--bg); font-weight:700; box-shadow:0 1px 3px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.08); }
     .btn-solid:hover { box-shadow:0 2px 8px rgba(0,0,0,.15),0 8px 24px rgba(0,0,0,.12); }
     .btn-ghost { background:transparent; color:var(--fg-2); border:1px solid var(--border); }
     .btn-ghost:hover { color:var(--fg); background:var(--bg-2); border-color:var(--border-2); }
@@ -204,73 +209,73 @@ export default function Home() {
     /* ── BADGE / PILL ── */
 
     /* ── DASHBOARD CARD ── */
-    .db-card { background:#FFFFFF; border:1px solid #E5E7EB; border-radius:18px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 32px rgba(0,0,0,.06); }
-    .db-topbar { background:#F9FAFB; border-bottom:1px solid var(--border); padding:11px 18px; display:flex; align-items:center; gap:8px; }
+    .db-card { background:var(--bg); border:1px solid var(--border); border-radius:18px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 32px rgba(0,0,0,.06); }
+    .db-topbar { background:var(--bg-2); border-bottom:1px solid var(--border); padding:11px 18px; display:flex; align-items:center; gap:8px; }
     .db-dot { width:10px; height:10px; border-radius:50%; }
-    .db-tab { font-family:var(--font-mono); font-size:10px; color:var(--fg-3); padding:3px 10px; border-radius:6px; transition:all .15s; }
+    .db-tab { font-family:var(--font-mono); font-size:10px; color:var(--fg-3); padding:3px 10px; border-radius:var(--radius-sm); transition:all .15s; }
     .db-tab.active { background:rgba(12,30,74,.08); color:var(--accent); border:1px solid rgba(12,30,74,.15); }
 
     /* ── TABLE ── */
-    .tbl-head { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 110px; padding:9px 18px; border-bottom:1px solid var(--border); background:#F9FAFB; }
+    .tbl-head { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 110px; padding:9px 18px; border-bottom:1px solid var(--border); background:var(--bg-2); }
     .tbl-head span { font-family:var(--font-mono); font-size:9.5px; color:var(--fg-3); letter-spacing:0.08em; text-transform:uppercase; }
-    .tbl-row { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 110px; padding:12px 18px; border-bottom:1px solid #F3F4F6; align-items:center; transition:background .12s; }
-    .tbl-row:hover { background:#F9FAFB; }
+    .tbl-row { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 110px; padding:12px 18px; border-bottom:1px solid var(--bg-3); align-items:center; transition:background .12s; }
+    .tbl-row:hover { background:var(--bg-2); }
     .tbl-row:last-child { border-bottom:none; }
-    .status-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-family:var(--font-mono); font-size:9.5px; font-weight:500; letter-spacing:0.05em; }
+    .status-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:var(--radius-pill); font-family:var(--font-mono); font-size:9.5px; font-weight:500; letter-spacing:0.05em; }
     .status-pill.green { background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0; }
     .status-pill.amber { background:#FFFBEB; color:#92400E; border:1px solid #FDE68A; }
     .status-pill.red   { background:#FEF2F2; color:#991B1B; border:1px solid #FECACA; }
     .status-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
-    .spark-bar  { height:3px; border-radius:999px; background:#E5E7EB; overflow:hidden; }
-    .spark-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,var(--accent) 0%,var(--accent-2) 100%); transition:width .6s cubic-bezier(.16,1,.3,1); }
+    .spark-bar  { height:3px; border-radius:var(--radius-pill); background:var(--border); overflow:hidden; }
+    .spark-fill { height:100%; border-radius:var(--radius-pill); background:linear-gradient(90deg,var(--accent) 0%,var(--accent-2) 100%); transition:width .6s cubic-bezier(.16,1,.3,1); }
     .spark-fill.warn   { background:var(--amber); }
     .spark-fill.danger { background:var(--red); }
 
     /* ── KPI CARD ── */
-    .kpi-card { background:#FFFFFF; border:1px solid var(--border); border-radius:12px; padding:14px 16px; transition:all .2s; }
-    .kpi-card:hover { border-color:var(--border-2); box-shadow:0 1px 4px rgba(0,0,0,.06); }
+    .kpi-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px 16px; transition:all .2s; }
+    .kpi-card:hover { border-color:var(--border-2); box-shadow:var(--shadow-sm); }
 
 
     /* ── FEATURE GRID ── */
     .feat-card { padding:28px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); transition:background .2s; position:relative; overflow:hidden; }
-    .feat-card:hover { background:#F9FAFB; }
+    .feat-card:hover { background:var(--bg-2); }
     .feat-card::before { content:''; position:absolute; top:0; left:0; width:2px; height:0; background:var(--grad); transition:height .3s cubic-bezier(.16,1,.3,1); }
     .feat-card:hover::before { height:100%; }
     .feat-num { font-family:var(--font-mono); font-size:10px; color:var(--accent-2); letter-spacing:0.12em; margin-bottom:16px; }
 
     /* ── PRICE CARD ── */
-    .price-card { background:#FFFFFF; border:1px solid var(--border); border-radius:18px; padding:32px; transition:all .25s; position:relative; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+    .price-card { background:var(--bg); border:1px solid var(--border); border-radius:18px; padding:32px; transition:all .25s; position:relative; overflow:hidden; box-shadow:var(--shadow-sm); }
     .price-card::before { content:''; position:absolute; inset:0; background:none; pointer-events:none; }
-    .price-card.highlight { border-color:#00E5A0; box-shadow:0 0 0 1px rgba(0,229,160,.15),0 8px 32px rgba(0,0,0,.08); }
-    .price-card.highlight:hover { border-color:#00E5A0; box-shadow:0 0 0 1px rgba(0,229,160,.2),0 12px 40px rgba(0,0,0,.12); }
+    .price-card.highlight { border-color:var(--accent-2); box-shadow:0 0 0 1px rgba(0,229,160,.15),0 8px 32px rgba(0,0,0,.08); }
+    .price-card.highlight:hover { border-color:var(--accent-2); box-shadow:0 0 0 1px rgba(0,229,160,.2),0 12px 40px rgba(0,0,0,.12); }
 
     /* ── TAB TOGGLE ── */
-    .tab-toggle { display:inline-flex; background:#F3F4F6; border:1px solid var(--border); border-radius:12px; padding:4px; gap:4px; }
-    .tab-pill { padding:9px 22px; border-radius:9px; font-family:var(--font-sans); font-size:13.5px; font-weight:600; cursor:pointer; border:none; transition:all .2s cubic-bezier(.16,1,.3,1); letter-spacing:-0.015em; }
+    .tab-toggle { display:inline-flex; background:var(--bg-3); border:1px solid var(--border); border-radius:var(--radius-md); padding:4px; gap:4px; }
+    .tab-pill { padding:9px 22px; border-radius:var(--radius-sm); font-family:var(--font-sans); font-size:13.5px; font-weight:600; cursor:pointer; border:none; transition:all .2s cubic-bezier(.16,1,.3,1); letter-spacing:-0.015em; }
     .tab-pill.active-ot  { background:var(--accent);   color:#fff; box-shadow:0 2px 8px rgba(12,30,74,.2); }
     .tab-pill.active-sol { background:var(--accent-2); color:#031A11; box-shadow:0 2px 8px rgba(0,229,160,.2); }
     .tab-pill.inactive   { background:transparent; color:var(--fg-3); }
     .tab-pill.inactive:hover { color:var(--fg-2); background:rgba(0,0,0,.03); }
 
     /* ── SOL CARDS ── */
-    .sol-card { background:#FFFFFF; border:1px solid var(--border); border-radius:14px; padding:20px; transition:all .22s cubic-bezier(.16,1,.3,1); position:relative; overflow:hidden; }
+    .sol-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:20px; transition:all .22s cubic-bezier(.16,1,.3,1); position:relative; overflow:hidden; }
     .sol-card:hover { border-color:var(--border-2); transform:translateY(-3px); box-shadow:0 8px 32px rgba(0,0,0,.08); }
-    .sol-card::before { content:''; position:absolute; top:0; right:0; width:80px; height:80px; background:radial-gradient(circle at top right, rgba(0,229,160,.06), transparent 70%); border-radius:0 14px 0 80px; }
-    .sol-tag   { display:inline-flex; align-items:center; padding:3px 9px; border-radius:999px; font-family:var(--font-mono); font-size:9px; font-weight:600; letter-spacing:0.07em; background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0; }
-    .sol-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; font-family:var(--font-mono); font-size:9px; background:#F9FAFB; color:var(--fg-3); border:1px solid var(--border); }
-    .sol-btn   { display:inline-flex; align-items:center; gap:5px; padding:7px 13px; border-radius:9px; border:none; font-family:var(--font-sans); font-size:11.5px; font-weight:700; cursor:pointer; transition:all .15s; }
+    .sol-card::before { content:''; position:absolute; top:0; right:0; width:80px; height:80px; background:radial-gradient(circle at top right, rgba(0,229,160,.06), transparent 70%); border-radius:0 var(--radius-md) 0 80px; }
+    .sol-tag   { display:inline-flex; align-items:center; padding:3px 9px; border-radius:var(--radius-pill); font-family:var(--font-mono); font-size:9px; font-weight:600; letter-spacing:0.07em; background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0; }
+    .sol-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-pill); font-family:var(--font-mono); font-size:9px; background:var(--bg-2); color:var(--fg-3); border:1px solid var(--border); }
+    .sol-btn   { display:inline-flex; align-items:center; gap:5px; padding:7px 13px; border-radius:var(--radius-sm); border:none; font-family:var(--font-sans); font-size:11.5px; font-weight:700; cursor:pointer; transition:all .15s; }
     .sol-btn-ot    { background:var(--accent); color:#fff; box-shadow:0 2px 10px rgba(79,142,247,.3); }
     .sol-btn-ot:hover { box-shadow:0 4px 18px rgba(79,142,247,.5); transform:translateY(-1px); }
-    .sol-btn-ghost { background:#FFFFFF; color:var(--fg-3); border:1px solid var(--border); }
-    .sol-btn-ghost:hover { color:var(--fg-2); border-color:var(--border-2); background:#F9FAFB; }
+    .sol-btn-ghost { background:var(--bg); color:var(--fg-3); border:1px solid var(--border); }
+    .sol-btn-ghost:hover { color:var(--fg-2); border-color:var(--border-2); background:var(--bg-2); }
 
     /* ── STEPS ── */
     .step-line { position:absolute; left:19px; top:40px; bottom:-20px; width:1px; background:linear-gradient(to bottom, var(--border), transparent); }
 
     /* ── INPUTS ── */
-    .inp { width:100%; background:#FFFFFF; border:1px solid var(--border); border-radius:10px; padding:11px 15px; font-family:var(--font-sans); font-size:13.5px; color:var(--fg); outline:none; transition:all .2s; }
+    .inp { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:11px 15px; font-family:var(--font-sans); font-size:13.5px; color:var(--fg); outline:none; transition:all .2s; }
     .inp::placeholder { color:var(--fg-3); }
-    .inp:focus { border-color:#00E5A0; background:#FFFFFF; box-shadow:0 0 0 3px rgba(0,229,160,.10); }
+    .inp:focus { border-color:var(--accent-2); background:var(--bg); box-shadow:0 0 0 3px rgba(0,229,160,.10); }
 
     /* ── FOOTER ── */
     .foot-link { font-size:13px; color:var(--fg-3); text-decoration:none; transition:color .15s; }
@@ -281,7 +286,7 @@ export default function Home() {
     .spin-ico { animation:spin .7s linear infinite; }
 
     /* ── STAT HIGHLIGHTS ── */
-    .stat-block { border:1px solid var(--border); border-radius:14px; padding:24px 28px; background:#FFFFFF; position:relative; overflow:hidden; transition:all .2s; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+    .stat-block { border:1px solid var(--border); border-radius:var(--radius-md); padding:24px 28px; background:var(--bg); position:relative; overflow:hidden; transition:all .2s; box-shadow:var(--shadow-sm); }
     .stat-block:hover { border-color:var(--border-2); }
     .stat-block::before { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; background:var(--grad); opacity:0; transition:opacity .3s; }
     .stat-block:hover::before { opacity:1; }
@@ -302,6 +307,7 @@ export default function Home() {
       .lead-grid { flex-direction:column !important; }
       .stats-grid { grid-template-columns:1fr 1fr !important; }
       .hero-ctas { flex-direction:column; align-items:center; }
+      .ck-grid { grid-template-columns:1fr !important; }
     }
   `;
 
@@ -311,9 +317,9 @@ export default function Home() {
 
       {/* ── BACKGROUND ── */}
       <div style={{ position:"fixed", inset:0, zIndex:0, pointerEvents:"none", overflow:"hidden" }}>
-        <div style={{ position:"absolute", inset:0, background:"#FFFFFF" }}/>
+        <div style={{ position:"absolute", inset:0, background:"var(--bg)" }}/>
         {/* Subtle grid */}
-        <div style={{ position:"absolute", inset:0, opacity:.4, backgroundImage:"linear-gradient(#F3F4F6 1px, transparent 1px),linear-gradient(90deg, #F3F4F6 1px, transparent 1px)", backgroundSize:"56px 56px", maskImage:"radial-gradient(ellipse 100% 60% at 50% 0%, #000 20%, transparent 70%)", WebkitMaskImage:"radial-gradient(ellipse 100% 60% at 50% 0%, #000 20%, transparent 70%)" }}/>
+        <div style={{ position:"absolute", inset:0, opacity:.2, backgroundImage:"linear-gradient(var(--border) 1px, transparent 1px),linear-gradient(90deg, var(--border) 1px, transparent 1px)", backgroundSize:"56px 56px", maskImage:"radial-gradient(ellipse 100% 60% at 50% 0%, #000 20%, transparent 70%)", WebkitMaskImage:"radial-gradient(ellipse 100% 60% at 50% 0%, #000 20%, transparent 70%)" }}/>
         {/* Top gradient glow — very subtle */}
         <div style={{ position:"absolute", top:0, left:0, right:0, height:"60vh", background:"radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,229,160,0.05) 0%, transparent 70%)", pointerEvents:"none" }}/>
       </div>
@@ -332,7 +338,7 @@ export default function Home() {
           </nav>
           <div className="nav-ctas">
             <a href="/login" className="btn btn-ghost btn-sm">Acceder</a>
-            <a href="/register" className="btn btn-grad btn-sm">Empezar →</a>
+            <a href="/register" className="btn btn-accent btn-sm" style={{ boxShadow:"var(--shadow-sm)" }}>Empezar →</a>
           </div>
         </div>
       </header>
@@ -346,23 +352,23 @@ export default function Home() {
 
           {/* Headline */}
           <div className="mount mount-2" style={{ textAlign:"center", marginBottom:22 }}>
-            <h1 style={{ fontSize:"clamp(40px,7vw,84px)", fontWeight:800, lineHeight:0.98, letterSpacing:"-0.055em", color:"var(--fg)", margin:0 }}>
-              Plataforma de Crédito Privado en<br/>
-              <span className="grad-text">México.</span>
+            <h1 style={{ fontSize:"clamp(40px,7vw,84px)", fontWeight:800, lineHeight:1.02, letterSpacing:"-0.03em", color:"var(--fg)", margin:0 }}>
+              La infraestructura para<br/>
+              prestar en México.
             </h1>
           </div>
 
           {/* Subheadline */}
           <div className="mount mount-3" style={{ textAlign:"center", marginBottom:36 }}>
             <p style={{ fontSize:"clamp(15px,2vw,18px)", lineHeight:1.55, color:"var(--fg-2)", maxWidth:"52ch", margin:"0 auto", textAlign:"center" }}>
-              Marketplace de crédito, valuación de cartera y asesoría financiera para empresas — en una sola plataforma.
+              Lending as a Service de primer nivel — para que SOFOMs, fondos y fintechs compitan parejo, sin construir todo desde cero.
             </p>
           </div>
 
           {/* CTAs */}
           <div className="mount mount-4 hero-ctas" style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:24, flexWrap:"wrap" }}>
-            <a href="/login" className="btn btn-grad btn-lg">Entrar a la consola →</a>
-            <a href="/demo" className="btn btn-ghost btn-lg" style={{ display:"inline-flex", alignItems:"center", gap:8 }}>
+            <a href="/login" className="btn btn-accent btn-lg" style={{ boxShadow:"var(--shadow-md)" }}>Entrar a la consola →</a>
+            <a href="/demo" className="btn btn-ghost btn-lg" style={{ display:"inline-flex", alignItems:"center", gap:8, borderRadius:"var(--radius-md)" }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 6h12M5 2v4M11 2v4"/></svg>
               Solicita una demo
             </a>
@@ -371,7 +377,7 @@ export default function Home() {
           {/* Social proof micro-line */}
           <div className="mount mount-4" style={{ display:"flex", justifyContent:"center", marginBottom:72 }}>
             <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-              {["Bancos","SOFOMs","Fondos Privados","Fintechs"].map((t,i)=>(
+              {["Construido para:","SOFOMs","Fondos","Fintechs","Arrendadoras"].map((t,i)=>(
                 <React.Fragment key={t}>
                   {i>0 && <span style={{ width:3, height:3, borderRadius:"50%", background:"var(--fg-3)", display:"inline-block" }}/>}
                   <span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--fg-3)", letterSpacing:"0.08em" }}>{t}</span>
@@ -383,16 +389,24 @@ export default function Home() {
           {/* ── 3 PATAS ── */}
           <div className="mount mount-3" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:16, maxWidth:860, margin:"56px auto 0", padding:"0 20px" }}>
             {[
-              { icon:"M3 21h18M5 21V7l7-4 7 4v14M9 9h2m-2 4h2m4-4h2m-2 4h2", t:"Marketplace", d:"Originadores publican y fondean cartera" },
-              { icon:"M3 3v18h18M7 14l4-4 3 3 5-6", t:"Valuación", d:"NPV, yield y riesgo de tu cartera" },
-              { icon:"M3 7h18v13H3zM8 7V5a2 2 0 012-2h4a2 2 0 012 2v2", t:"Asesoría", d:"Banca de inversión para empresas" },
+              { num:"01", icon:"M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.08-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1.08 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z", t:"Originación", d:"Motor de crédito, scoring y tablas de amortización listos para operar.", chips:["Cálculo al centavo","Scoring configurable"] },
+              { num:"02", icon:"M3 3v18h18M7 14l4-4 3 3 5-6", t:"Cartera", d:"Valuación, NPV, yield y riesgo de tu cartera, en tiempo real.", chips:["NPV & yield","Alertas de riesgo"] },
+              { num:"03", icon:"M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4", t:"Fondeo", d:"Conecta tu cartera con inversionistas y fondos que la fondean.", chips:["Marketplace","Fondeo directo"] },
             ].map(c => (
-              <div key={c.t} style={{ border:"1px solid #E5E7EB", borderRadius:14, padding:"20px 22px", background:"#FFFFFF", transition:"all .2s", textAlign:"left" }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F6E56" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={c.icon}/>
-                </svg>
-                <div style={{ fontSize:15, fontWeight:700, color:"#0A0A0A", marginTop:12 }}>{c.t}</div>
-                <div style={{ fontSize:13, color:"#6B7280", marginTop:4, lineHeight:1.45 }}>{c.d}</div>
+              <div key={c.t} style={{ border:"1px solid var(--border)", borderRadius:16, padding:24, background:"var(--bg)", transition:"all .2s", textAlign:"left", boxShadow:"var(--shadow-sm)" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div style={{ width:46, height:46, borderRadius:12, background:"var(--accent)", display:"grid", placeItems:"center", flexShrink:0 }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={c.icon}/></svg>
+                  </div>
+                  <span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--fg-3)" }}>{c.num}</span>
+                </div>
+                <div style={{ fontSize:17, fontWeight:700, color:"var(--fg)", marginTop:18 }}>{c.t}</div>
+                <div style={{ fontSize:13.5, color:"#64748B", marginTop:6, lineHeight:1.5 }}>{c.d}</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:14 }}>
+                  {c.chips.map(ch=>(
+                    <span key={ch} style={{ fontSize:11, fontWeight:500, color:"var(--accent)", background:"#EEF2FB", padding:"4px 10px", borderRadius:"var(--radius-pill)" }}>{ch}</span>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -448,54 +462,6 @@ export default function Home() {
           </div>
           )}
 
-          {/* ── CARTERA FLOW DIAGRAM ── */}
-          <div className="mount mount-3" style={{ maxWidth:860, margin:"0 auto", padding:"0 20px" }}>
-            <svg viewBox="0 0 860 220" style={{ width:"100%", height:"auto", overflow:"visible" }}>
-              <style>{`
-                @keyframes flowRight { to { stroke-dashoffset: -36; } }
-                @keyframes dotPulse  { 0%,100% { opacity:.35; } 50% { opacity:1; } }
-                .flow-line { stroke-dasharray:9 9; animation: flowRight 1.5s linear infinite; }
-                .flow-dot  { animation: dotPulse 2.2s ease-in-out infinite; }
-                @media (prefers-reduced-motion: reduce) { .flow-line,.flow-dot { animation:none; } }
-              `}</style>
-
-              {/* Flow lines */}
-              <line x1="226" y1="110" x2="320" y2="110" stroke="#00E5A0" strokeWidth="2.5" className="flow-line" strokeLinecap="round" />
-              <line x1="560" y1="110" x2="654" y2="110" stroke="#00E5A0" strokeWidth="2.5" className="flow-line" strokeLinecap="round" />
-
-              {/* Flow labels */}
-              <text x="273" y="96" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="10" fill="#047857" letterSpacing="0.05em">publica</text>
-              <text x="607" y="96" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="10" fill="#047857" letterSpacing="0.05em">fondea</text>
-
-              {/* Pulsing dots */}
-              <circle cx="273" cy="110" r="3.5" fill="#00E5A0" className="flow-dot" />
-              <circle cx="607" cy="110" r="3.5" fill="#00E5A0" className="flow-dot" />
-
-              {/* Node: Originador */}
-              <g>
-                <rect x="40" y="76" width="186" height="68" rx="12" fill="#FFFFFF" stroke="#E5E7EB" strokeWidth="1" />
-                <text x="133" y="102" textAnchor="middle" fontFamily="var(--font-sans)" fontSize="16" fontWeight="700" fill="#0A0A0A">Originador</text>
-                <text x="133" y="121" textAnchor="middle" fontFamily="var(--font-sans)" fontSize="11" fill="#6B7280">SOFOM · Arrendadora</text>
-                <text x="133" y="136" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="10" fill="#047857">publica su cartera</text>
-              </g>
-
-              {/* Node: Plinius Marketplace */}
-              <g>
-                <rect x="320" y="60" width="240" height="100" rx="16" fill="#ECFDF5" stroke="#00E5A0" strokeWidth="1.5" />
-                <text x="440" y="92" textAnchor="middle" fontFamily="var(--font-sans)" fontSize="19" fontWeight="800" fill="#065F46" letterSpacing="-0.02em">Plinius</text>
-                <text x="440" y="114" textAnchor="middle" fontFamily="var(--font-sans)" fontSize="12" fontWeight="600" fill="#047857">Marketplace de crédito</text>
-                <text x="440" y="132" textAnchor="middle" fontFamily="var(--font-sans)" fontSize="11" fill="#047857">Valuación · Score · Asesoría</text>
-              </g>
-
-              {/* Node: Fondeador */}
-              <g>
-                <rect x="654" y="76" width="186" height="68" rx="12" fill="#FFFFFF" stroke="#0C1E4A" strokeWidth="1" />
-                <text x="747" y="102" textAnchor="middle" fontFamily="var(--font-sans)" fontSize="16" fontWeight="700" fill="#0C1E4A">Fondeador</text>
-                <text x="747" y="121" textAnchor="middle" fontFamily="var(--font-sans)" fontSize="11" fill="#6B7280">Inversionista · Fondo</text>
-                <text x="747" y="136" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="10" fill="#0C1E4A">compra el papel</text>
-              </g>
-            </svg>
-          </div>
         </div>
       </section>
 
@@ -793,6 +759,64 @@ export default function Home() {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── ALIANZA CROWDLINK ── */}
+      <section style={{ position:"relative", zIndex:1, padding:"80px 0 0" }}>
+        <div className="section">
+          <div style={{ background:"#0C1E4A", borderRadius:20, padding:"40px 40px 36px", position:"relative", overflow:"hidden" }}>
+
+            {/* Eyebrow */}
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
+              <span style={{ fontSize:12, color:"#7C90B8", letterSpacing:"0.1em", textTransform:"uppercase" }}>Nuestra alianza con</span>
+              <span style={{ background:"#fff", padding:"4px 8px", borderRadius:6, display:"inline-flex", alignItems:"center" }}>
+                <img src="/crowdlink-logo.png" alt="Crowdlink" style={{ height:20, width:"auto" }} onError={e=>(e.currentTarget.style.display="none")} />
+              </span>
+            </div>
+
+            {/* Headline */}
+            <h2 style={{ fontSize:26, fontWeight:700, color:"#fff", letterSpacing:"-0.02em", marginBottom:10 }}>
+              Solicita o invierte en créditos referenciados
+            </h2>
+
+            {/* Sub */}
+            <p style={{ fontSize:15, color:"#93A4C2", lineHeight:1.65, maxWidth:520, marginBottom:28 }}>
+              A través de Crowdlink, una IFC regulada por la CNBV, conectamos a quien busca financiamiento con quien quiere invertir.
+            </p>
+
+            {/* Grid */}
+            <div className="ck-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:24 }}>
+              {[
+                { icon:"M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6", title:"Solicita crédito", desc:"Consigue financiamiento referenciado, fondeado por inversionistas." },
+                { icon:"M3 17l6-6 4 4 8-8M14 7h7v7", title:"Invierte en crédito", desc:"Pon tu capital a trabajar en créditos referenciados y diversifica." },
+              ].map(b => (
+                <a key={b.title} href="https://crowdlink.mx" target="_blank" rel="noopener" style={{ background:"#0F244F", border:"1px solid #24365E", borderRadius:14, padding:22, textDecoration:"none", transition:"all .2s" }}
+                  onMouseEnter={e=>{ e.currentTarget.style.borderColor="#00E5A0"; e.currentTarget.style.background="#122A54"; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.borderColor="#24365E"; e.currentTarget.style.background="#0F244F"; }}
+                >
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+                    <div style={{ width:42, height:42, borderRadius:10, background:"#16294F", display:"grid", placeItems:"center" }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E5A0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={b.icon}/></svg>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#7C90B8" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 11L11 5M11 5H6M11 5v5"/></svg>
+                  </div>
+                  <div style={{ fontSize:16, fontWeight:700, color:"#fff", marginBottom:6 }}>{b.title}</div>
+                  <div style={{ fontSize:13.5, color:"#93A4C2", lineHeight:1.55 }}>{b.desc}</div>
+                </a>
+              ))}
+            </div>
+
+            {/* CTA */}
+            <a href="https://crowdlink.mx" target="_blank" rel="noopener" style={{ display:"inline-flex", alignItems:"center", gap:8, background:"#00E5A0", color:"#06251A", fontSize:15, fontWeight:600, padding:"13px 24px", borderRadius:12, textDecoration:"none", transition:"all .18s" }}
+              onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-1px)"; e.currentTarget.style.boxShadow="0 4px 16px rgba(0,229,160,.25)"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="none"; }}
+            >
+              Explora en crowdlink.mx
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 5l4 3-4 3"/></svg>
+            </a>
+
           </div>
         </div>
       </section>
