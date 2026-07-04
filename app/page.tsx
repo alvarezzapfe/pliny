@@ -4,7 +4,8 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 
 type NavItem = { id: string; label: string };
 const NAV: NavItem[] = [
-  { id: "producto", label: "Producto" },
+  { id: "producto", label: "Plataforma" },
+  { id: "productos", label: "Productos de crédito" },
   { id: "marketplace", label: "Marketplace" },
   { id: "pricing", label: "Pricing" },
   { id: "advisory", label: "Advisory" },
@@ -90,6 +91,7 @@ export default function Home() {
   const go = (id: string) => {
     if (typeof document === "undefined") return;
     if (id === "advisory") { window.location.href = "/advisory"; return; }
+    if (id === "productos") { window.location.href = "/productos"; return; }
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
