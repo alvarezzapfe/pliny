@@ -58,11 +58,7 @@ export default function InvitationLanding({ token }: Props) {
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Error al aceptar"); setAccepting(false); return; }
 
-      if (data.workspaceSlug && data.dealId) {
-        router.push(`/dashboard/deals/${data.workspaceSlug}/${data.dealId}`);
-      } else {
-        router.push("/dashboard/deals");
-      }
+      router.push("/dashboard");
     } catch (e: any) {
       setError(e?.message || "Error inesperado");
       setAccepting(false);

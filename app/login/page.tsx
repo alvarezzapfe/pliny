@@ -40,7 +40,7 @@ export default function LoginPage() {
     setGoogleLoading(true);
     const { error: oauthErr } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `https://www.plinius.mx/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (oauthErr) { setError(oauthErr.message); setGoogleLoading(false); }
   };

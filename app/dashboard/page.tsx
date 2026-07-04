@@ -100,47 +100,46 @@ export default function DashboardOtorgante() {
   };
 
   return (
-    <div style={{ fontFamily:"'Geist',sans-serif", color:"#0F172A", fontSize:13 }}>
+    <div style={{ color:"#0F172A", fontSize:14 }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
         @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
         @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
         @keyframes spin{to{transform:rotate(360deg)}}
         .fade{animation:fadeUp .45s cubic-bezier(.16,1,.3,1) both;}
         .d1{animation-delay:.05s;} .d2{animation-delay:.10s;} .d3{animation-delay:.15s;}
-        .mono{font-family:'Geist Mono',monospace;}
-        .card{background:#fff;border:1px solid #E8EDF5;border-radius:14px;padding:16px;transition:box-shadow .18s,border-color .18s;}
+        .mono{font-family:'IBM Plex Mono',monospace;}
+        .card{background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:22px;transition:box-shadow .18s,border-color .18s;}
         .card:hover{box-shadow:0 6px 24px rgba(12,30,74,.07);border-color:#D4DCF0;}
-        .pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 9px;font-family:'Geist Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;}
+        .pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 9px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.04em;}
         .p-green{background:#F0FDF9;color:#065F46;border:1px solid #D1FAE5;}
         .p-amber{background:#FFFBEB;color:#92400E;border:1px solid #FDE68A;}
         .p-blue {background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE;}
         .p-red  {background:#FFF1F2;color:#9F1239;border:1px solid #FECDD3;}
         .p-navy {background:#EFF4FF;color:#0C1E4A;border:1px solid #C7D4F0;}
-        .btn-p{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#0C1E4A,#1B3F8A);color:#fff;border:none;border-radius:9px;font-family:'Geist',sans-serif;font-size:12px;font-weight:600;padding:8px 14px;cursor:pointer;text-decoration:none;box-shadow:0 2px 10px rgba(12,30,74,.22);transition:opacity .15s,transform .15s;}
+        .btn-p{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#0C1E4A,#1B3F8A);color:#fff;border:none;border-radius:9px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;text-decoration:none;box-shadow:0 2px 10px rgba(12,30,74,.22);transition:opacity .15s,transform .15s;}
         .btn-p:hover{opacity:.9;transform:translateY(-1px);}
-        .btn-g{display:inline-flex;align-items:center;gap:6px;background:#F8FAFC;color:#475569;border:1px solid #E8EDF5;border-radius:9px;font-family:'Geist',sans-serif;font-size:12px;font-weight:600;padding:8px 14px;cursor:pointer;text-decoration:none;transition:background .15s;}
+        .btn-g{display:inline-flex;align-items:center;gap:6px;background:#F8FAFC;color:#475569;border:1px solid #E2E8F0;border-radius:9px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;text-decoration:none;transition:background .15s;}
         .btn-g:hover{background:#EEF2FF;border-color:#C7D4F0;color:#0F172A;}
-        .qa{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:10px;border:1px solid #E8EDF5;background:#FAFBFF;text-decoration:none;color:#0F172A;font-size:12px;font-weight:500;transition:all .15s;width:100%;text-align:left;font-family:'Geist',sans-serif;}
+        .qa{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid #E2E8F0;background:#FAFBFF;text-decoration:none;color:#0F172A;font-size:14px;font-weight:500;transition:all .15s;width:100%;text-align:left;}
         .qa:hover{background:#EEF2FF;border-color:#C7D4F0;}
         .qa.prim{background:linear-gradient(135deg,#0C1E4A,#1B3F8A);color:#fff;border-color:transparent;box-shadow:0 2px 10px rgba(12,30,74,.20);}
         .qa.prim:hover{opacity:.92;}
-        .qa-ico{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex-shrink:0;}
-        .tr{display:grid;align-items:center;padding:10px 14px;border-bottom:1px solid #F1F5F9;transition:background .12s;}
+        .qa-ico{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex-shrink:0;}
+        .tr{display:grid;align-items:center;padding:11px 16px;border-bottom:1px solid #F1F5F9;transition:background .12s;}
         .tr:last-child{border-bottom:none;}
         .tr:hover{background:#FAFBFF;}
         .spinner{animation:spin .7s linear infinite;}
       `}</style>
 
       {/* ── HEADER ── */}
-      <div className="fade" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20 }}>
+      <div className="fade" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24 }}>
         <div>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:3 }}>
-            <div style={{ fontSize:19, fontWeight:800, letterSpacing:"-0.04em" }}>Dashboard</div>
-            <span className="pill p-navy">Otorgante de crédito</span>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:4 }}>
+            <h1 style={{ fontSize:34, fontFamily:"'Fraunces',serif", fontWeight:600, letterSpacing:"-0.01em", lineHeight:1.2 }}>Dashboard</h1>
+            <span className="pill p-navy">Otorgante</span>
           </div>
-          <div style={{ fontSize:12, color:"#94A3B8", textTransform:"capitalize" }}>{dateStr}</div>
+          <div style={{ fontSize:14, color:"#64748B", textTransform:"capitalize" }}>{dateStr}</div>
         </div>
         <div style={{ display:"flex", gap:6, alignItems:"center" }}>
           <span className={`pill ${profileOk ? "p-green" : "p-amber"}`}>
@@ -157,9 +156,9 @@ export default function DashboardOtorgante() {
       {!loading && !profileOk && (
         <div className="fade d1" style={{ marginBottom:16, padding:"14px 18px", background:"linear-gradient(135deg,#0C1E4A,#1B3F8A)", borderRadius:14, display:"flex", justifyContent:"space-between", alignItems:"center", gap:16, boxShadow:"0 4px 20px rgba(12,30,74,.20)" }}>
           <div>
-            <div className="mono" style={{ fontSize:9,color:"rgba(238,242,255,.5)",letterSpacing:".1em",marginBottom:4 }}>PRIMER PASO</div>
-            <div style={{ fontSize:14,fontWeight:700,color:"#EEF2FF",marginBottom:2 }}>Completa tu perfil de otorgante</div>
-            <div style={{ fontSize:12,color:"rgba(238,242,255,.6)" }}>Tipo de institución + representante legal · menos de 1 min</div>
+            <div className="mono" style={{ fontSize:10,color:"rgba(238,242,255,.5)",letterSpacing:".1em",marginBottom:4 }}>PRIMER PASO</div>
+            <div style={{ fontSize:15,fontWeight:700,color:"#EEF2FF",marginBottom:2 }}>Completa tu perfil de otorgante</div>
+            <div style={{ fontSize:13,color:"rgba(238,242,255,.6)" }}>Tipo de institución + representante legal · menos de 1 min</div>
           </div>
           <Link href="/dashboard/datos" style={{ background:"#fff",color:"#0C1E4A",borderRadius:9,padding:"8px 16px",fontSize:12,fontWeight:700,textDecoration:"none" }}>Completar →</Link>
         </div>
@@ -180,12 +179,12 @@ export default function DashboardOtorgante() {
                   <Ic d="M2 6l6-4 6 4v7a1 1 0 01-1 1H3a1 1 0 01-1-1V6z" s={20} c="#fff"/>
                 </div>
                 <div>
-                  <div style={{ fontSize:15, fontWeight:700, color:"#0F172A", letterSpacing:"-0.02em" }}>
+                  <div style={{ fontSize:16, fontWeight:700, color:"#0F172A", letterSpacing:"-0.02em" }}>
                     {profile?.institution_name ?? userEmail ?? "—"}
                   </div>
                   <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:4, flexWrap:"wrap" }}>
                     {instLabel && <span className="pill p-blue">{instLabel}</span>}
-                    {profile?.rfc && <span className="mono" style={{ fontSize:10,color:"#64748B" }}>{profile.rfc}</span>}
+                    {profile?.rfc && <span className="mono" style={{ fontSize:12,color:"#64748B" }}>{profile.rfc}</span>}
                     {!profileOk && <span className="pill p-amber">Perfil incompleto</span>}
                   </div>
                 </div>
@@ -228,23 +227,20 @@ export default function DashboardOtorgante() {
             money: true,
           },
         ].map(k => (
-          <div key={k.label} className="card">
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-              <div className="mono" style={{ fontSize:10,color:"#94A3B8",letterSpacing:".08em" }}>{k.label.toUpperCase()}</div>
-              <div style={{ width:28,height:28,borderRadius:8,background:`${k.color}18`,display:"grid",placeItems:"center" }}>
-                <Ic d={k.icon} s={13} c={k.color}/>
+          <div key={k.label} className="card" style={{ padding:24, borderRadius:16 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+              <div style={{ fontSize:13.5, fontWeight:500, color:"#64748B" }}>{k.label}</div>
+              <div style={{ width:34,height:34,borderRadius:10,background:`${k.color}18`,display:"grid",placeItems:"center" }}>
+                <Ic d={k.icon} s={16} c={k.color}/>
               </div>
             </div>
             {loading
-              ? <div style={{ height:30,width:80,borderRadius:6,background:"linear-gradient(90deg,#F0F4FF 25%,#E8EDF5 50%,#F0F4FF 75%)",backgroundSize:"300px 100%" }}/>
-              : <div style={{ fontSize: k.money ? 22 : 30, fontWeight:800, letterSpacing:"-0.05em", lineHeight:1, color:"#0F172A" }}>
+              ? <div style={{ height:36,width:90,borderRadius:8,background:"linear-gradient(90deg,#F0F4FF 25%,#E8EDF5 50%,#F0F4FF 75%)",backgroundSize:"300px 100%" }}/>
+              : <div className="mono" style={{ fontSize:42, fontWeight:600, letterSpacing:"-0.03em", lineHeight:1, color:"#0F172A" }}>
                   {k.val ?? "—"}
                 </div>
             }
-            <div style={{ fontSize:11,color:"#94A3B8",marginTop:6 }}>{k.sub}</div>
-            <div style={{ height:3,background:"#F1F5F9",borderRadius:999,marginTop:10,overflow:"hidden" }}>
-              <div style={{ width: kpis.oportunidadesActivas ? "60%" : "0%", height:"100%", background:k.color, borderRadius:999, transition:"width .8s" }}/>
-            </div>
+            <div style={{ fontSize:13,color:"#94A3B8",marginTop:8 }}>{k.sub}</div>
           </div>
         ))}
       </div>
@@ -254,10 +250,10 @@ export default function DashboardOtorgante() {
 
         {/* Oportunidades recientes */}
         <div className="card" style={{ padding:0, overflow:"hidden" }}>
-          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px",borderBottom:"1px solid #E8EDF5" }}>
+          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 18px",borderBottom:"1px solid #E2E8F0" }}>
             <div>
-              <div style={{ fontSize:13,fontWeight:700 }}>Oportunidades recientes</div>
-              <div style={{ fontSize:11,color:"#94A3B8",marginTop:1 }}>Últimas solicitudes recibidas</div>
+              <div style={{ fontSize:15,fontWeight:600 }}>Oportunidades recientes</div>
+              <div style={{ fontSize:13,color:"#94A3B8",marginTop:2 }}>Últimas solicitudes recibidas</div>
             </div>
             <Link href="/dashboard/solicitudes" className="btn-g" style={{ fontSize:11,padding:"6px 12px" }}>Ver todas →</Link>
           </div>
@@ -268,27 +264,29 @@ export default function DashboardOtorgante() {
               <span style={{ fontSize:12,color:"#94A3B8" }}>Cargando oportunidades...</span>
             </div>
           ) : kpis.oportunidadesRecientes.length === 0 ? (
-            <div style={{ padding:"36px 20px",display:"flex",flexDirection:"column",alignItems:"center",gap:10,textAlign:"center" }}>
-              <div style={{ width:44,height:44,borderRadius:12,background:"#F1F5F9",display:"grid",placeItems:"center" }}>
-                <Ic d="M4 2h8v12H4zM6 6h4M6 9h4M6 12h2" s={20} c="#94A3B8"/>
+            <div style={{ padding:20, display:"flex", alignItems:"center", gap:14, background:"#F8FAFC", border:"1px dashed #CBD5E1", borderRadius:12, margin:16 }}>
+              <div style={{ width:40,height:40,borderRadius:10,background:"#EEF2FF",display:"grid",placeItems:"center",flexShrink:0 }}>
+                <Ic d="M4 2h8v12H4zM6 6h4M6 9h4M6 12h2" s={18} c="#94A3B8"/>
               </div>
-              <div style={{ fontSize:13,fontWeight:600,color:"#475569" }}>Sin oportunidades aún</div>
-              <div style={{ fontSize:12,color:"#94A3B8" }}>Aquí aparecerán las solicitudes de crédito que recibas de borrowers.</div>
+              <div>
+                <div style={{ fontSize:15,fontWeight:600,color:"#475569",marginBottom:2 }}>Sin oportunidades aún</div>
+                <div style={{ fontSize:13,color:"#94A3B8" }}>Aquí aparecerán las solicitudes de crédito que recibas.</div>
+              </div>
             </div>
           ) : (
             <>
               <div className="tr" style={{ gridTemplateColumns:"1fr 90px 90px 90px", background:"#FAFBFF" }}>
                 {["Destino","Monto","Plazo","Estado"].map(h => (
-                  <div key={h} className="mono" style={{ fontSize:10,color:"#94A3B8",letterSpacing:".06em" }}>{h}</div>
+                  <div key={h} style={{ fontSize:13,color:"#94A3B8",fontWeight:500 }}>{h}</div>
                 ))}
               </div>
               {kpis.oportunidadesRecientes.map((s: any) => {
                 const pill = STATUS_PILL[s.status] ?? { label: s.status, cls:"p-blue" };
                 return (
                   <div key={s.id} className="tr" style={{ gridTemplateColumns:"1fr 90px 90px 90px" }}>
-                    <div style={{ fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{s.destino || "—"}</div>
-                    <div className="mono" style={{ fontSize:12 }}>{s.monto ? fmt(s.monto) : "—"}</div>
-                    <div style={{ fontSize:12,color:"#64748B" }}>{s.plazo_meses ? `${s.plazo_meses}m` : "—"}</div>
+                    <div style={{ fontSize:14,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{s.destino || "—"}</div>
+                    <div className="mono" style={{ fontSize:14 }}>{s.monto ? fmt(s.monto) : "—"}</div>
+                    <div style={{ fontSize:14,color:"#64748B" }}>{s.plazo_meses ? `${s.plazo_meses}m` : "—"}</div>
                     <span className={`pill ${pill.cls}`}>{pill.label}</span>
                   </div>
                 );
@@ -299,7 +297,7 @@ export default function DashboardOtorgante() {
 
         {/* Acciones */}
         <div className="card" style={{ display:"flex", flexDirection:"column", gap:6 }}>
-          <div style={{ fontSize:13,fontWeight:700,marginBottom:6 }}>Acciones rápidas</div>
+          <div style={{ fontSize:15,fontWeight:600,marginBottom:8 }}>Acciones rápidas</div>
           <Link href="/dashboard/solicitudes" className="qa prim">
             <div className="qa-ico" style={{ background:"rgba(255,255,255,.12)" }}><Ic d="M4 2h8v12H4zM6 6h4M6 9h4" c="#fff" s={12}/></div>
             Oportunidades
@@ -315,7 +313,7 @@ export default function DashboardOtorgante() {
           <div style={{ marginTop:"auto" }}/>
           <div style={{ display:"flex",alignItems:"center",gap:7,padding:"9px 12px",background:"#F0FDF9",border:"1px solid #D1FAE5",borderRadius:10 }}>
             <span style={{ width:6,height:6,borderRadius:"50%",background:"#00E5A0",display:"inline-block",animation:"blink 2.5s ease-in-out infinite" }}/>
-            <span className="mono" style={{ fontSize:10,color:"#065F46",letterSpacing:".06em" }}>Sistema operativo</span>
+            <span style={{ fontSize:12,color:"#065F46",fontWeight:500 }}>Sistema operativo</span>
           </div>
         </div>
       </div>
