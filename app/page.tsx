@@ -8,7 +8,7 @@ const NAV: NavItem[] = [
   { id: "productos", label: "Productos de crédito" },
   { id: "marketplace", label: "Marketplace" },
   { id: "pricing", label: "Pricing" },
-  { id: "advisory", label: "Advisory" },
+  { id: "advisory", label: "Asesoría" },
   { id: "about", label: "About" },
 ];
 
