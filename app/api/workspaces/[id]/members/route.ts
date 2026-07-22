@@ -1,3 +1,7 @@
+// @deprecated — Reemplazado por /api/empresa/members y /api/empresa/invitations.
+// Este endpoint opera sobre workspace_members (tabla que no existe en prod).
+// Se mantiene temporalmente como referencia; eliminar tras migrar a empresa_members.
+//
 // GET  /api/workspaces/[id]/members  — list members
 // POST /api/workspaces/[id]/members  — add member by email (owner/admin only)
 import { NextRequest, NextResponse } from "next/server";

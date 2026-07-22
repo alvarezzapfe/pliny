@@ -42,6 +42,9 @@ next-env.d.ts
 
 # claude code
 .agents/
+
+# supabase backups (contienen datos sensibles)
+supabase/backups/
 .claude/
 .impeccable.md
 skills-lock.json
