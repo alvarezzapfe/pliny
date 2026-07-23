@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireSuperAdmin, authError } from "@/lib/auth/requireSuperAdmin";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,15 +8,16 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireSuperAdmin(req);
+  if ("status" in auth) return authError(auth);
+
   try {
-    // Get all auth users
     const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({
       perPage: 1000,
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // Get roles, profiles, counts in parallel
     const [{ data: roles }, { data: profiles }, { data: sols }, { data: ofertas }] = await Promise.all([
       supabaseAdmin.from("user_roles").select("user_id,role"),
       supabaseAdmin.from("plinius_profiles").select("user_id,plan,onboarding_completed"),

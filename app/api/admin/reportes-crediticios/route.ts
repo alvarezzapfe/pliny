@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireSuperAdmin, authError } from "@/lib/auth/requireSuperAdmin";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// GET — Lista todos los reportes (admin only)
+// GET — Lista todos los reportes (super_admin only)
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get("x-admin-secret");
-  if (secret !== process.env.PLINIUS_ADMIN_SECRET) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireSuperAdmin(req);
+  if ("status" in auth) return authError(auth);
 
   const estado = new URL(req.url).searchParams.get("estado");
 

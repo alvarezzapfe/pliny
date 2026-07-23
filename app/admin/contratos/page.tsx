@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { adminFetch } from "@/lib/auth/adminFetch";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -179,15 +180,8 @@ export default function ContratosPage() {
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  const adminSecret =
-    typeof window !== "undefined"
-      ? (process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "")
-      : "";
-
   useEffect(() => {
-    fetch("/api/onb-lenders", {
-      headers: { "x-admin-secret": adminSecret },
-    })
+    adminFetch("/api/onb-lenders")
       .then((r) => r.json())
       .then((d) => setLenders(d.lenders ?? d ?? []))
       .catch(() => {});
@@ -239,12 +233,8 @@ export default function ContratosPage() {
     }
     setGenerating(true);
     try {
-      const res = await fetch("/api/admin/contracts/generate", {
+      const res = await adminFetch("/api/admin/contracts/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-secret": adminSecret,
-        },
         body: JSON.stringify({
           ...form,
           precio_mxn: Number(form.precio_mxn),

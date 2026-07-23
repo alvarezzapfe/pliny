@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { adminFetch } from "@/lib/auth/adminFetch";
 
 type Reporte = {
   id: string;
@@ -29,11 +30,8 @@ const ESTADO_S: Record<string, { bg: string; color: string; border: string; labe
   cancelado:  { bg: "#F8FAFC", color: "#64748B", border: "#E2E8F0", label: "Cancelado" },
 };
 
-const adminSecret = typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "") : "";
-
 async function api(path: string, opts?: RequestInit) {
-  const res = await fetch(path, { ...opts, headers: { "Content-Type": "application/json", "x-admin-secret": adminSecret, ...(opts?.headers ?? {}) } });
-  return res;
+  return adminFetch(path, opts);
 }
 
 function ago(d: string) {
@@ -100,9 +98,8 @@ export default function ReportesCrediticiosAdmin() {
       setSavingLabel("Subiendo PDF...");
       const fd = new FormData();
       fd.append("file", pendingFile);
-      const uploadRes = await fetch(`/api/admin/reportes-crediticios/${selected.id}`, {
+      const uploadRes = await adminFetch(`/api/admin/reportes-crediticios/${selected.id}`, {
         method: "POST",
-        headers: { "x-admin-secret": adminSecret },
         body: fd,
       });
       if (!uploadRes.ok) {

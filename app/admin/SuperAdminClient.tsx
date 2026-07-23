@@ -5,6 +5,7 @@ import { ProductoAdmin } from "@/components/admin/ProductoAdmin";
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { adminFetch } from "@/lib/auth/adminFetch";
 
 function Ic({ d, s = 15, c = "currentColor", sw = 1.4 }: { d: string; s?: number; c?: string; sw?: number }) {
   return (
@@ -218,20 +219,19 @@ function PlanModal({ user, onClose, onSaved }: { user:User; onClose:()=>void; on
   const [plansError, setPlansError] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/producto")
-      .then(r => r.json())
+    adminFetch("/api/admin/producto")
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then(d => { setPlans((d.plans ?? []).filter((p: any) => p.active)); setPlansLoading(false); })
       .catch(() => { setPlansError(true); setPlansLoading(false); });
   }, []);
 
   async function handleSave() {
     setSaving(true);
-    const res = await fetch("/api/admin/set-plan", {
+    const res = await adminFetch("/api/admin/set-plan", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user.id, plan: role === "solicitante" ? "free" : plan, role: role || null }),
     });
-    if (!res.ok) { setSaving(false); alert("Error al guardar"); return; }
+    if (!res.ok) { setSaving(false); const err = await res.json().catch(() => ({})); alert(err.error || "Error al guardar"); return; }
     setSaving(false); setSaved(true);
     setTimeout(() => { onSaved(user.id, plan, role||null); onClose(); }, 800);
   }
@@ -889,7 +889,8 @@ export default function SuperAdminClient() {
   }, [view]);
 
   async function loadUsers() {
-    const res = await fetch("/api/admin/users");
+    const res = await adminFetch("/api/admin/users");
+    if (!res.ok) { console.error("admin/users:", res.status); return; }
     const json = await res.json();
     if (json.users) setUsers(json.users);
   }

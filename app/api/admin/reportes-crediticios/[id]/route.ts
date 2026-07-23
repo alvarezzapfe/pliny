@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireSuperAdmin, authError } from "@/lib/auth/requireSuperAdmin";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,10 +9,8 @@ const admin = createClient(
 
 // PATCH — Actualizar estado/score/notas
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const secret = req.headers.get("x-admin-secret");
-  if (secret !== process.env.PLINIUS_ADMIN_SECRET) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireSuperAdmin(req);
+  if ("status" in auth) return authError(auth);
 
   const { id } = await params;
   const body = await req.json();
@@ -41,14 +40,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 // POST — Upload PDF
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const secret = req.headers.get("x-admin-secret");
-  if (secret !== process.env.PLINIUS_ADMIN_SECRET) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireSuperAdmin(req);
+  if ("status" in auth) return authError(auth);
 
   const { id } = await params;
 
-  // Get reporte to know lender_user_id for path
   const { data: reporte } = await admin
     .from("reportes_crediticios")
     .select("lender_user_id")
@@ -74,7 +70,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (uploadErr) return NextResponse.json({ error: uploadErr.message }, { status: 500 });
 
-  // Update reporte record
   await admin
     .from("reportes_crediticios")
     .update({

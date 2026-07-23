@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Packer } from "docx";
 import { buildContrato, type ContratoData } from "@/lib/contracts/contrato-template";
+import { requireSuperAdmin, authError } from "@/lib/auth/requireSuperAdmin";
 
 export async function POST(req: NextRequest) {
-  // Auth guard — same pattern as other admin endpoints
-  const secret = req.headers.get("x-admin-secret");
-  if (secret !== process.env.PLINIUS_ADMIN_SECRET) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireSuperAdmin(req);
+  if ("status" in auth) return authError(auth);
 
   try {
     const body = await req.json();
 
-    // Validate required fields
     const required: (keyof ContratoData)[] = [
       "razon_social",
       "rfc_cliente",

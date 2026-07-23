@@ -1,12 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireSuperAdmin, authError } from "@/lib/auth/requireSuperAdmin";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireSuperAdmin(req);
+  if ("status" in auth) return authError(auth);
+
   const { data, error } = await admin.auth.admin.listUsers({ perPage: 200 });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const { data: profiles } = await admin.from("plinius_profiles").select("user_id, plan");

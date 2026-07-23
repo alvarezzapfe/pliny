@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlan } from "@/lib/PlanContext";
+import { supabase } from "@/lib/supabaseClient";
 
 type PlanConfig = {
   id: string; label: string; price_usd: number; price_mxn: number | null;
@@ -18,10 +19,9 @@ export default function MiPlanPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/admin/producto")
-      .then(r => r.json())
-      .then(d => { setPlans(d.plans ?? []); setLoading(false); })
-      .catch(() => setLoading(false));
+    supabase.from("plans_config").select("*").order("price_usd", { ascending: true })
+      .then(({ data }) => { setPlans(data ?? []); setLoading(false); },
+             () => setLoading(false));
   }, []);
 
   const sinceStr = since
