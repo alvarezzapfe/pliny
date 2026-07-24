@@ -889,10 +889,21 @@ export default function SuperAdminClient() {
   }, [view]);
 
   async function loadUsers() {
-    const res = await adminFetch("/api/admin/users");
-    if (!res.ok) { console.error("admin/users:", res.status); return; }
-    const json = await res.json();
-    if (json.users) setUsers(json.users);
+    try {
+      const res = await adminFetch("/api/admin/users");
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          alert("Sesión expirada o sin permisos — vuelve a iniciar sesión en /admin/login");
+        }
+        console.error("admin/users:", res.status);
+        return;
+      }
+      const json = await res.json();
+      if (json.users) setUsers(json.users);
+    } catch (e: any) {
+      if (e.message?.includes("sesión")) alert(e.message);
+      else console.error("loadUsers error:", e);
+    }
   }
   async function loadLeads() {
     const { data } = await supabase.from("leads").select("*").order("created_at",{ascending:false});

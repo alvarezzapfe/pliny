@@ -19,7 +19,7 @@ export default function MiPlanPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("plans_config").select("*").order("price_usd", { ascending: true })
+    supabase.from("plans_config").select("*").eq("active", true).order("price_usd", { ascending: true })
       .then(({ data }) => { setPlans(data ?? []); setLoading(false); },
              () => setLoading(false));
   }, []);

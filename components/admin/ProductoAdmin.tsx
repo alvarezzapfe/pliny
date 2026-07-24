@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { adminFetch } from "@/lib/auth/adminFetch";
 
 type Plan = {
   id: string; label: string; price_usd: number; price_mxn: number | null;
@@ -27,27 +28,49 @@ const S = {
 };
 
 async function apiCall(path: string, opts?: RequestInit) {
-  const res = await fetch(path, {
-    ...opts,
-    headers: { "Content-Type": "application/json", ...(opts?.headers ?? {}) },
-  });
-  if (!res.ok) { const e = await res.text(); throw new Error(e); }
+  const res = await adminFetch(path, opts);
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Sesión expirada o sin permisos — vuelve a iniciar sesión en /admin/login");
+    }
+    const e = await res.text();
+    throw new Error(e);
+  }
   const text = await res.text();
   return text ? JSON.parse(text) : null;
 }
 
 // ─── Tab Planes ───────────────────────────────────────────────────────────────
+function AuthError({ msg }: { msg: string }) {
+  return (
+    <div style={{ padding: 20, textAlign: "center" }}>
+      <div style={{ background: "#FEF2F2", border: "1px solid #FECDD3", borderRadius: 12, padding: "16px 20px", display: "inline-block" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#991B1B", marginBottom: 4 }}>Sin acceso</div>
+        <div style={{ fontSize: 13, color: "#B91C1C" }}>{msg}</div>
+        <a href="/admin/login" style={{ display: "inline-block", marginTop: 12, fontSize: 12, fontWeight: 600, color: "#1E40AF", textDecoration: "underline" }}>Ir a iniciar sesión</a>
+      </div>
+    </div>
+  );
+}
+
 function TabPlanes() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [editing, setEditing] = useState<Plan | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [authErr, setAuthErr] = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
   async function load() {
-    const data = await apiCall("/api/admin/producto");
-    setPlans(data?.plans ?? []);
+    try {
+      const data = await apiCall("/api/admin/producto");
+      setPlans(data?.plans ?? []);
+    } catch (e: any) {
+      if (e.message?.includes("Sesión expirada")) setAuthErr(e.message);
+      else console.error(e);
+    }
   }
+  if (authErr) return <AuthError msg={authErr} />;
 
   async function save() {
     if (!editing) return;
@@ -157,12 +180,19 @@ function TabDescuentos() {
   const [form, setForm] = useState({ code:"", type:"percent", value:"", plan_id:"", max_uses:"1", valid_until:"" });
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [authErr, setAuthErr] = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
   async function load() {
-    const data = await apiCall("/api/admin/descuentos");
-    setDiscounts(data?.discounts ?? []);
+    try {
+      const data = await apiCall("/api/admin/descuentos");
+      setDiscounts(data?.discounts ?? []);
+    } catch (e: any) {
+      if (e.message?.includes("Sesión expirada")) setAuthErr(e.message);
+      else console.error(e);
+    }
   }
+  if (authErr) return <AuthError msg={authErr} />;
 
   async function create() {
     setSaving(true);
@@ -280,14 +310,17 @@ function TabFeatures() {
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [authErr, setAuthErr] = useState<string | null>(null);
 
   useEffect(() => { loadUsers(); }, []);
   async function loadUsers() {
-    const data = await apiCall("plinius_profiles?select=user_id,plan&order=plan_updated_at.desc&limit=100");
-    // Necesitamos emails — los obtenemos del admin endpoint
-    const res = await fetch("/api/admin/users-list");
-    if (res.ok) { const json = await res.json(); setUsers(json.users ?? []); }
-    else setUsers((data ?? []).map((d: any) => ({ id: d.user_id, email: d.user_id, plan: d.plan })));
+    try {
+      const data = await apiCall("/api/admin/users-list");
+      setUsers(data?.users ?? []);
+    } catch (e: any) {
+      if (e.message?.includes("Sesión expirada")) setAuthErr(e.message);
+      else console.error(e);
+    }
   }
   async function loadFeatures(userId: string) {
     const data = await apiCall(`/api/admin/features?user_id=${userId}`);
@@ -314,6 +347,7 @@ function TabFeatures() {
     setSaving(null);
   }
 
+  if (authErr) return <AuthError msg={authErr} />;
   const filtered = users.filter(u => u.email?.toLowerCase().includes(search.toLowerCase()));
 
   return (
